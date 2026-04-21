@@ -1,0 +1,27 @@
+# Environment variables
+.env
+.env.local
+*.env
+
+# Python cache
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# Trained model files
+saved_models/*.pkl
+
+# Large datasets
+data/
+
+# Streamlit
+.streamlit/secrets.toml
+
+# IDEs
+.vscode/
+.idea/
+
+# OS
+.DS_Store
+Thumbs.db
