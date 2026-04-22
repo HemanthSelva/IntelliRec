@@ -114,6 +114,10 @@ def render_sidebar(current_page: str = "home"):
     load_css()
     generate_smart_suggestions()
 
+    from utils.theme import get_palette
+    _theme = st.session_state.get("theme", "dark")
+    _p = get_palette(_theme)
+
     full_name  = (st.session_state.get("full_name") or "Guest User").strip() or "Guest User"
     email      = st.session_state.get("user_email") or ""
     words      = [w for w in full_name.split() if w]
@@ -121,52 +125,7 @@ def render_sidebar(current_page: str = "home"):
     is_guest   = st.session_state.get("user_id") == "guest"
 
     with st.sidebar:
-        # ── Sidebar CSS override ──────────────────────────────────────────────
-        st.markdown("""
-<style>
-section[data-testid="stSidebar"] > div:first-child {
-    padding: 0 !important;
-    overflow-y: auto !important;
-    overflow-x: hidden !important;
-}
-section[data-testid="stSidebar"] .element-container,
-section[data-testid="stSidebar"] .stMarkdown {
-    padding: 0 !important;
-    margin: 0 !important;
-}
-section[data-testid="stSidebar"] [data-testid="stButton"] button {
-    height: 42px !important;
-    min-height: 42px !important;
-    max-height: 42px !important;
-    padding: 0 16px !important;
-    margin: 2px 0 !important;
-    width: 100% !important;
-    text-align: left !important;
-    border-radius: 10px !important;
-    font-size: 14px !important;
-    font-weight: 500 !important;
-    transition: all 0.15s ease !important;
-    background: var(--nav-bg) !important;
-    color: var(--nav-color) !important;
-    border: var(--nav-border) !important;
-}
-section[data-testid="stSidebar"] [data-testid="stButton"] button[kind="primary"] {
-    background: var(--nav-active-bg) !important;
-    color: var(--nav-active-color) !important;
-}
-section[data-testid="stSidebar"] [data-testid="stButton"] button:hover {
-    background: var(--primary-light, #EEF2FF) !important;
-    color: var(--primary, #6C63FF) !important;
-    box-shadow: none !important;
-    transform: none !important;
-}
-section[data-testid="stSidebar"] hr {
-    margin: 6px 16px !important;
-    border: none !important;
-    border-top: 1px solid var(--border-color, rgba(108,99,255,0.12)) !important;
-}
-</style>""", unsafe_allow_html=True)
-
+        # Sidebar visual styling lives in utils/theme.py (glass system).
         # ── TOP: Logo ─────────────────────────────────────────────────────────
         st.markdown(f"""
 <div style="display:flex;align-items:center;gap:10px;padding:16px 16px 12px;">
@@ -187,18 +146,18 @@ section[data-testid="stSidebar"] hr {
         tag_color = "#F59E0B" if is_guest else "#10B981"
         st.markdown(f"""
 <div style="margin:0 10px 14px;padding:12px 14px;
-            background:var(--bg-surface,rgba(255,255,255,0.82));
+            background-color:{_p['surface_bg']};
             backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px);
-            border:1px solid var(--border-color,rgba(108,99,255,0.12));border-radius:14px;
-            box-shadow:0 2px 8px rgba(108,99,255,0.08);">
+            border:1px solid {_p['border']};border-radius:14px;
+            box-shadow:{_p['shadow']};">
   <div style="display:flex;align-items:center;gap:10px;">
     {_get_avatar_html(initials, 40)}
     <div style="overflow:hidden;min-width:0;flex:1;">
-      <div style="font-weight:700;font-size:13.5px;color:var(--text-primary,#111827);
+      <div style="font-weight:700;font-size:13.5px;color:{_p['text_primary']};
                   white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">
         {full_name}
       </div>
-      <div style="font-size:11px;color:var(--text-secondary,#9CA3AF);
+      <div style="font-size:11px;color:{_p['text_secondary']};
                   white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-top:1px;">
         {email or "guest@intellirec.com"}
       </div>
@@ -215,7 +174,7 @@ section[data-testid="stSidebar"] hr {
         # ── NAVIGATION ────────────────────────────────────────────────────────
         st.markdown('<div style="padding:0 8px;">', unsafe_allow_html=True)
         st.markdown(
-            '<div style="font-size:10px;font-weight:600;color:#9CA3AF;'
+            f'<div style="font-size:10px;font-weight:600;color:{_p["text_muted"]};'
             'letter-spacing:0.8px;text-transform:uppercase;'
             'padding:0 8px;margin-bottom:4px;">Navigation</div>',
             unsafe_allow_html=True
@@ -250,28 +209,9 @@ section[data-testid="stSidebar"] hr {
 
         st.markdown('<div style="height:6px;"></div>', unsafe_allow_html=True)
 
-        # Sign out — styled red with door icon using wrapper class
-        st.markdown("""
-<style>
-.ir-signout-wrapper div[data-testid="stButton"] > button {
-    background: rgba(239,68,68,0.08) !important;
-    border: 1px solid rgba(239,68,68,0.2) !important;
-    color: #EF4444 !important;
-    border-radius: 10px !important;
-    font-weight: 600 !important;
-    font-size: 13px !important;
-    box-shadow: none !important;
-}
-.ir-signout-wrapper div[data-testid="stButton"] > button:hover {
-    background: rgba(239,68,68,0.15) !important;
-    border-color: rgba(239,68,68,0.35) !important;
-    color: #DC2626 !important;
-    transform: none !important;
-    box-shadow: none !important;
-}
-</style>
-<div class="ir-signout-wrapper">""", unsafe_allow_html=True)
-        if st.button("⤓  Sign Out", key="sidebar_logout",
+        # Sign out — red glass styling lives in utils/theme.py (keyed selector)
+        st.markdown('<div class="ir-signout-wrapper">', unsafe_allow_html=True)
+        if st.button("↓ Sign Out", key="btn_sign_out",
                      use_container_width=True, type="secondary"):
             logout_user()
             st.toast("Signed out successfully!", icon="✓")
@@ -280,9 +220,9 @@ section[data-testid="stSidebar"] hr {
 
         st.markdown("</div>", unsafe_allow_html=True)
 
-        # ── Powered by tag ────────────────────────────────────────────────────
-        st.markdown("""
+        # ── Powered by tag ────────────────────────────────────────────────────────
+        st.markdown(f"""
 <div style="text-align:center;padding:6px 0 10px;
-            font-size:10px;color:#D1D5DB;letter-spacing:0.3px;">
+            font-size:10px;color:{_p['text_muted']};letter-spacing:0.3px;">
   Powered by AI &middot; IntelliRec v2.0
 </div>""", unsafe_allow_html=True)

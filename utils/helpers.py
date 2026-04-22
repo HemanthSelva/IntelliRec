@@ -110,6 +110,17 @@ def render_product_card_html(prod: dict, idx: int = 0, show_match: bool = True) 
     IMPORTANT: The output must be a flat string with NO newlines to prevent
     Streamlit's Python-Markdown from misinterpreting indented HTML as code blocks.
     """
+    import streamlit as st
+    from utils.theme import get_palette
+    _theme = st.session_state.get('theme', 'dark')
+    _p = get_palette(_theme)
+    card_bg   = _p['card_bg']
+    text_col  = _p['text_primary']
+    sub_col   = _p['text_secondary']
+    muted_col = _p['text_muted']
+    price_col = _p['price_color']
+    border_col = _p['border']
+
     cat              = get_category_info(prod.get('category', ''))
     sent             = get_sentiment_style(prod.get('sentiment_label', ''))
     score            = get_match_score(prod, idx)
@@ -138,15 +149,15 @@ def render_product_card_html(prod: dict, idx: int = 0, show_match: bool = True) 
 
     # One continuous string — no newlines!
     return (
-        '<div style="background:var(--bg-card,rgba(255,255,255,0.88));backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);border:1px solid var(--border-color,rgba(108,99,255,0.12));border-radius:20px;box-shadow:0 4px 20px rgba(108,99,255,0.12);overflow:hidden;margin-bottom:4px">'
+        f'<div style="background:{card_bg};backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);border:1px solid {border_col};border-radius:20px;box-shadow:0 4px 20px rgba(108,99,255,0.12);overflow:hidden;margin-bottom:4px">'
         f'<div style="background:linear-gradient(135deg,{cat["color1"]},{cat["color2"]});height:140px;display:flex;align-items:center;justify-content:center;position:relative;flex-direction:column">'
         f'{svg}'
         f'<span style="position:absolute;top:8px;left:8px;background:{cat["badge_bg"]};color:{cat["badge_text"]};font-size:10px;font-weight:600;padding:3px 9px;border-radius:100px">{category}</span>'
         '</div>'
-        '<div style="padding:14px 16px 12px">'
-        f'<div style="font-size:14px;font-weight:700;color:var(--text-primary,#0F0F1A);line-height:1.4;height:2.8em;overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;margin-bottom:6px">{title}</div>'
-        f'<div style="font-size:18px;font-weight:700;color:var(--price-color,#6C63FF);margin-bottom:4px">${price:.2f}</div>'
-        f'<div style="font-size:12px;color:#F59E0B;margin-bottom:2px">{stars}<span style="color:var(--text-tertiary,#9090A8);font-weight:400;font-size:11px"> ({reviews:,})</span></div>'
+        f'<div style="padding:14px 16px 12px;background-color:{card_bg};border-radius:0 0 20px 20px">'
+        f'<div style="font-size:14px;font-weight:700;color:{text_col};line-height:1.4;height:2.8em;overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;margin-bottom:6px">{title}</div>'
+        f'<div style="font-size:18px;font-weight:700;color:{price_col};margin-bottom:4px">${price:.2f}</div>'
+        f'<div style="font-size:12px;color:#F59E0B;margin-bottom:2px">{stars}<span style="color:{muted_col};font-weight:400;font-size:11px"> ({reviews:,})</span></div>'
         f'{match_html}'
         '</div>'
         '</div>'

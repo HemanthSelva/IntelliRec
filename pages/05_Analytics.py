@@ -10,9 +10,55 @@ from utils.notifications import add_notification
 
 st.set_page_config(page_title="Analytics | IntelliRec", page_icon="💡", layout="wide")
 check_login()
-from utils.theme import inject_global_css
-inject_global_css()
+
+# ── Theme + palette ───────────────────────────────────────────────────────────
+from utils.theme import get_palette, inject_global_css
+theme = st.session_state.get('theme', 'dark')
+p = get_palette(theme)
+inject_global_css(p)
+
 render_sidebar("analytics")
+
+# Chart label color from palette
+_label_col = p['text_primary']
+
+# ── ANIMATION 5: Live data pulse on metric cards ──
+st.markdown(f"""
+<style>
+@keyframes liveBlip {{
+    0%,100% {{ opacity: 1; transform: scale(1); }}
+    50%     {{ opacity: 0.4; transform: scale(0.85); }}
+}}
+@keyframes countUp {{
+    from {{ opacity: 0; transform: translateY(10px); }}
+    to   {{ opacity: 1; transform: translateY(0); }}
+}}
+.live-indicator {{
+    display: inline-flex; align-items: center; gap: 6px;
+    font-size: 12px; color: #10b981; font-weight: 600;
+}}
+.live-dot {{
+    width: 8px; height: 8px; border-radius: 50%;
+    background: #10b981;
+    animation: liveBlip 1s ease-in-out infinite;
+}}
+.metric-value-animate {{
+    animation: countUp 0.8s ease-out forwards;
+}}
+.analytics-header-glow {{
+    background: linear-gradient(135deg,
+        rgba(99,102,241,0.1), rgba(6,182,212,0.1));
+    border: 1px solid rgba(99,102,241,0.2);
+    border-radius: 14px; padding: 16px; margin-bottom: 20px;
+}}
+</style>
+<div class="analytics-header-glow">
+    <span class="live-indicator">
+        <span class="live-dot"></span>
+        LIVE DATA &middot; Triple-Engine Architecture Active
+    </span>
+</div>
+""", unsafe_allow_html=True)
 
 # ── Top Bar ───────────────────────────────────────────────────────────────────
 render_topbar("AI Model Performance", "Triple-engine architecture — metrics dashboard")
@@ -28,7 +74,7 @@ with ctrl1:
 with ctrl2:
     st.markdown("<div style='height:28px'></div>", unsafe_allow_html=True)
     if st.button("Retrain Models", type="secondary", key="retrain_btn"):
-        with st.spinner("Queuing model retraining…"):
+        with st.spinner("Queuing model retraining\u2026"):
             import time; time.sleep(0.8)
         add_notification('info', 'Model Retraining Queued',
                          'Models will retrain overnight. Check back tomorrow.')
@@ -69,21 +115,21 @@ st.markdown("<div style='height:12px'></div>", unsafe_allow_html=True)
 chart1, chart2 = st.columns(2)
 
 with chart1:
-    st.markdown('<p style="font-size:14px;font-weight:600;color:#111827;margin-bottom:4px">Error Comparison (lower is better)</p>',
+    st.markdown(f'<p style="font-size:14px;font-weight:600;color:{p["text_primary"]};margin-bottom:4px">Error Comparison (lower is better)</p>',
                 unsafe_allow_html=True)
     fig1 = px.bar(df, x='Model', y=['RMSE', 'MAE'], barmode='group',
-                  color_discrete_sequence=['#6C63FF', '#06B6D4'], template="plotly_white")
+                  color_discrete_sequence=['#6366f1', '#06B6D4'], template="plotly_white")
     fig1.update_layout(margin=dict(t=8, b=0, l=0, r=0),
                        paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)',
-                       font=dict(family='Inter'), legend_title_text='')
+                       font=dict(family='Inter', color=_label_col), legend_title_text='')
     st.plotly_chart(fig1, use_container_width=True)
 
 with chart2:
-    st.markdown('<p style="font-size:14px;font-weight:600;color:#111827;margin-bottom:4px">Performance Radar (higher is better)</p>',
+    st.markdown(f'<p style="font-size:14px;font-weight:600;color:{p["text_primary"]};margin-bottom:4px">Performance Radar (higher is better)</p>',
                 unsafe_allow_html=True)
     radar_cats = ['Precision@10', 'Recall@10', 'F1 Score']
     fig2 = go.Figure()
-    colors = ['#6C63FF', '#06B6D4', '#10B981']
+    colors = ['#6366f1', '#06B6D4', '#10B981']
     for i, row in df.iterrows():
         fig2.add_trace(go.Scatterpolar(
             r=[row['Precision@10'], row['Recall@10'], row['F1 Score']],
@@ -94,7 +140,7 @@ with chart2:
         polar=dict(radialaxis=dict(visible=True, range=[0, 1])),
         margin=dict(t=8, b=0, l=40, r=40),
         paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)',
-        template="plotly_white", font=dict(family='Inter')
+        template="plotly_white", font=dict(family='Inter', color=_label_col)
     )
     st.plotly_chart(fig2, use_container_width=True)
 
@@ -104,7 +150,7 @@ st.markdown("---")
 tbl_col, pr_col = st.columns([1.6, 1])
 
 with tbl_col:
-    st.markdown('<p style="font-size:14px;font-weight:600;color:#111827;margin-bottom:8px">Detailed Metrics</p>',
+    st.markdown(f'<p style="font-size:14px;font-weight:600;color:{p["text_primary"]};margin-bottom:8px">Detailed Metrics</p>',
                 unsafe_allow_html=True)
     styled = (df.style
               .highlight_max(subset=['Precision@10', 'Recall@10', 'F1 Score'],
@@ -116,25 +162,25 @@ with tbl_col:
                        'F1 Score': '{:.2f}', 'Training Time (s)': '{:.1f}'}))
     st.dataframe(styled, use_container_width=True, hide_index=True)
 
-    st.markdown("""
-<div style="background:#EEF2FF;border-left:3px solid #6C63FF;padding:12px 16px;
+    st.markdown(f"""
+<div style="background-color:{p['accent_soft']};border-left:3px solid {p['accent']};padding:12px 16px;
             border-radius:0 10px 10px 0;margin-top:14px;font-size:13px;
-            color:#6B7280;line-height:1.6">
-  <strong style="color:#111827">Why Hybrid Wins:</strong>
+            color:{p['text_secondary']};line-height:1.6">
+  <strong style="color:{p['text_primary']}">Why Hybrid Wins:</strong>
   The Hybrid Sentiment-Aware engine outperforms both baselines by combining
   SVD matrix factorization, TF-IDF content signals, and VADER sentiment scoring —
   overcoming cold-start and sparsity problems simultaneously.
 </div>""", unsafe_allow_html=True)
 
 with pr_col:
-    st.markdown('<p style="font-size:14px;font-weight:600;color:#111827;margin-bottom:4px">Precision vs Recall</p>',
+    st.markdown(f'<p style="font-size:14px;font-weight:600;color:{p["text_primary"]};margin-bottom:4px">Precision vs Recall</p>',
                 unsafe_allow_html=True)
     fig3 = px.line(df, x='Recall@10', y='Precision@10', text='Model',
-                   markers=True, color_discrete_sequence=['#6C63FF'], template="plotly_white")
+                   markers=True, color_discrete_sequence=['#6366f1'], template="plotly_white")
     fig3.update_traces(textposition="top center")
     fig3.update_layout(margin=dict(t=8, b=0, l=0, r=0),
                        paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)',
-                       font=dict(family='Inter'))
+                       font=dict(family='Inter', color=_label_col))
     st.plotly_chart(fig3, use_container_width=True)
 
 # ── Download ──────────────────────────────────────────────────────────────────
