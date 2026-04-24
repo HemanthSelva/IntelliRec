@@ -230,4 +230,7 @@ def _save_onboarding():
     st.session_state.onboarding_done = True
     if 'current_user' in st.session_state and st.session_state.current_user:
         st.session_state.current_user['preferred_categories'] = categories
+    # Sync to the key the recommendation engine actually reads
+    st.session_state["pref_cats"] = categories
+    st.session_state["preferred_categories"] = categories
     st.rerun()

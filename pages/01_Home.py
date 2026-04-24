@@ -1,19 +1,28 @@
 import streamlit as st
 import json
+import os
+import sys
+import pandas as pd
 from datetime import datetime
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from auth.session import check_login
 from utils.sidebar import render_sidebar
 from utils.topbar import render_topbar
-from utils.helpers import render_product_card_html
+from utils.helpers import render_product_card_html, normalize_categories
 from utils.notifications import add_notification
+from utils.model_loader import MODELS_READY, get_products_df, get_sentiments, get_hybrid_recommendations
 from database.db_operations import add_to_wishlist, remove_from_wishlist
 
-st.set_page_config(page_title="Home | IntelliRec", page_icon="💡", layout="wide")
+st.set_page_config(page_title="Home | IntelliRec", page_icon="💡", layout="wide", initial_sidebar_state="expanded")
 check_login()
 
-# ── Theme + palette ───────────────────────────────────────────────────────────
+import importlib
+import sys
+if 'utils.theme' in sys.modules:
+    importlib.reload(sys.modules['utils.theme'])
+
 from utils.theme import get_palette, inject_global_css
-theme = st.session_state.get('theme', 'dark')
+theme = st.session_state.get('theme', 'light')
 p = get_palette(theme)
 inject_global_css(p)
 
@@ -58,11 +67,95 @@ user_id    = st.session_state.get("user_id") or "guest"
 
 # ── Data ──────────────────────────────────────────────────────────────────────
 @st.cache_data
-def load_products():
-    with open("assets/sample_products.json", "r") as f:
-        return json.load(f)
+def load_sample_products():
+    try:
+        with open("assets/sample_products.json", "r") as f:
+            return json.load(f)
+    except Exception:
+        return []
 
-products = load_products()
+
+@st.cache_data(show_spinner=False, ttl=3600)
+def _get_real_products_as_list(n=40):
+    """
+    Convert the top-N real products to a list of card dicts
+    compatible with the existing render_section() / render_product_card_html() helpers.
+    The helpers expect: asin, title, price, rating, category, etc.
+    """
+    df = get_products_df()
+    sentiments = get_sentiments()
+    if df.empty:
+        return []
+
+    df = df.copy()
+    df["average_rating"] = pd.to_numeric(df["average_rating"], errors="coerce").fillna(0)
+    df["rating_number"]  = pd.to_numeric(df["rating_number"],  errors="coerce").fillna(0)
+    def _safe_price(x):
+        if x is None:
+            return 0.0
+        try:
+            cleaned = str(x).replace("$", "").replace(",", "").strip()
+            # Handle 'from X.XX' patterns
+            if cleaned.lower().startswith("from"):
+                cleaned = cleaned[4:].strip()
+            return float(cleaned)
+        except (ValueError, TypeError):
+            return 0.0
+
+    df["price_num"] = df["price"].apply(_safe_price)
+
+    # Use the user's preferred categories instead of hardcoded defaults
+    user_cats_raw = (
+        st.session_state.get("pref_cats")
+        or st.session_state.get("preferred_categories")
+        or ["Electronics", "Home & Kitchen", "Beauty & Personal Care", "Clothing & Shoes"]
+    )
+    if not user_cats_raw:
+        user_cats_raw = ["Electronics", "Home & Kitchen", "Beauty & Personal Care", "Clothing & Shoes"]
+
+    # ── Normalize onboarding names → dataset names ────────────────────────
+    user_cats = normalize_categories(user_cats_raw)
+    print(f"[HOME] Raw pref_cats: {user_cats_raw}")
+    print(f"[HOME] Normalized cats: {user_cats}")
+
+    n_per_cat = max(2, n // len(user_cats))
+    cat_frames = []
+    for cat in user_cats:
+        cat_df = df[df["category"] == cat].nlargest(n_per_cat, "average_rating")
+        print(f"[HOME]   '{cat}' -> {len(cat_df)} products")
+        cat_frames.append(cat_df)
+
+    top = pd.concat(cat_frames, ignore_index=True) if cat_frames else df.nlargest(n, "average_rating")
+
+    records = []
+    for _, row in top.iterrows():
+        pid  = str(row["product_id"])
+        sent = sentiments.get(pid, {})
+        records.append({
+            "asin":           pid,
+            "product_id":     pid,
+            "title":          str(row.get("title") or "Unknown"),
+            "price":          float(row["price_num"]),
+            "rating":         float(row["average_rating"]),
+            "review_count":   int(row["rating_number"]),
+            "category":       str(row.get("category") or "Electronics"),
+            "store":          str(row.get("store") or ""),
+            "sentiment_label": sent.get("label", "Mixed"),
+            "sentiment_score": sent.get("score", 0.5),
+            "is_trending":    float(row["rating_number"]) > 1000,
+            "is_bestseller":  float(row["average_rating"]) >= 4.5,
+            "description_short": "",
+            "match_score":    min(99, int(round(float(row["average_rating"]) / 5.0 * 100))),
+        })
+    return records
+
+
+if MODELS_READY:
+    products = _get_real_products_as_list(n=40)
+    if not products:
+        products = load_sample_products()
+else:
+    products = load_sample_products()
 
 # ── Wishlist state ────────────────────────────────────────────────────────────
 if "wishlist_ids" not in st.session_state:
@@ -147,70 +240,82 @@ for col, icon_svg, val, label, accent, icon_bg in stat_data:
 </div>""", unsafe_allow_html=True)
 
 # ── Category filter pills ─────────────────────────────────────────────────────
-FILTERS = ["All", "Electronics", "Home & Kitchen", "Trending", "Top Rated", "New Arrivals"]
+FILTERS = ["All", "Electronics", "Home & Kitchen", "Beauty & Personal Care", "Clothing & Shoes", "Trending", "Top Rated", "New Arrivals"]
 if "home_active_filter" not in st.session_state:
     st.session_state["home_active_filter"] = "All"
 
+# Pill-button CSS — scoped to the filter row only
+st.markdown(f"""<style>
+.ir-filter-marker + div[data-testid="stHorizontalBlock"] .stButton > button {{
+    border-radius: 100px !important;
+    padding: 6px 16px !important;
+    font-size: 13px !important;
+    font-weight: 500 !important;
+    min-height: 36px !important;
+    white-space: nowrap !important;
+    border: 1.5px solid {p['border']} !important;
+    background: {p['filter_btn_bg']} !important;
+    color: {p['filter_btn_text']} !important;
+    transition: all 0.15s ease !important;
+}}
+.ir-filter-marker + div[data-testid="stHorizontalBlock"] .stButton > button:hover {{
+    border-color: {p['accent']} !important;
+    color: {p['accent']} !important;
+}}
+.ir-filter-marker + div[data-testid="stHorizontalBlock"] .stButton > button[kind="primary"] {{
+    background: {p['accent']} !important;
+    color: #ffffff !important;
+    border-color: {p['accent']} !important;
+    font-weight: 700 !important;
+}}
+.ir-filter-marker + div[data-testid="stHorizontalBlock"] .stButton > button p {{
+    color: inherit !important;
+}}
+</style>
+<div class="ir-filter-marker"></div>""", unsafe_allow_html=True)
 
-def render_filter_pills(categories, active, palette):
-    """Render category filter pills as HTML spans (bypasses Streamlit button styling issues)."""
-    html = '<div style="display:flex;gap:8px;flex-wrap:wrap;margin:12px 0 16px;">'
-    for cat in categories:
-        is_active = (cat == active)
-        bg = palette['accent'] if is_active else palette['filter_btn_bg']
-        color = '#ffffff' if is_active else palette['filter_btn_text']
-        border = palette['accent'] if is_active else palette['border']
-        fw = '700' if is_active else '500'
-        html += (
-            f'<span style="background-color:{bg};color:{color};border:1.5px solid {border};'
-            f'border-radius:20px;padding:7px 18px;font-size:13px;font-weight:{fw};'
-            f'display:inline-block;white-space:nowrap;">{cat}</span>'
-        )
-    html += '</div>'
-    st.markdown(html, unsafe_allow_html=True)
+# Clickable filter pill buttons — weighted columns so long labels don't truncate
+_pill_cols = st.columns([0.5, 1, 1.2, 1.8, 1.4, 0.8, 0.8, 1])
+for _pi, _pf in enumerate(FILTERS):
+    with _pill_cols[_pi]:
+        _is_active = (_pf == st.session_state["home_active_filter"])
+        if st.button(_pf, key=f"filter_pill_{_pf}",
+                     type="primary" if _is_active else "secondary",
+                     use_container_width=True):
+            st.session_state["home_active_filter"] = _pf
+            st.rerun()
 
-# ── Category filter pills (HTML-rendered for reliable cross-theme styling) ──
-render_filter_pills(FILTERS, st.session_state["home_active_filter"], p)
+st.markdown('<div style="height:4px"></div>', unsafe_allow_html=True)
 
-# Allow changing filter via a compact selectbox below pills
-_sel = st.selectbox(
-    "Change category",
-    FILTERS,
-    index=FILTERS.index(st.session_state["home_active_filter"]),
-    label_visibility="collapsed",
-    key="home_filter_select"
-)
-if _sel != st.session_state["home_active_filter"]:
-    st.session_state["home_active_filter"] = _sel
-    st.rerun()
+# ── Build product pool based on active filter ─────────────────────────────────
+active = st.session_state.get("home_active_filter", "All")
+_DATASET_CATS = ["Electronics", "Home & Kitchen", "Beauty & Personal Care", "Clothing & Shoes"]
 
-# ── Filter products ───────────────────────────────────────────────────────────
-active   = st.session_state["home_active_filter"]
-filtered = products.copy()
+if active == "All":
+    pool = products
+elif active in _DATASET_CATS:
+    pool = [pr for pr in products if pr.get("category") == active]
+elif active == "Trending":
+    pool = sorted(products, key=lambda x: x.get("review_count", 0), reverse=True)
+elif active == "Top Rated":
+    pool = sorted(products, key=lambda x: x.get("rating", 0), reverse=True)
+elif active == "New Arrivals":
+    pool = products[-20:] if len(products) > 20 else list(products)
+else:
+    pool = products
 
+# Apply search filter on top of pool
 if search:
     q = search.lower()
-    filtered = [prod for prod in filtered
-                if q in prod["title"].lower()
-                or q in prod.get("category", "").lower()
-                or q in prod.get("description_short", "").lower()]
+    pool = [pr for pr in pool
+            if q in pr["title"].lower()
+            or q in pr.get("category", "").lower()
+            or q in pr.get("description_short", "").lower()]
     st.markdown(
         f'<p style="font-size:13px;color:{p["text_secondary"]};margin-bottom:12px;">'
-        f'Showing {len(filtered)} result(s) for <strong>"{search}"</strong></p>',
+        f'Showing {len(pool)} result(s) for <strong>"{search}"</strong></p>',
         unsafe_allow_html=True
     )
-
-if active == "Electronics":
-    filtered = [prod for prod in filtered if prod.get("category") == "Electronics"]
-elif active == "Home & Kitchen":
-    filtered = [prod for prod in filtered if prod.get("category") == "Home & Kitchen"]
-elif active == "Trending":
-    filtered = [prod for prod in filtered if prod.get("is_trending")]
-elif active == "Top Rated":
-    filtered = sorted(filtered, key=lambda x: x.get("rating", 0), reverse=True)
-elif active == "New Arrivals":
-    filtered = filtered[-12:]
-
 
 # ── Section icons ─────────────────────────────────────────────────────────────
 _SVG_STAR_SEC = f"""<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="{p['accent']}"
@@ -266,62 +371,149 @@ def render_section(title: str, icon_svg: str, prods: list, section_key: str):
             st.markdown(render_product_card_html(prod, i), unsafe_allow_html=True)
             in_wish = prod["asin"] in st.session_state.get("wishlist_ids", set())
             save_label = "✓ Saved" if in_wish else "+ Save"
-            save_bg  = p['accent_soft'] if in_wish else p['accent']
-            save_txt = p['accent'] if in_wish else '#ffffff'
-            sim_bg   = p['secondary_btn_bg']
-            sim_txt  = p['secondary_btn_text']
-            bdr      = p['border']
 
             bc1, bc2 = st.columns([1, 1])
             with bc1:
-                if st.button(save_label, key=f"{section_key}_save_{prod['asin']}", type="secondary"):
+                if st.button(save_label, key=f"{section_key}_save_{prod['asin']}", type="secondary", use_container_width=True):
+                    if not isinstance(st.session_state.get("wishlist_ids"), set):
+                        st.session_state["wishlist_ids"] = set()
                     try:
                         if in_wish:
                             remove_from_wishlist(user_id, prod["asin"])
                             st.session_state["wishlist_ids"].discard(prod["asin"])
-                            st.toast("Removed from wishlist", icon="✓")
+                            st.toast("Removed from wishlist", icon="✅")
                         else:
-                            add_to_wishlist(user_id, prod["asin"],
+                            success = add_to_wishlist(user_id, prod["asin"],
                                             prod.get("title", ""),
                                             prod.get("price", 0),
                                             prod.get("category", ""))
-                            st.session_state["wishlist_ids"].add(prod["asin"])
-                            add_notification("success", "Saved to Wishlist",
-                                             f"{prod.get('title','')[:35]} added to your wishlist")
-                            st.toast("Product saved to wishlist!", icon="✓")
+                            if success:
+                                st.session_state["wishlist_ids"].add(prod["asin"])
+                                try:
+                                    add_notification("success", "Saved to Wishlist",
+                                                     f"{prod.get('title','')[:35]} added to your wishlist")
+                                except Exception:
+                                    pass
+                                st.toast("✅ Product saved to wishlist!", icon="💾")
+                            else:
+                                st.toast("Could not save. Try again.", icon="❌")
                         st.rerun()
-                    except Exception:
-                        st.toast("Something went wrong. Try again.")
+                    except Exception as _save_err:
+                        st.toast(f"Error: {_save_err}", icon="❌")
             with bc2:
-                if st.button("Similar", key=f"{section_key}_sim_{prod['asin']}", type="secondary"):
+                if st.button("Similar", key=f"{section_key}_sim_{prod['asin']}", type="secondary", use_container_width=True):
                     st.session_state["similar_product"] = prod["asin"]
                     st.switch_page("pages/02_For_You.py")
 
     st.markdown('<div style="height:28px"></div>', unsafe_allow_html=True)
 
 
-# ── Sections ──────────────────────────────────────────────────────────────────
-if search or active != "All":
-    render_section(f"Results ({len(filtered)})", _SVG_SEARCH_SEC, filtered, "search")
-else:
-    render_section("Recommended For You", _SVG_STAR_SEC, filtered[:4], "rec")
-
-    trending   = [prod for prod in products if prod.get("is_trending")]
-    render_section("Trending Now", _SVG_FIRE_SEC, trending[:4], "trend")
-
-    electronics = sorted(
-        [prod for prod in products if prod.get("category") == "Electronics"],
-        key=lambda x: x.get("rating", 0), reverse=True
+# ── Section rendering ─────────────────────────────────────────────────────────
+# SECTION 1: Recommended / main picks
+if active == "All":
+    _raw_pref = (
+        st.session_state.get("pref_cats")
+        or st.session_state.get("preferred_categories")
+        or []
     )
-    render_section("Top Rated Electronics", _SVG_AWARD_SEC, electronics[:4], "elec")
+    _norm_pref = normalize_categories(_raw_pref) if _raw_pref else []
+    if _norm_pref:
+        rec_products = [pr for pr in products if pr.get("category") in _norm_pref]
+        if not rec_products:
+            rec_products = pool[:8]
+    else:
+        rec_products = pool[:8]
+    render_section("Recommended For You", _SVG_STAR_SEC, rec_products[:8], "rec")
+    if _norm_pref:
+        st.caption("Based on your interests: " + ", ".join(_norm_pref))
+elif active in _DATASET_CATS:
+    render_section(f"Recommended {active}", _SVG_STAR_SEC, pool[:8], "rec")
+elif active == "Trending":
+    render_section("Trending Products", _SVG_FIRE_SEC, pool[:8], "rec")
+elif active == "Top Rated":
+    render_section("Highest Rated Products", _SVG_AWARD_SEC, pool[:8], "rec")
+elif active == "New Arrivals":
+    render_section("New Arrivals", _SVG_STAR_SEC, pool[:8], "rec")
+else:
+    render_section("Products", _SVG_STAR_SEC, pool[:8], "rec")
 
-    kitchen = [prod for prod in products if prod.get("category") == "Home & Kitchen"]
-    render_section("Best in Home & Kitchen", _SVG_HOME_SEC, kitchen[:4], "kit")
+# SECTION 2: Top Rated from pool
+top_rated_pool = sorted(pool, key=lambda x: x.get("rating", 0), reverse=True)
+if active == "All":
+    _s2_title = "Top Rated Products"
+elif active in _DATASET_CATS:
+    _s2_title = f"Top Rated {active}"
+else:
+    _s2_title = "Top Rated — All Categories"
+render_section(_s2_title, _SVG_AWARD_SEC, top_rated_pool[:4], "toprated")
 
-    viewed = st.session_state.get("recently_viewed", [])
-    if viewed:
-        viewed_prods = [prod for prod in products if prod["asin"] in viewed]
-        render_section("Recently Viewed", _SVG_EYE_SEC, viewed_prods[:4], "viewed")
+# SECTION 3: Trending from pool
+trending_pool = sorted(pool, key=lambda x: x.get("review_count", 0), reverse=True)
+if active == "All":
+    _s3_title = "Trending Now"
+elif active in _DATASET_CATS:
+    _s3_title = f"Trending {active}"
+else:
+    _s3_title = "Trending Now"
+render_section(_s3_title, _SVG_FIRE_SEC, trending_pool[:4], "trend")
+
+# SECTION 4+: Category-specific breakdown
+_section_icons = [_SVG_HOME_SEC, _SVG_STAR_SEC, _SVG_FIRE_SEC, _SVG_AWARD_SEC]
+
+if active == "All":
+    # Per-user-preference category sections
+    _raw_pref2 = (
+        st.session_state.get("pref_cats")
+        or st.session_state.get("preferred_categories")
+        or []
+    )
+    _user_section_cats = normalize_categories(_raw_pref2) if _raw_pref2 else _DATASET_CATS
+    for _ci, _cat in enumerate(_user_section_cats):
+        _cat_prods = sorted(
+            [pr for pr in products if pr.get("category") == _cat],
+            key=lambda x: x.get("rating", 0), reverse=True
+        )
+        if _cat_prods:
+            _icon = _section_icons[_ci % len(_section_icons)]
+            render_section(f"Top in {_cat}", _icon, _cat_prods[:4], f"cat_{_ci}")
+
+elif active in ["Trending", "Top Rated", "New Arrivals"]:
+    # Per-category breakdown for special filters
+    for _ci, _cat in enumerate(_DATASET_CATS):
+        if active == "Trending":
+            _cat_prods = sorted(
+                [pr for pr in products if pr.get("category") == _cat],
+                key=lambda x: x.get("review_count", 0), reverse=True
+            )
+            _sec_title = f"Trending {_cat}"
+        elif active == "Top Rated":
+            _cat_prods = sorted(
+                [pr for pr in products if pr.get("category") == _cat],
+                key=lambda x: x.get("rating", 0), reverse=True
+            )
+            _sec_title = f"Top Rated {_cat}"
+        else:
+            _all_cat = [pr for pr in products if pr.get("category") == _cat]
+            _cat_prods = _all_cat[-4:] if _all_cat else []
+            _sec_title = f"New {_cat}"
+        if _cat_prods:
+            _icon = _section_icons[_ci % len(_section_icons)]
+            render_section(_sec_title, _icon, _cat_prods[:4], f"filter_{_ci}")
+
+else:
+    # Single category active — show best value section
+    best_value = sorted(
+        pool,
+        key=lambda x: (x.get("rating", 0) / max(x.get("price", 1), 0.01)),
+        reverse=True
+    )
+    render_section(f"Best Value {active}", _SVG_HOME_SEC, best_value[:4], "bestval")
+
+# Recently viewed — always show if data exists
+viewed = st.session_state.get("recently_viewed", [])
+if viewed:
+    viewed_prods = [pr for pr in products if pr.get("asin") in viewed]
+    render_section("Recently Viewed", _SVG_EYE_SEC, viewed_prods[:4], "viewed")
 
 # ── Footer ────────────────────────────────────────────────────────────────────
 st.markdown(f"""

@@ -59,12 +59,12 @@ D:\Desktop\IntelliRec\
 
 ## Phase Roadmap
 Phase 1 - Frontend (DONE)
-Phase 2A - Supabase auth integration
-Phase 2B - Load real datasets
-Phase 2C - Train ML models
-Phase 2D - Connect models to UI
-Phase 2E - Deploy to Streamlit Cloud
-Phase 3 - GitHub push + documentation
+Phase 2A - Supabase auth integration (DONE)
+Phase 2B - Load real datasets (DONE — utils/data_loader.py)
+Phase 2C - Train ML models (DONE — models/ + scripts/train_models.py)
+Phase 2D - Connect models to UI (DONE — pages/02_For_You.py + 05_Analytics.py)
+Phase 2E - Deploy to Streamlit Cloud (PENDING)
+Phase 3 - GitHub push + documentation (PENDING)
 
 ## Auth Configuration (Phase 2A — Complete)
 - Supabase email confirmation is ON (users must verify before login)

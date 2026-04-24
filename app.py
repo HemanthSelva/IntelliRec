@@ -1,3 +1,6 @@
+import sys
+import os
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import streamlit as st
 from database.supabase_client import supabase
 from auth.session import init_session, is_logged_in
@@ -29,13 +32,51 @@ if _token_hash and _type:
 """, unsafe_allow_html=True)
 elif _code:
     try:
-        supabase.auth.exchange_code_for_session(_code)
+        resp = supabase.auth.exchange_code_for_session(
+            {"auth_code": _code}
+        )
         st.query_params.clear()
-    except Exception:
-        pass
+        if resp and resp.user:
+            from auth.session import _apply_user_session
+            _apply_user_session(resp.user)
+            # Create profile for Google users if missing
+            try:
+                existing = supabase.table('profiles').select(
+                    'id').eq('id', resp.user.id).execute()
+                if not existing.data:
+                    meta = resp.user.user_metadata or {}
+                    full_name = (
+                        meta.get('full_name') or
+                        meta.get('name') or
+                        resp.user.email.split('@')[0]
+                    )
+                    username = full_name.lower().replace(
+                        ' ', '_')
+                    supabase.table('profiles').insert({
+                        'id': resp.user.id,
+                        'full_name': full_name,
+                        'username': username,
+                        'preferred_categories': [],
+                        'avatar_color': '#6C63FF'
+                    }).execute()
+                    supabase.table(
+                        'user_preferences').insert({
+                        'user_id': resp.user.id,
+                        'preferred_categories': [],
+                        'preferred_engine': 'hybrid'
+                    }).execute()
+            except Exception as profile_err:
+                print(f"Google profile creation: {profile_err}")
+    except Exception as e:
+        print(f"OAuth code exchange error: {e}")
+        st.session_state.oauth_error = str(e)
 
 # ── Session init ──────────────────────────────────────────────────────────────
 init_session()
+
+# ── Sidebar collapse state (used by CSS-based toggle in sidebar.py) ───────────
+if 'sidebar_collapsed' not in st.session_state:
+    st.session_state['sidebar_collapsed'] = False
 
 # ── Auth routing ──────────────────────────────────────────────────────────────
 if not is_logged_in():
@@ -60,6 +101,7 @@ if not st.session_state.get('welcome_sent'):
     add_notification('success', f'Welcome back, {first_name}!',
                      'Your AI-powered recommendations are ready.')
     st.session_state['welcome_sent'] = True
+
 
 # ── Redirect authenticated users to Home ─────────────────────────────────────
 st.switch_page("pages/01_Home.py")

@@ -1,18 +1,22 @@
 import streamlit as st
 import json
+import os
+import sys
 import pandas as pd
 import plotly.express as px
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from auth.session import check_login
 from utils.sidebar import render_sidebar
 from utils.topbar import render_topbar
 from utils.helpers import get_sentiment_style, get_category_info
+from utils.model_loader import MODELS_READY, get_trending
 
-st.set_page_config(page_title="Trending | IntelliRec", page_icon="💡", layout="wide")
+st.set_page_config(page_title="Trending | IntelliRec", page_icon="💡", layout="wide", initial_sidebar_state="expanded")
 check_login()
 
 # ── Theme + palette ───────────────────────────────────────────────────────────
 from utils.theme import get_palette, inject_global_css
-theme = st.session_state.get('theme', 'dark')
+theme = st.session_state.get('theme', 'light')
 p = get_palette(theme)
 inject_global_css(p)
 
@@ -62,31 +66,138 @@ st.markdown("""
 </div>
 """, unsafe_allow_html=True)
 
-@st.cache_data
-def load_products():
-    with open("assets/sample_products.json", "r") as f:
-        return json.load(f)
+@st.cache_data(show_spinner=False)
+def load_sample_products():
+    try:
+        with open("assets/sample_products.json", "r") as f:
+            return json.load(f)
+    except Exception:
+        return []
 
-products = load_products()
-df = pd.DataFrame(products)
+
+@st.cache_data(show_spinner=False, ttl=3600)
+def load_trending_pool() -> pd.DataFrame:
+    """Return a large trending pool from model_loader for time-filter slicing."""
+    if MODELS_READY:
+        df = get_trending(n=200)
+        if not df.empty:
+            return df
+    # Fallback to JSON sample
+    prods = load_sample_products()
+    return pd.DataFrame(prods) if prods else pd.DataFrame()
+
+
+def apply_category_diversity(df: pd.DataFrame, max_per_cat: int = 3, total: int = 10) -> pd.DataFrame:
+    """Limit products per category to ensure diversity in the trending list."""
+    result = []
+    cat_counts = {}
+    for _, row in df.iterrows():
+        cat = str(row.get('category', 'Electronics'))
+        count = cat_counts.get(cat, 0)
+        if count < max_per_cat:
+            result.append(row)
+            cat_counts[cat] = count + 1
+        if len(result) >= total:
+            break
+    if len(result) < total:
+        # Fill remaining with best remaining products
+        used_indices = {r.name for r in result}
+        remaining = df[~df.index.isin(used_indices)]
+        for _, row in remaining.iterrows():
+            result.append(row)
+            if len(result) >= total:
+                break
+    return pd.DataFrame(result)
+
+
+products = load_sample_products()  # keep for compatibility
+df = load_trending_pool()
+
+if df.empty:
+    df = pd.DataFrame(load_sample_products())
 
 # ── Top Bar ───────────────────────────────────────────────────────────────────
 render_topbar("What's Hot Right Now", "Discover what the IntelliRec community is loving")
 
 # ── Time filter ───────────────────────────────────────────────────────────────
-tf_col, _ = st.columns([2, 5])
+st.markdown(f"""
+<style>
+/* High contrast and professional styling for the Time Filter radio buttons */
+div.stRadio > div[role="radiogroup"] > label p {{
+    color: {p['text_primary']} !important;
+    font-weight: 700 !important;
+    font-size: 15px !important;
+    letter-spacing: 0.3px !important;
+    font-family: 'Inter', sans-serif !important;
+}}
+/* Make the unselected radio buttons slightly muted but still highly readable */
+div.stRadio > div[role="radiogroup"] > label:not([data-checked="true"]) p {{
+    color: {p['text_secondary']} !important;
+    font-weight: 600 !important;
+}}
+/* Subtle hover effect */
+div.stRadio > div[role="radiogroup"] > label:hover p {{
+    color: {p['accent']} !important;
+}}
+</style>
+""", unsafe_allow_html=True)
+
+tf_col, _ = st.columns([3, 5])
 with tf_col:
     time_filter = st.radio("Time", ["Today", "This Week", "This Month"],
                            horizontal=True, label_visibility="collapsed",
                            key="trend_time")
 
-# Simulate different trending sets per time filter
+# ── Build time-filtered trending set ────────────────────────────────────────
+# Different time filters use different scoring formulas and pool sizes
+# to produce genuinely distinct product lists.
+
 if time_filter == "Today":
-    trend_df = df[df['is_trending'] == True]
+    n_products = 10
+    # Smaller pool, review_count-heavy scoring (highest momentum)
+    df_pool = df.head(min(200, len(df))).copy()
+    if not df_pool.empty:
+        max_rc = df_pool['review_count'].max() or 1
+        df_pool['time_score'] = (
+            df_pool['review_count'] / max_rc * 0.7 +
+            df_pool['rating'] / 5.0 * 0.3
+        )
+        trend_df = df_pool.nlargest(n_products * 3, 'time_score')
+    else:
+        trend_df = df_pool
+
 elif time_filter == "This Week":
-    trend_df = df[df['rating'] >= 3.5].head(15)
-else:
-    trend_df = df[df['rating'] >= 3.0].head(20)
+    n_products = 15
+    # Medium pool, balanced scoring
+    df_pool = df.head(min(200, len(df))).copy()
+    if not df_pool.empty:
+        max_rc = df_pool['review_count'].max() or 1
+        df_pool['time_score'] = (
+            df_pool['review_count'] / max_rc * 0.5 +
+            df_pool['rating'] / 5.0 * 0.5
+        )
+        trend_df = df_pool.nlargest(n_products * 3, 'time_score')
+    else:
+        trend_df = df_pool
+
+else:  # This Month
+    n_products = 20
+    # Large pool, rating-heavy scoring (more diverse / quality-focused)
+    df_pool = df.copy()
+    if not df_pool.empty:
+        max_rc = df_pool['review_count'].max() or 1
+        df_pool['time_score'] = (
+            df_pool['review_count'] / max_rc * 0.3 +
+            df_pool['rating'] / 5.0 * 0.7
+        )
+        trend_df = df_pool.nlargest(n_products * 3, 'time_score')
+    else:
+        trend_df = df_pool
+
+# Apply category diversity: max 3 products per category
+if not trend_df.empty:
+    trend_df = apply_category_diversity(trend_df, max_per_cat=3, total=n_products)
+    trend_df = trend_df.reset_index(drop=True)
 
 if trend_df.empty:
     trend_df = df.head(10)
@@ -190,17 +301,22 @@ with c4:
                        xaxis_title='Rating', yaxis_title='Count')
     st.plotly_chart(fig4, use_container_width=True)
 
-# ── Top 10 list ───────────────────────────────────────────────────────────────
+# ── Top Trending list ─────────────────────────────────────────────────────────
 st.markdown("---")
-st.markdown(f'<h2 style="font-size:20px;font-weight:700;color:{p["text_primary"]};margin-bottom:16px">Top 10 Trending</h2>',
+st.markdown(f'<h2 style="font-size:20px;font-weight:700;color:{p["text_primary"]};margin-bottom:16px">Top {len(trend_df)} Trending</h2>',
             unsafe_allow_html=True)
 
-top_10 = (trend_df
-          .sort_values(by=['rating', 'sentiment_score'], ascending=[False, False])
-          .head(10)
-          .reset_index(drop=True))
+# Rank column — always use time_score which was computed for the active filter
+_rank_col = 'time_score' if 'time_score' in trend_df.columns else 'trend_score'
 
-for i, row in top_10.iterrows():
+top_list = (
+    trend_df
+    .sort_values(by=_rank_col, ascending=False)
+    .head(n_products)
+    .reset_index(drop=True)
+)
+
+for i, row in top_list.iterrows():
     sent = get_sentiment_style(row.get('sentiment_label', ''))
     cat = get_category_info(row.get('category', ''))
     rank_color = ['#FFD700', '#C0C0C0', '#CD7F32']
@@ -234,7 +350,7 @@ for i, row in top_10.iterrows():
   <p class="product-price">
     <strong style="color:{p['star_color']}">★ {row['rating']}</strong>
     ({int(row['review_count']):,} reviews) &middot;
-    <strong style="color:{p['text_primary']}">${row['price']:.2f}</strong> &middot;
+    <strong style="color:{p['text_primary']}">{f"${float(row['price']):.2f}" if float(row.get('price') or 0) > 0 else 'Price unavailable'}</strong> &middot;
     <span style="background-color:{cat['badge_bg']};color:{cat['badge_text']};
                  font-size:10px;font-weight:600;padding:2px 8px;border-radius:20px">
       {row['category']}
@@ -248,10 +364,33 @@ for i, row in top_10.iterrows():
 </div>""", unsafe_allow_html=True)
 
     with col_btn:
-        with st.expander("Why trending?"):
-            st.write(f"High rating of {row['rating']} with {int(row['review_count']):,} "
-                     f"reviews and {row['sentiment_label'].lower()} community sentiment "
-                     f"in {row['category']}.")
+        # ── Trend Insight badge (replaces plain expander) ────────────────
+        _ts   = float(row.get('trend_score', row.get('_week_score', row.get('_month_score', 0))) or 0)
+        _pct  = min(100, max(4, int(round(_ts * 100))))
+        _sent_color = {
+            'Positive': '#10b981', 'Mixed': '#f59e0b', 'Critical': '#ef4444'
+        }.get(str(row.get('sentiment_label', 'Mixed')), '#f59e0b')
+        st.markdown(f"""
+<div style="
+    background: linear-gradient(135deg, rgba(99,102,241,0.07), rgba(139,92,246,0.05));
+    border: 1px solid rgba(99,102,241,0.18);
+    border-left: 3px solid {_sent_color};
+    border-radius: 12px;
+    padding: 10px 14px;
+    font-size: 11px;
+    color: {p['text_secondary']};
+    line-height: 1.7;
+">
+  <div style="font-size:10px;font-weight:700;color:{p['accent']};letter-spacing:0.6px;margin-bottom:5px;">
+    🔥 TREND SCORE
+  </div>
+  <div style="width:100%;height:5px;background:rgba(99,102,241,0.12);border-radius:99px;margin-bottom:6px;">
+    <div style="width:{_pct}%;height:5px;background:linear-gradient(90deg,#6366f1,#f59e0b);border-radius:99px;"></div>
+  </div>
+  <span style="font-weight:600;color:{p['text_primary']}">#{i+1} ranked</span> &middot;
+  <span style="color:{_sent_color};font-weight:600">{row.get('sentiment_label','Mixed')}</span><br>
+  <span style="color:{p['text_muted']}">{int(row['review_count']):,} reviews &middot; ★ {row['rating']}</span>
+</div>""", unsafe_allow_html=True)
 
     st.markdown(f'<hr style="margin:6px 0;border:none;border-top:1px solid {p["border"]}">',
                 unsafe_allow_html=True)

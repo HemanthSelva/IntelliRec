@@ -1,13 +1,16 @@
+import sys
+import os
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 import streamlit as st
 from auth.session import check_login
 from utils.sidebar import render_sidebar
 from utils.topbar import render_topbar
 
-st.set_page_config(page_title="About | IntelliRec", page_icon="💡", layout="wide")
+st.set_page_config(page_title="About | IntelliRec", page_icon="💡", layout="wide", initial_sidebar_state="expanded")
 check_login()
 
 from utils.theme import get_palette, inject_global_css
-theme = st.session_state.get('theme', 'dark')
+theme = st.session_state.get('theme', 'light')
 p = get_palette(theme)
 inject_global_css(p)
 
@@ -17,7 +20,7 @@ render_sidebar("about")
 st.markdown(f"""
 <style>
 [data-testid="stMain"] p,
-[data-testid="stMain"] span:not(.material-icons):not(.ir-gemini-icon),
+[data-testid="stMain"] span:not(.material-icons):not(.material-symbols-rounded):not(.material-symbols-outlined):not(.ir-gemini-icon),
 [data-testid="stMain"] label,
 [data-testid="stMarkdownContainer"] p,
 [data-testid="stMarkdownContainer"] span {{

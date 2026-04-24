@@ -1,3 +1,6 @@
+import sys
+import os
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 import streamlit as st
 import json
 import pandas as pd
@@ -14,21 +17,24 @@ from database.db_operations import (
     get_recommendation_history, update_user_preferences
 )
 
-st.set_page_config(page_title="My Profile | IntelliRec", page_icon="💡", layout="wide")
+st.set_page_config(page_title="My Profile | IntelliRec", page_icon="💡", layout="wide", initial_sidebar_state="expanded")
 check_login()
 
 from utils.theme import get_palette, inject_global_css
-theme = st.session_state.get('theme', 'dark')
+theme = st.session_state.get('theme', 'light')
 p = get_palette(theme)
 inject_global_css(p)
 
-render_sidebar("my_profile")
+try:
+    render_sidebar(current_page='my_profile')
+except Exception as e:
+    st.error(f"Sidebar error: {e}")
 
 # ── Full contrast override for this page ──────────────────────────────────────
 st.markdown(f"""
 <style>
 [data-testid="stMain"] p,
-[data-testid="stMain"] span:not(.material-icons):not(.ir-gemini-icon),
+[data-testid="stMain"] span:not(.material-icons):not(.material-symbols-rounded):not(.material-symbols-outlined):not(.ir-gemini-icon),
 [data-testid="stMain"] label,
 [data-testid="stMarkdownContainer"] p,
 [data-testid="stMarkdownContainer"] span,
@@ -47,14 +53,9 @@ st.markdown(f"""
 </style>
 """, unsafe_allow_html=True)
 
-# ── ANIMATION 6: Gradient banner + avatar ring ──
+# ── Keep only the shared keyframes needed by other elements ────────────────────
 st.markdown("""
 <style>
-@keyframes gradientShift {
-    0%   { background-position: 0% 50%; }
-    50%  { background-position: 100% 50%; }
-    100% { background-position: 0% 50%; }
-}
 @keyframes avatarRing {
     0%,100% { box-shadow: 0 0 0 3px #6366f1, 0 0 0 6px rgba(99,102,241,0.3); }
     50%     { box-shadow: 0 0 0 3px #8b5cf6, 0 0 0 10px rgba(139,92,246,0.2); }
@@ -64,21 +65,9 @@ st.markdown("""
     70%  { transform: scale(1.05) translateY(-3px); }
     100% { opacity: 1; transform: scale(1) translateY(0); }
 }
-.profile-banner-animated {
-    background: linear-gradient(270deg, #6366f1, #8b5cf6, #06b6d4, #10b981, #6366f1);
-    background-size: 400% 400%;
-    animation: gradientShift 6s ease infinite;
-    height: 6px; border-radius: 3px; margin-bottom: 0;
-}
-.avatar-animated {
-    animation: avatarRing 2s ease-in-out infinite;
-    border-radius: 50%;
-}
-.stat-card-animated {
-    animation: statPopIn 0.6s ease-out forwards;
-}
+.avatar-animated { animation: avatarRing 2s ease-in-out infinite; border-radius: 50%; }
+.stat-card-animated { animation: statPopIn 0.6s ease-out forwards; }
 </style>
-<div class="profile-banner-animated"></div>
 """, unsafe_allow_html=True)
 
 full_name    = (st.session_state.get("full_name") or "User").strip() or "User"
@@ -97,26 +86,42 @@ def _get_avatar_html(initials: str, size: int = 80) -> str:
     if photo_b64:
         return (f'<img src="data:image/png;base64,{photo_b64}" '
                 f'style="width:{size}px;height:{size}px;border-radius:50%;'
-                f'object-fit:cover;border:3px solid rgba(255,255,255,0.6);display:block;" />')
+                f'object-fit:cover;object-position:center top;'
+                f'border:3px solid rgba(255,255,255,0.6);display:block;" />')
     return (f'<div style="width:{size}px;height:{size}px;border-radius:50%;'
             f'background:linear-gradient(135deg,#6366f1,#06B6D4);'
             f'display:flex;align-items:center;justify-content:center;'
             f'color:white;font-size:{int(size*0.35)}px;font-weight:700;'
-            f'border:3px solid rgba(255,255,255,0.4);">{initials}</div>')
+            f'border:3px solid rgba(255,255,255,0.4);"><span style="margin:0;line-height:1">{initials}</span></div>')
 
 
 render_topbar("My Profile", "Your account, wishlist, and AI preferences")
 
-# ── Profile Header Card ───────────────────────────────────────────────────────
-st.markdown("""
-<div style="background:linear-gradient(135deg,#6366f1 0%,#06B6D4 100%);
-            border-radius:20px;padding:28px 28px 0;margin-bottom:0;
-            position:relative;overflow:hidden;
-            box-shadow:0 8px 40px rgba(99,102,241,0.3);">
-  <div style="position:absolute;top:-40px;right:-40px;width:200px;height:200px;
-              border-radius:50%;background:rgba(255,255,255,0.06);"></div>
-  <div style="position:absolute;bottom:-60px;right:80px;width:150px;height:150px;
-              border-radius:50%;background:rgba(255,255,255,0.04);"></div>
+st.markdown('<div style="height:8px"></div>', unsafe_allow_html=True)
+
+# ── Profile Header Card — sleek glassmorphism ────────────
+st.markdown(f"""
+<div style="
+    background: {p['glass_bg_strong']};
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+    border: 1.5px solid {p['glass_border_soft']};
+    border-radius: 20px;
+    padding: 24px 28px 20px;
+    margin-bottom: 0;
+    position: relative;
+    overflow: hidden;
+    box-shadow: {p['glass_shadow_lg']};
+">
+  <!-- subtle top accent line instead of full gradient bg -->
+  <div style="position:absolute;top:0;left:0;right:0;height:3px;
+              background:linear-gradient(90deg,#6366f1,#8b5cf6,#06b6d4,#10b981);
+              border-radius:20px 20px 0 0;"></div>
+  <!-- decorative blur blobs inside card -->
+  <div style="position:absolute;top:-30px;right:-30px;width:120px;height:120px;
+              border-radius:50%;background:rgba(99,102,241,0.08);filter:blur(20px);"></div>
+  <div style="position:absolute;bottom:-40px;right:60px;width:90px;height:90px;
+              border-radius:50%;background:rgba(6,182,212,0.06);filter:blur(16px);"></div>
 """, unsafe_allow_html=True)
 
 av_col, info_col, btn_col = st.columns([1, 5, 2])
@@ -124,13 +129,13 @@ with av_col:
     st.markdown(_get_avatar_html(initials, 80), unsafe_allow_html=True)
 with info_col:
     st.markdown(f"""
-<h1 style="font-size:24px;font-weight:700;color:white;margin:0 0 4px;">{full_name}</h1>
-<p style="font-size:13px;color:rgba(255,255,255,0.75);margin:0 0 10px;">
+<h1 style="font-size:24px;font-weight:700;color:{p['text_primary']};margin:0 0 4px;">{full_name}</h1>
+<p style="font-size:13px;color:{p['text_secondary']};margin:0 0 10px;">
   @{username} &middot; {user_email or "guest@intellirec.com"}
 </p>
-<span style="background:rgba(255,255,255,0.2);color:white;padding:4px 12px;
+<span style="background:{p['accent_soft']};color:{p['accent']};padding:4px 12px;
              border-radius:100px;font-size:12px;font-weight:600;
-             backdrop-filter:blur(4px);">
+             border:1px solid rgba(99,102,241,0.2);">
   Member since {member_since}
 </span>
 """, unsafe_allow_html=True)
@@ -139,44 +144,140 @@ with btn_col:
     if st.button("Edit Profile", type="secondary", key="edit_profile_btn"):
         st.session_state["profile_editing"] = True
     if is_guest:
-        st.markdown("""
-<div style="background:rgba(255,255,255,0.15);border-radius:8px;padding:8px 12px;
-            margin-top:6px;font-size:11.5px;color:rgba(255,255,255,0.85);">
-  <strong>Guest Mode</strong> — Sign in for full features
+        st.markdown(f"""
+<div style="background:{p['accent_soft']};border-radius:8px;padding:8px 12px;
+            margin-top:6px;font-size:11.5px;color:{p['text_secondary']};
+            border:1px solid rgba(99,102,241,0.15);">
+  <strong style="color:{p['accent']}">Guest Mode</strong> — Sign in for full features
 </div>""", unsafe_allow_html=True)
 
 st.markdown("</div>", unsafe_allow_html=True)
 
-# ── Profile Photo Upload ──────────────────────────────────────────────────────
+# ── Edit Profile Modal (full glass card) ─────────────────────────────────────
+if '_temp_name' not in st.session_state:
+    st.session_state['_temp_name'] = st.session_state.get('full_name', '')
+if '_temp_bio' not in st.session_state:
+    st.session_state['_temp_bio'] = st.session_state.get('user_bio', '')
+if '_temp_photo' not in st.session_state:
+    st.session_state['_temp_photo'] = None
+
 if st.session_state.get("profile_editing"):
-    st.markdown('<div style="height:12px"></div>', unsafe_allow_html=True)
-    with st.expander("Upload Profile Photo", expanded=True):
-        uploaded = st.file_uploader("Choose a photo", type=["jpg","jpeg","png","webp"],
-                                    key="profile_photo_upload", help="Square images work best. Max 5MB.")
-        if uploaded:
-            try:
-                img = Image.open(uploaded).convert("RGB")
-                img = img.resize((256, 256), Image.LANCZOS)
-                buffer = BytesIO()
-                img.save(buffer, format="PNG")
-                b64 = base64.b64encode(buffer.getvalue()).decode()
-                st.session_state["profile_photo_b64"] = b64
-                st.toast("Photo uploaded! It will appear in the sidebar and header.", icon="✓")
+    st.markdown('<div style="height:16px"></div>', unsafe_allow_html=True)
+    st.markdown(f"""
+<div style="
+    background: {p['glass_bg_strong']};
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+    border: 1.5px solid {p['glass_border_soft']};
+    border-radius: 20px;
+    padding: 28px;
+    box-shadow: {p['glass_shadow_lg']};
+    margin-bottom: 8px;
+">
+  <div style="font-size:16px;font-weight:700;color:{p['text_primary']};margin-bottom:20px;
+              display:flex;align-items:center;gap:10px;">
+    ✏️ Edit Profile
+  </div>
+</div>
+""", unsafe_allow_html=True)
+
+    ep_col1, ep_col2 = st.columns([1, 1])
+    with ep_col1:
+        ep_name = st.text_input("Display Name",
+                                value=st.session_state['_temp_name'],
+                                key="ep_name", placeholder="Your full name")
+        st.session_state['_temp_name'] = ep_name
+        ep_username = st.text_input("Username", value=username, key="ep_username",
+                                    placeholder="@handle", disabled=is_guest,
+                                    help="Sign in to change your username")
+        ep_bio = st.text_area("Bio",
+                              value=st.session_state['_temp_bio'],
+                              key="ep_bio", placeholder="Tell us something about yourself…",
+                              max_chars=160, height=90)
+        st.session_state['_temp_bio'] = ep_bio
+    with ep_col2:
+        st.markdown(f'<p style="font-size:12px;font-weight:600;color:{p["text_secondary"]};margin-bottom:6px;">Profile Photo</p>',
+                    unsafe_allow_html=True)
+        # Show current avatar preview
+        st.markdown(_get_avatar_html(initials, 72), unsafe_allow_html=True)
+        st.markdown('<div style="height:8px"></div>', unsafe_allow_html=True)
+        uploaded = st.file_uploader(
+            "Upload new photo (JPG/PNG, max 10MB)",
+            type=["jpg", "jpeg", "png", "webp"],
+            key="profile_photo_uploader"
+        )
+        if (uploaded is not None and
+                st.session_state.get('_last_uploaded') != uploaded.name):
+            st.session_state['_last_uploaded'] = uploaded.name
+            file_size_mb = uploaded.size / (1024 * 1024)
+            if file_size_mb > 10:
+                st.error(
+                    f"File too large ({file_size_mb:.1f}MB). "
+                    "Maximum allowed size is 10MB. Please choose a smaller image."
+                )
+                st.session_state['_temp_photo'] = None
+            else:
+                try:
+                    from PIL import ImageOps
+                    img = Image.open(uploaded).convert("RGB")
+                    img = ImageOps.fit(img, (256, 256), method=Image.LANCZOS,
+                                       centering=(0.5, 0.15))
+                    buffer = BytesIO()
+                    img.save(buffer, format="PNG")
+                    st.session_state['_temp_photo'] = base64.b64encode(
+                        buffer.getvalue()).decode()
+                    st.session_state['_temp_photo_name'] = uploaded.name
+                except Exception as e:
+                    st.error(f"Could not process image: {e}")
+        if st.session_state.get('_temp_photo'):
+            st.image(
+                f"data:image/png;base64,{st.session_state['_temp_photo']}",
+                width=80, caption="Preview (not saved yet)"
+            )
+        if st.session_state.get("profile_photo_b64"):
+            if st.button("🗑 Remove Photo", key="remove_photo_btn", type="secondary"):
+                del st.session_state["profile_photo_b64"]
+                st.session_state['_temp_photo'] = None
                 st.rerun()
-            except Exception as e:
-                st.error(f"Could not process image: {e}")
-        col_prev, col_rm = st.columns([1, 1])
-        with col_prev:
-            if st.session_state.get("profile_photo_b64"):
-                st.markdown(f'<img src="data:image/png;base64,{st.session_state["profile_photo_b64"]}" '
-                            f'style="width:80px;height:80px;border-radius:50%;object-fit:cover;'
-                            f'border:2px solid {p["accent"]};" />', unsafe_allow_html=True)
-        with col_rm:
-            if st.session_state.get("profile_photo_b64"):
-                if st.button("Remove Photo", key="remove_photo_btn", type="secondary"):
-                    del st.session_state["profile_photo_b64"]
-                    st.toast("Profile photo removed")
-                    st.rerun()
+
+    ep_save, ep_cancel, _ = st.columns([1, 1, 3])
+    with ep_save:
+        if st.button("💾 Save Changes", key="ep_save_btn", type="primary",
+                     use_container_width=True):
+            new_name_val = st.session_state.get('_temp_name', '').strip()
+            if not new_name_val:
+                st.error("Display name cannot be empty.")
+            else:
+                st.session_state["full_name"] = new_name_val
+                st.session_state["user_bio"] = st.session_state.get('_temp_bio', '')
+                if st.session_state.get('_temp_photo'):
+                    st.session_state["profile_photo_b64"] = st.session_state['_temp_photo']
+                    st.session_state['_temp_photo'] = None
+                if user_id and user_id != 'guest':
+                    try:
+                        from auth.session import get_supabase
+                        sb = get_supabase()
+                        sb.table('profiles').upsert({
+                            'id': user_id,
+                            'full_name': new_name_val,
+                            'bio': st.session_state["user_bio"],
+                        }).execute()
+                    except Exception as e:
+                        st.warning(f"Saved locally. Sync error: {e}")
+                st.session_state["profile_editing"] = False
+                for key in ['_temp_name', '_temp_bio', '_temp_photo', '_last_uploaded']:
+                    st.session_state.pop(key, None)
+                add_notification("success", "Profile Updated",
+                                 "Your profile changes have been saved.")
+                st.toast("✅ Profile saved!", icon="✅")
+                st.rerun()
+    with ep_cancel:
+        if st.button("✕ Cancel", key="ep_cancel_btn", type="secondary",
+                     use_container_width=True):
+            for key in ['_temp_name', '_temp_bio', '_temp_photo', '_last_uploaded']:
+                st.session_state.pop(key, None)
+            st.session_state["profile_editing"] = False
+            st.rerun()
 
 st.markdown('<div style="height:20px"></div>', unsafe_allow_html=True)
 
@@ -246,9 +347,24 @@ with tab1:
     with chart_col:
         st.markdown(f'<p style="font-size:15px;font-weight:700;color:{p["text_primary"]};margin-bottom:12px;">Category Preferences</p>',
                     unsafe_allow_html=True)
-        cat_data = {"Category": ["Electronics", "Home & Kitchen", "Books", "Other"], "Views": [55, 25, 10, 10]}
+        # FIX 4A: Dynamic pie chart from user preferences
+        _pie_user_cats = (
+            st.session_state.get("pref_cats") or
+            st.session_state.get("preferred_categories") or
+            []
+        )
+        if _pie_user_cats:
+            _pie_weight = round(100 / len(_pie_user_cats))
+            _pie_data = {cat: _pie_weight for cat in _pie_user_cats}
+            _pie_keys = list(_pie_data.keys())
+            _pie_data[_pie_keys[-1]] = 100 - _pie_weight * (len(_pie_user_cats) - 1)
+        else:
+            _pie_data = {"Electronics": 55, "Home & Kitchen": 25, "Books": 10, "Other": 10}
+        cat_data = {"Category": list(_pie_data.keys()), "Views": list(_pie_data.values())}
+        _pie_colors = ["#6366f1", "#06B6D4", "#F59E0B", "#E5E7EB", "#EC4899", "#10B981",
+                       "#8B5CF6", "#F97316", "#14B8A6", "#A855F7", "#EF4444", "#84CC16"]
         fig = px.pie(cat_data, values="Views", names="Category", hole=0.5,
-                     color_discrete_sequence=["#6366f1", "#06B6D4", "#F59E0B", "#E5E7EB"])
+                     color_discrete_sequence=_pie_colors[:len(cat_data["Category"])])
         fig.update_layout(margin=dict(t=0,b=0,l=0,r=0), paper_bgcolor="rgba(0,0,0,0)",
                           font=dict(family="Inter", color=p['text_primary']), showlegend=True)
         fig.update_traces(textinfo="percent+label", textfont_size=12)
@@ -257,24 +373,52 @@ with tab1:
     with activity_col:
         st.markdown(f'<p style="font-size:15px;font-weight:700;color:{p["text_primary"]};margin-bottom:12px;">Recent Activity</p>',
                     unsafe_allow_html=True)
-        activities = [
-            (p['icon_bg_green'],  "#16A34A", "&#10003;", "Logged in successfully",            "Just now"),
-            (p['icon_bg_pink'],   "#EC4899", "♥",        "Saved Sony Headphones to wishlist", "Yesterday"),
-            (p['icon_bg_amber'],  "#F59E0B", "★",        "Rated Instant Pot Duo 5 stars",     "2 days ago"),
-            (p['icon_bg_purple'], p['accent'], "&#9679;", "Explored Electronics category",    "Last week"),
-            (p['icon_bg_green'],  "#10B981", "&#9874;",  "Got 12 AI recommendations",         "Last week"),
-        ]
-        for bg, color, sym, desc, when in activities:
+        # FIX 4B: Dynamic activity feed from real data
+        _activities = []
+        # Add real wishlist activity
+        try:
+            if wishlist_items:
+                _latest_wl = wishlist_items[0]
+                _activities.append({
+                    'bg': p['icon_bg_pink'], 'color': '#EC4899', 'sym': '♥',
+                    'desc': f"Saved {_latest_wl.get('product_title', 'a product')[:40]} to wishlist",
+                    'when': 'Recently'
+                })
+        except Exception:
+            pass
+        # Add login activity
+        _activities.append({
+            'bg': p['icon_bg_green'], 'color': '#10B981', 'sym': '&#10003;',
+            'desc': 'Logged in successfully', 'when': 'Just now'
+        })
+        # Add preference activity if categories set
+        _act_pref_cats = st.session_state.get('pref_cats')
+        if _act_pref_cats:
+            _activities.append({
+                'bg': p['icon_bg_purple'], 'color': p['accent'], 'sym': '&#9881;',
+                'desc': f"Preferences set: {', '.join(_act_pref_cats[:2])}",
+                'when': 'Earlier'
+            })
+        # Fallback if fewer than 3 activities
+        if len(_activities) < 3:
+            _activities.extend([
+                {'bg': p['icon_bg_amber'], 'color': '#06B6D4', 'sym': '&#128269;',
+                 'desc': 'Explored product catalogue', 'when': 'Last session'},
+                {'bg': p['icon_bg_green'], 'color': '#8B5CF6', 'sym': '&#9874;',
+                 'desc': 'Got AI recommendations', 'when': 'Last session'},
+            ])
+        _activities = _activities[:5]
+        for _act in _activities:
             st.markdown(f"""
 <div style="display:flex;align-items:flex-start;gap:12px;margin-bottom:10px;
             padding:12px 16px;background-color:{p['card_bg']};
-            border:1px solid {p['border']};border-radius:12px;border-left:3px solid {color};">
-  <div style="width:30px;height:30px;border-radius:50%;background-color:{bg};
-              display:flex;align-items:center;justify-content:center;color:{color};
-              font-size:13px;font-weight:700;flex-shrink:0;">{sym}</div>
+            border:1px solid {p['border']};border-radius:12px;border-left:3px solid {_act['color']};">
+  <div style="width:30px;height:30px;border-radius:50%;background-color:{_act['bg']};
+              display:flex;align-items:center;justify-content:center;color:{_act['color']};
+              font-size:13px;font-weight:700;flex-shrink:0;">{_act['sym']}</div>
   <div>
-    <p style="font-size:13px;color:{p['text_primary']};margin:0;font-weight:500;">{desc}</p>
-    <p style="font-size:11px;color:{p['text_muted']};margin:0;margin-top:2px;">{when}</p>
+    <p style="font-size:13px;color:{p['text_primary']};margin:0;font-weight:500;">{_act['desc']}</p>
+    <p style="font-size:11px;color:{p['text_muted']};margin:0;margin-top:2px;">{_act['when']}</p>
   </div>
 </div>""", unsafe_allow_html=True)
 
@@ -282,25 +426,134 @@ with tab2:
     st.markdown('<div style="height:8px"></div>', unsafe_allow_html=True)
     st.markdown(f'<p style="font-size:15px;font-weight:700;color:{p["text_primary"]};margin-bottom:12px;">Recommendation History</p>',
                 unsafe_allow_html=True)
-    hist_df = pd.DataFrame({
-        "Date":     ["2024-01-05","2024-01-04","2024-01-03","2024-01-01"],
-        "Product":  ["Sony Headphones","Instant Pot Duo","Kindle Paperwhite","Air Fryer"],
-        "Category": ["Electronics","Home & Kitchen","Electronics","Home & Kitchen"],
-        "Engine":   ["Hybrid","Collaborative","Hybrid","Content-Based"],
-        "Match %":  ["94%","82%","91%","75%"],
-        "Feedback": ["Up","—","Down","Up"],
-    })
-    if history and len(history) > 0:
-        hist_df = pd.DataFrame(history)
+
+    # ── Build history: real DB rows first, then session-state recs ──
+    _session_recs = st.session_state.get("recommendation_history", [])
+    _fy_last_recs = st.session_state.get("fy_last_recs", [])  # from For You page
+    _has_real_history = bool(history and len(history) > 0)
+    _has_session_recs = bool(_session_recs)
+    _has_fy_recs      = bool(_fy_last_recs)
+
+    if _has_real_history:
+        # Logged-in user with DB rows
+        raw_rows = history
+        hist_df = pd.DataFrame(raw_rows)
+        # Normalise column names from Supabase schema → display names
+        col_map = {
+            "created_at": "Date", "product_title": "Product",
+            "engine_used": "Engine", "match_score": "Match %"
+        }
+        hist_df = hist_df.rename(columns=col_map)
+        if "Match %" in hist_df.columns:
+            hist_df["Match %"] = hist_df["Match %"].apply(
+                lambda x: f"{int(float(x))}%" if str(x).replace('.','').isdigit() else str(x))
+        if "Date" in hist_df.columns:
+            hist_df["Date"] = pd.to_datetime(hist_df["Date"], errors="coerce").dt.strftime("%Y-%m-%d")
+        _data_source = "live"
+    elif _has_session_recs:
+        # Guest who visited For You — session recs available
+        rows = []
+        import datetime as _dt
+        for r in _session_recs:
+            rows.append({
+                "Date":     _dt.date.today().strftime("%Y-%m-%d"),
+                "Product":  r.get("title", r.get("product_title", "—"))[:50],
+                "Category": r.get("category", "—"),
+                "Engine":   r.get("engine", r.get("engine_used", "Hybrid")),
+                "Match %":  f"{r.get('match_score', r.get('predicted_rating', 0))}%",
+                "Feedback": "—",
+            })
+        hist_df = pd.DataFrame(rows)
+        _data_source = "session"
+    elif _has_fy_recs:
+        # Guest who visited For You page — use the products displayed there
+        import datetime as _dt
+        rows = []
+        for r in _fy_last_recs:
+            rows.append({
+                "Date":     _dt.date.today().strftime("%Y-%m-%d"),
+                "Product":  str(r.get("title", r.get("product_title", "—")))[:50],
+                "Category": r.get("category", "—"),
+                "Engine":   r.get("engine", "Hybrid"),
+                "Match %":  f"{r.get('match_score', r.get('average_rating', 0))}%",
+                "Feedback": "—",
+            })
+        hist_df = pd.DataFrame(rows)
+        _data_source = "session"
+    else:
+        # No history at all — show empty state
+        hist_df = pd.DataFrame(columns=["Date", "Product", "Category", "Engine", "Match %", "Feedback"])
+        _data_source = "empty"
+
     engine_filter = st.selectbox("Filter by engine", ["All","Hybrid","Collaborative","Content-Based"],
                                  key="hist_engine_filter")
-    if engine_filter != "All":
-        col_name = "Engine" if "Engine" in hist_df.columns else "engine_used"
-        if col_name in hist_df.columns:
-            hist_df = hist_df[hist_df[col_name] == engine_filter]
-    st.dataframe(hist_df, use_container_width=True, hide_index=True)
-    if not (history and len(history) > 0):
-        st.info("This is demo data. Real history appears once you use recommendations.")
+    if engine_filter != "All" and "Engine" in hist_df.columns:
+        hist_df = hist_df[hist_df["Engine"].str.contains(engine_filter, case=False, na=False)]
+
+    # Show only the useful columns that exist
+    _display_cols = [c for c in ["Date","Product","Category","Engine","Match %","Feedback"]
+                     if c in hist_df.columns]
+                     
+    if hist_df.empty:
+        st.markdown(f"""
+        <div style="background-color:{p['stat_card_bg']};border:1px solid {p['border']};border-radius:12px;
+                    padding:30px;text-align:center;color:{p['text_secondary']};">
+          No recommendation history found. Visit the <strong>For You</strong> page to get personalized AI picks!
+        </div>""", unsafe_allow_html=True)
+    else:
+        # Render as HTML to support dark/light theme dynamically and provide horizontal sliding bar
+        table_html = hist_df[_display_cols].to_html(index=False, classes="ir-history-table", escape=False)
+        st.markdown(f"""
+        <style>
+        .ir-history-table-wrapper {{
+            width: 100%;
+            overflow-x: auto;
+            border-radius: 10px;
+            border: 1px solid {p['border']};
+            background: {p['card_bg']};
+            margin-bottom: 12px;
+        }}
+        .ir-history-table {{
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 13.5px;
+            text-align: left;
+            color: {p['text_primary']};
+        }}
+        .ir-history-table th {{
+            background: {p['glass_bg_strong']};
+            padding: 12px 16px;
+            font-weight: 600;
+            color: {p['text_secondary']};
+            border-bottom: 1px solid {p['border']};
+            white-space: nowrap;
+        }}
+        .ir-history-table td {{
+            padding: 12px 16px;
+            border-bottom: 1px solid {p['border']};
+            white-space: nowrap;
+        }}
+        .ir-history-table tr:last-child td {{
+            border-bottom: none;
+        }}
+        .ir-history-table tr:hover {{
+            background: {p['glass_bg']};
+        }}
+        </style>
+        <div class="ir-history-table-wrapper">
+            {table_html}
+        </div>
+        """, unsafe_allow_html=True)
+
+    if _data_source == "session":
+        st.markdown(f"""
+<div style="background:rgba(16,185,129,0.06);border:1px solid rgba(16,185,129,0.2);
+            border-left:3px solid #10b981;border-radius:10px;
+            padding:12px 16px;margin-top:10px;font-size:13px;color:{p['text_secondary']};">
+  <strong style="color:#10b981">✅ Session data</strong> —
+  Showing recommendations from your current session.
+  Sign in to save history permanently.
+</div>""", unsafe_allow_html=True)
 
 with tab3:
     st.markdown('<div style="height:8px"></div>', unsafe_allow_html=True)
@@ -338,24 +591,36 @@ with tab3:
                 st.markdown(render_product_card_html(prod, j, show_match=False), unsafe_allow_html=True)
                 wc1, wc2 = st.columns([1, 1])
                 with wc1:
-                    if st.button("+ Cart", key=f"wl_cart_{pid}_{j}", use_container_width=True, type="primary"):
-                        try:
-                            from utils.cart import add_to_cart, is_in_cart
-                            if not is_in_cart(pid):
-                                add_to_cart(pid, prod.get("title",""), prod.get("price",0), prod.get("category",""))
-                                st.toast("Added to cart!", icon="✓")
-                            else:
-                                st.toast("Already in cart")
-                            st.rerun()
-                        except Exception:
-                            st.toast("Could not add to cart")
+                    from utils.cart import add_to_cart, is_in_cart
+                    _already_in_cart = is_in_cart(pid)
+                    _cart_label = "In Cart" if _already_in_cart else "+ Cart"
+                    _cart_type  = "secondary" if _already_in_cart else "primary"
+                    if st.button(_cart_label, key=f"wl_cart_{pid}_{j}",
+                                 use_container_width=True, type=_cart_type):
+                        if _already_in_cart:
+                            st.toast("Already in your cart.")
+                        else:
+                            try:
+                                added = add_to_cart(
+                                    pid,
+                                    prod.get("title", ""),
+                                    prod.get("price", 0),
+                                    prod.get("category", "")
+                                )
+                                if added:
+                                    st.toast("Item added to cart.")
+                                    st.rerun()
+                                else:
+                                    st.toast("Already in your cart.")
+                            except Exception as _ce:
+                                st.toast(f"Could not add to cart: {_ce}")
                 with wc2:
                     if st.button("Remove", key=f"wl_rm_{pid}_{j}", use_container_width=True, type="secondary"):
                         try:
                             remove_from_wishlist(user_id, pid)
                             if "wishlist_ids" in st.session_state:
                                 st.session_state["wishlist_ids"].discard(pid)
-                            st.toast("Removed from wishlist", icon="✓")
+                            st.toast("Removed from wishlist", icon="✅")
                             st.rerun()
                         except Exception:
                             st.toast("Could not remove item")
@@ -378,10 +643,21 @@ with tab4:
     with col_a:
         st.markdown(f'<p style="font-size:15px;font-weight:700;color:{p["text_primary"]};margin-bottom:16px;">Account Preferences</p>',
                     unsafe_allow_html=True)
-        display_name = st.text_input("Display Name", value=full_name, key="pref_name")
+        # Display Name removed — edit it via Edit Profile button above
+        # ── Settings: expanded category options (covers all onboarding + dataset categories) ──
+        _ALL_PREF_OPTIONS = [
+            "Electronics", "Home & Kitchen", "Books", "Sports",
+            "Clothing", "Beauty", "Health", "Fitness", "Toys",
+            "Automotive", "Office", "Garden", "Pet Supplies",
+            "Clothing & Shoes", "Beauty & Personal Care"
+        ]
+        # Filter cat_list to only include values in options (prevents crash)
+        _safe_defaults = [c for c in (cat_list or []) if c in _ALL_PREF_OPTIONS]
+        if not _safe_defaults:
+            _safe_defaults = ["Electronics", "Home & Kitchen"]
         pref_cats = st.multiselect("Favourite Categories",
-                                   ["Electronics","Home & Kitchen","Books","Sports","Clothing","Beauty"],
-                                   default=cat_list or ["Electronics","Home & Kitchen"], key="pref_cats")
+                                   _ALL_PREF_OPTIONS,
+                                   default=_safe_defaults, key="profile_pref_cats_widget")
         pref_engine = st.radio("Preferred AI Engine",
                                ["Hybrid","Collaborative Filtering","Content-Based"],
                                horizontal=True, key="pref_engine")
@@ -409,36 +685,103 @@ with tab4:
     save_col, _ = st.columns([1, 2])
     with save_col:
         if st.button("Save Preferences", type="primary", key="pref_save", use_container_width=True):
-            try:
-                update_user_preferences(user_id, {
-                    "preferred_categories": pref_cats,
-                    "preferred_engine": pref_engine.lower().replace(" ", "_"),
-                    "diversity_level": pref_diversity,
-                })
-                if display_name and display_name != full_name:
-                    st.session_state["full_name"] = display_name
-                add_notification("success", "Settings Saved", "Your preferences have been updated successfully.")
-                st.toast("Profile saved successfully!", icon="✓")
-            except Exception:
-                st.toast("Could not save preferences. Try again.")
+            if is_guest:
+                st.markdown(f"""
+<div style="background:{p['dataset_bg']};border:1px solid {p['dataset_border']};
+            border-left:4px solid {p['star_color']};border-radius:10px;
+            padding:14px 18px;margin-top:12px;font-size:13.5px;
+            color:{p['dataset_text']};line-height:1.6;">
+  <strong>Guest account — preferences not saved.</strong><br/>
+  Create a free account to persist your preferences. Guest settings are lost when you close the app.
+</div>""", unsafe_allow_html=True)
+                st.markdown(f"""
+<div style="background:{p['accent_soft']};border:1px solid rgba(99,102,241,0.25);
+            border-left:4px solid {p['accent']};border-radius:10px;
+            padding:14px 18px;margin-top:8px;font-size:13.5px;
+            color:{p['text_secondary']};line-height:1.6;">
+  <strong style="color:{p['accent']};">Sign up to unlock:</strong><br/>
+  Saved preferences &middot; Wishlist sync &middot; Recommendation history &middot; Full personalization
+</div>""", unsafe_allow_html=True)
+            else:
+                try:
+                    update_user_preferences(user_id, {
+                        "preferred_categories": pref_cats,
+                        "preferred_engine": pref_engine.lower().replace(" ", "_"),
+                        "diversity_level": pref_diversity,
+                    })
+                    # Sync to session keys the recommendation engine reads
+                    st.session_state["pref_cats"] = pref_cats
+                    st.session_state["preferred_categories"] = pref_cats
+                    if isinstance(st.session_state.get("current_user"), dict):
+                        st.session_state["current_user"]["preferred_categories"] = pref_cats
+                    add_notification("success", "Settings Saved", "Your preferences have been updated successfully.")
+                    st.markdown(f"""
+<div style="background:{p['badge_positive_bg']};border:1px solid rgba(16,185,129,0.3);
+            border-left:4px solid #10b981;border-radius:10px;
+            padding:14px 18px;margin-top:12px;font-size:13.5px;
+            color:{p['badge_positive_text']};line-height:1.6;">
+  <strong>Preferences saved successfully.</strong><br/>
+  Your recommendation engine will use the updated settings from your next visit.
+</div>""", unsafe_allow_html=True)
+                    st.toast("Preferences saved.")
+                except Exception as _pref_err:
+                    st.markdown(f"""
+<div style="background:{p['danger_bg']};border:1px solid {p['danger_border']};
+            border-left:4px solid {p['danger_text']};border-radius:10px;
+            padding:14px 18px;margin-top:12px;font-size:13.5px;
+            color:{p['danger_text']};line-height:1.6;">
+  <strong>Could not save preferences.</strong> Please try again.<br/>
+  <span style="font-size:12px;opacity:0.7;">{_pref_err}</span>
+</div>""", unsafe_allow_html=True)
 
     st.markdown("---")
-    st.markdown(f'<p style="font-size:14px;font-weight:700;color:{p["danger_text"]};margin-bottom:10px;">Danger Zone</p>',
+    st.markdown(f'<p style="font-size:14px;font-weight:700;color:{p["danger_text"]};margin-bottom:10px;">⚠️ Danger Zone</p>',
                 unsafe_allow_html=True)
-    st.markdown(f"""
-<div style="background-color:{p['danger_bg']};border:1px solid {p['danger_border']};
-            border-radius:10px;padding:14px 18px;margin-bottom:12px;
-            font-size:13px;color:{p['danger_text']};">
-  Deleting your account is permanent and cannot be undone.
-  All recommendations, wishlist items, and preferences will be removed.
+
+    if st.button("🗑️ Clear Wishlist", key="clear_wl_btn", type="secondary"):
+        st.session_state["wishlist_ids"] = set()
+        st.toast("Wishlist cleared.", icon="🗑️")
+        st.rerun()
+
+    st.markdown("---")
+
+    if is_guest:
+        st.markdown(f"""
+<div style="background:{p['accent_soft']};border:1px solid rgba(99,102,241,0.2);
+            border-radius:12px;padding:14px 18px;color:{p['text_secondary']};font-size:14px;">
+    🔒 <strong>Account deletion</strong> is only available for registered users.
+    <a href="#" style="color:{p['accent']};">Sign up</a> to access this feature.
 </div>""", unsafe_allow_html=True)
-    danger_col, _ = st.columns([1, 3])
-    with danger_col:
-        if st.button("Clear Wishlist", key="clear_wl_btn", type="secondary", use_container_width=True):
-            try:
-                st.session_state["wishlist_ids"] = set()
-                st.toast("Wishlist cleared")
+    else:
+        if not st.session_state.get('_confirm_delete_account'):
+            st.markdown(f"""
+<div style="background:{p['danger_bg']};border:1px solid {p['danger_border']};
+            border-radius:12px;padding:14px 18px;color:{p['danger_text']};
+            font-size:14px;margin-bottom:12px;">
+    ⚠️ <strong>Permanent action.</strong> Deleting your account will remove all your
+    recommendations, wishlist items, and preferences. This cannot be undone.
+</div>""", unsafe_allow_html=True)
+            if st.button("🗑️ Delete My Account", key="btn_request_delete", type="secondary"):
+                st.session_state['_confirm_delete_account'] = True
                 st.rerun()
-            except Exception:
-                st.toast("Could not clear wishlist")
-    st.button("Delete Account", type="secondary", key="prof_del", help="Contact support to delete your account")
+        else:
+            st.error(
+                "🚨 Are you absolutely sure? This will permanently delete your account "
+                "and all associated data."
+            )
+            col_confirm, col_back = st.columns(2)
+            with col_confirm:
+                if st.button("Yes, Delete Forever", key="btn_confirm_delete", type="primary"):
+                    try:
+                        from auth.session import get_supabase, logout_user
+                        sb = get_supabase()
+                        sb.table('profiles').delete().eq('id', user_id).execute()
+                        logout_user()
+                        st.toast("Account deleted.", icon="✅")
+                        st.rerun()
+                    except Exception as e:
+                        st.error(f"Deletion failed: {e}")
+            with col_back:
+                if st.button("Cancel", key="btn_cancel_delete"):
+                    st.session_state['_confirm_delete_account'] = False
+                    st.rerun()

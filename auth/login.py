@@ -403,6 +403,7 @@ def render_login():
                 st.session_state.full_name = "Guest User"
                 st.session_state.username = "guest_user"
                 st.session_state.user_id = "guest"
+                st.session_state.is_guest = True
                 st.session_state.user_email = "guest@intellirec.com"
                 st.session_state.current_user = {
                     "username": "guest_user", "name": "Guest User",

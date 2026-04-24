@@ -4,6 +4,49 @@ SVG strings are kept as single-line (no newlines) to prevent Python-Markdown fro
 treating indented lines inside the HTML as code blocks.
 """
 
+# ── Category Name Normalisation ───────────────────────────────────────────────
+# Maps onboarding / UI names → exact dataset category names.
+# The dataset contains EXACTLY 4 categories:
+#   Electronics, Home & Kitchen, Clothing & Shoes, Beauty & Personal Care
+CATEGORY_NAME_MAP = {
+    # Direct matches (identity — keeps normalize idempotent)
+    "Electronics":              "Electronics",
+    "Home & Kitchen":           "Home & Kitchen",
+    "Clothing & Shoes":         "Clothing & Shoes",
+    "Beauty & Personal Care":   "Beauty & Personal Care",
+    # Onboarding UI short names
+    "Beauty":                   "Beauty & Personal Care",
+    "Fashion":                  "Clothing & Shoes",
+    "Clothing":                 "Clothing & Shoes",
+    # Best-effort mappings for categories not in dataset
+    "Gaming":                   "Electronics",
+    "Sports":                   "Electronics",
+    "Books":                    "Electronics",
+    "Automotive":               "Electronics",
+    "Toys & Games":             "Electronics",
+    "Health":                   "Beauty & Personal Care",
+    "Office":                   "Electronics",
+    "Pet Supplies":             "Home & Kitchen",
+}
+
+
+def normalize_categories(cats):
+    """
+    Map onboarding / UI category names to exact dataset category names.
+    Deduplicates and preserves order.  Safe to call on already-normalised lists.
+    """
+    if not cats:
+        return []
+    seen = set()
+    normalized = []
+    for cat in cats:
+        mapped = CATEGORY_NAME_MAP.get(cat, cat)
+        if mapped not in seen:
+            seen.add(mapped)
+            normalized.append(mapped)
+    return normalized
+
+
 # ── Category SVG Icons — single-line (critical: no newlines!) ─────────────────
 _SVG_ELECTRONICS = '<svg xmlns="http://www.w3.org/2000/svg" width="36" height="36" fill="none" viewBox="0 0 24 24" stroke="white" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>'
 
@@ -65,11 +108,18 @@ CATEGORY_MAP = {
     },
 }
 
-SENTIMENT_STYLES = {
+_SENTIMENT_LIGHT = {
     "Positive": {"bg": "#DCFCE7", "color": "#16A34A"},
     "Mixed":    {"bg": "#FEF9C3", "color": "#CA8A04"},
     "Critical": {"bg": "#FEE2E2", "color": "#DC2626"},
     "Negative": {"bg": "#FEE2E2", "color": "#DC2626"},
+}
+
+_SENTIMENT_DARK = {
+    "Positive": {"bg": "#064e3b", "color": "#6ee7b7"},
+    "Mixed":    {"bg": "#78350f", "color": "#fcd34d"},
+    "Critical": {"bg": "#7f1d1d", "color": "#fca5a5"},
+    "Negative": {"bg": "#7f1d1d", "color": "#fca5a5"},
 }
 
 EXPLANATIONS = [
@@ -89,13 +139,53 @@ def get_category_info(category: str) -> dict:
 
 
 def get_sentiment_style(label: str) -> dict:
-    return SENTIMENT_STYLES.get(label, {"bg": "#F3F4F6", "color": "#6B7280"})
+    import streamlit as st
+    theme = st.session_state.get("theme", "light")
+    styles = _SENTIMENT_DARK if theme == "dark" else _SENTIMENT_LIGHT
+    fallback = {"bg": "#1e1e35", "color": "#6b7280"} if theme == "dark" else {"bg": "#F3F4F6", "color": "#6B7280"}
+    return styles.get(label, fallback)
 
 
 def get_match_score(prod: dict, idx: int = 0) -> int:
     base = int(prod.get('rating', 3.5) * 17)
     jitter = abs(hash(prod.get('asin', str(idx)))) % 9
     return min(98, max(62, base + jitter - idx))
+
+
+def get_product_price(product: dict) -> str:
+    """
+    Safely extract and format a product price, trying multiple field names
+    that Amazon metadata uses. Returns 'Price not listed' instead of '$0.00'
+    when no valid price is found.
+    """
+    for field in ['price', 'Price', 'list_price', 'sale_price', 'buybox_price']:
+        val = product.get(field)
+        if val and val not in [0, '0', 0.0, '', None]:
+            try:
+                price_float = float(
+                    str(val).replace('$', '').replace(',', '').strip()
+                )
+                if price_float > 0:
+                    return f"${price_float:,.2f}"
+            except (ValueError, TypeError):
+                pass
+
+    # Check nested details dict (some Amazon export formats)
+    details = product.get('details', {})
+    if isinstance(details, dict):
+        for field in ['price', 'Price', 'list_price']:
+            val = details.get(field)
+            if val:
+                try:
+                    price_float = float(
+                        str(val).replace('$', '').replace(',', '').strip()
+                    )
+                    if price_float > 0:
+                        return f"${price_float:,.2f}"
+                except (ValueError, TypeError):
+                    return str(val)  # Return raw string if it can't be parsed
+
+    return "Price not listed"
 
 
 def get_stars(rating: float) -> str:
@@ -112,7 +202,7 @@ def render_product_card_html(prod: dict, idx: int = 0, show_match: bool = True) 
     """
     import streamlit as st
     from utils.theme import get_palette
-    _theme = st.session_state.get('theme', 'dark')
+    _theme = st.session_state.get('theme', 'light')
     _p = get_palette(_theme)
     card_bg   = _p['card_bg']
     text_col  = _p['text_primary']
@@ -125,7 +215,7 @@ def render_product_card_html(prod: dict, idx: int = 0, show_match: bool = True) 
     sent             = get_sentiment_style(prod.get('sentiment_label', ''))
     score            = get_match_score(prod, idx)
     title            = prod.get('title', 'Product')
-    price            = float(prod.get('price', 0))
+    price_display    = get_product_price(prod)   # safe multi-field lookup
     rating           = int(prod.get('rating', 0))
     reviews          = int(prod.get('review_count', 0))
     category         = prod.get('category', '')
@@ -156,7 +246,7 @@ def render_product_card_html(prod: dict, idx: int = 0, show_match: bool = True) 
         '</div>'
         f'<div style="padding:14px 16px 12px;background-color:{card_bg};border-radius:0 0 20px 20px">'
         f'<div style="font-size:14px;font-weight:700;color:{text_col};line-height:1.4;height:2.8em;overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;margin-bottom:6px">{title}</div>'
-        f'<div style="font-size:18px;font-weight:700;color:{price_col};margin-bottom:4px">${price:.2f}</div>'
+        f'<div style="font-size:18px;font-weight:700;color:{price_col};margin-bottom:4px">{price_display}</div>'
         f'<div style="font-size:12px;color:#F59E0B;margin-bottom:2px">{stars}<span style="color:{muted_col};font-weight:400;font-size:11px"> ({reviews:,})</span></div>'
         f'{match_html}'
         '</div>'

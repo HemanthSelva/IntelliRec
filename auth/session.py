@@ -1,3 +1,4 @@
+import os
 import streamlit as st
 from database.supabase_client import supabase
 
@@ -46,6 +47,16 @@ def init_session():
     for key, val in defaults.items():
         if key not in st.session_state:
             st.session_state[key] = val
+
+    # Attempt to recover existing Supabase session
+    if not st.session_state.get('logged_in'):
+        try:
+            resp = supabase.auth.get_user()
+            if resp and resp.user:
+                _apply_user_session(resp.user)
+        except Exception:
+            # No valid session — user needs to log in
+            pass
 
 
 # ── Auth operations ───────────────────────────────────────────────────────────
@@ -111,11 +122,13 @@ def login_user(email: str, password: str):
                     st.session_state.full_name = p.get('full_name', 'User')
                     st.session_state.username  = p.get('username', 'user')
                     st.session_state.preferred_categories = p.get('preferred_categories', [])
+                    st.session_state["pref_cats"] = p.get('preferred_categories', [])
                     st.session_state.current_user = {
                         'username':     p.get('username', ''),
                         'name':         p.get('full_name', ''),
                         'email':        response.user.email,
-                        'member_since': str(p.get('created_at', ''))[:10]
+                        'member_since': str(p.get('created_at', ''))[:10],
+                        'preferred_categories': p.get('preferred_categories', []),
                     }
                 else:
                     full_name = response.user.user_metadata.get('full_name', 'User')
@@ -162,10 +175,12 @@ def login_user(email: str, password: str):
 
 def login_with_google():
     try:
+        from config import STREAMLIT_URL
+        redirect_url = STREAMLIT_URL or "http://localhost:8501"
         response = supabase.auth.sign_in_with_oauth({
             "provider": "google",
             "options": {
-                "redirect_to": "http://localhost:8501"
+                "redirect_to": redirect_url
             }
         })
         if response.url:
@@ -190,41 +205,109 @@ def resend_verification_email(email: str):
 def logout_user():
     try:
         supabase.auth.sign_out()
-    except Exception:
-        pass
-    for key in ['user', 'logged_in', 'user_id', 'username', 'full_name',
-                'user_email', 'current_user', 'show_signup', 'onboarding_done']:
+    except Exception as e:
+        print(f"Sign out error: {e}")
+
+    # Clear ALL user-related session keys
+    keys_to_clear = [
+        'logged_in', 'user_id', 'user_email', 'user',
+        'full_name', 'username', 'current_user',
+        'preferred_categories', 'pref_cats', 'onboarding_done',
+        'show_signup', 'welcome_sent', 'is_guest',
+        'dark_mode', 'ob_selected_cats', 'ob_style',
+        'guest_wishlist', 'profile_photo_b64',
+        '_confirm_signout', 'show_email_confirmed',
+        'cart', 'notifications', 'selected_engine',
+        'selected_categories', 'oauth_error',
+        'signup_success_email', 'li_resend_email',
+        'current_page'
+    ]
+    for key in keys_to_clear:
         if key in st.session_state:
             del st.session_state[key]
 
 
 # ── Helpers ───────────────────────────────────────────────────────────────────
 
-def _apply_user_session(auth_user):
-    st.session_state.user       = auth_user
+def _apply_user_session(user):
+    if not user:
+        return
     st.session_state.logged_in  = True
-    st.session_state.user_id    = auth_user.id
-    st.session_state.user_email = auth_user.email
+    st.session_state.user_id    = user.id
+    st.session_state.user_email = user.email
+    st.session_state.user       = user
+
     try:
-        profile = supabase.table('profiles').select('*').eq(
-            'id', auth_user.id).execute()
+        profile = supabase.table('profiles').select(
+            '*').eq('id', user.id).execute()
+
         if profile.data:
             p = profile.data[0]
-            st.session_state.full_name = p.get('full_name', '')
-            st.session_state.username  = p.get('username', '')
+            st.session_state.full_name = p.get(
+                'full_name', 'User')
+            st.session_state.username = p.get(
+                'username', 'user')
+            st.session_state.preferred_categories = p.get(
+                'preferred_categories', [])
+            st.session_state["pref_cats"] = p.get(
+                'preferred_categories', [])
             st.session_state.current_user = {
-                'username':     p.get('username', ''),
-                'name':         p.get('full_name', ''),
-                'email':        auth_user.email,
-                'member_since': str(p.get('created_at', ''))[:10]
+                'id': user.id,
+                'name': p.get('full_name', 'User'),
+                'username': p.get('username', 'user'),
+                'email': user.email,
+                'preferred_categories': p.get(
+                    'preferred_categories', []),
+                'member_since': str(
+                    p.get('created_at', ''))[:10]
             }
-    except Exception:
-        st.session_state.full_name = ''
-        st.session_state.username  = ''
-        st.session_state.current_user = {
-            'username': '', 'name': '', 'email': auth_user.email,
-            'member_since': ''
-        }
+        else:
+            # Profile missing — create from metadata
+            meta = user.user_metadata or {}
+            full_name = (
+                meta.get('full_name') or
+                meta.get('name') or
+                user.email.split('@')[0]
+            )
+            username = full_name.lower().replace(' ', '_')
+            st.session_state.full_name = full_name
+            st.session_state.username = username
+            st.session_state.preferred_categories = []
+            st.session_state.current_user = {
+                'id': user.id,
+                'name': full_name,
+                'username': username,
+                'email': user.email,
+                'preferred_categories': [],
+                'member_since': 'Today'
+            }
+            # Try to create profile
+            try:
+                supabase.table('profiles').insert({
+                    'id': user.id,
+                    'full_name': full_name,
+                    'username': username,
+                    'preferred_categories': [],
+                    'avatar_color': '#6C63FF'
+                }).execute()
+                supabase.table(
+                    'user_preferences').insert({
+                    'user_id': user.id,
+                    'preferred_categories': [],
+                    'preferred_engine': 'hybrid'
+                }).execute()
+            except Exception as create_err:
+                print(f"Profile create error: {create_err}")
+    except Exception as fetch_err:
+        print(f"Profile fetch error: {fetch_err}")
+        meta = user.user_metadata or {}
+        st.session_state.full_name = (
+            meta.get('full_name') or
+            user.email.split('@')[0]
+        )
+        st.session_state.username = (
+            st.session_state.full_name.lower().replace(
+                ' ', '_'))
 
 
 def get_current_user():

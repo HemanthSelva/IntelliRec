@@ -22,6 +22,25 @@ data/
 .vscode/
 .idea/
 
-# OS
+# Virtual environment
+.venv/
+venv/
+env/
+
+# Logs
+*.log
+
+# Jupyter checkpoints
+notebooks/.ipynb_checkpoints/
+
+# Temporary files
+req_tmp.txt
+
+# Dev utility scripts
+audit_colors.py
+fix_theme.py
+strip_iframe.py
+
+# OS files
 .DS_Store
 Thumbs.db

@@ -36,8 +36,7 @@ def add_to_wishlist(user_id: str, product_id: str,
             'product_category': product_category
         }).execute()
         return True
-    except Exception as e:
-        st.error(f"Could not add to wishlist: {e}")
+    except Exception:
         return False
 
 
@@ -54,8 +53,7 @@ def remove_from_wishlist(user_id: str, product_id: str) -> bool:
         supabase.table('wishlist').delete().eq(
             'user_id', user_id).eq('product_id', product_id).execute()
         return True
-    except Exception as e:
-        st.error(f"Could not remove from wishlist: {e}")
+    except Exception:
         return False
 
 

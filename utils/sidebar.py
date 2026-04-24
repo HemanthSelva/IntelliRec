@@ -1,7 +1,90 @@
 import streamlit as st
-import base64
 from auth.session import logout_user, load_css
-from utils.notifications import get_unread_count, get_recent, mark_all_read, generate_smart_suggestions
+from utils.notifications import generate_smart_suggestions
+
+
+# ====================================================================
+# SIDEBAR TOGGLE HELPERS
+# ====================================================================
+
+def apply_sidebar_visibility(is_collapsed: bool):
+    if is_collapsed:
+        st.markdown("""
+<style>
+section[data-testid="stSidebar"],
+[data-testid="stSidebar"] {
+    display: block !important;
+    visibility: visible !important;
+    opacity: 1 !important;
+    width: 0px !important;
+    min-width: 0px !important;
+    max-width: 0px !important;
+    overflow: hidden !important;
+    transform: none !important;
+    transition: none !important;
+}
+section[data-testid="stSidebar"] > div,
+[data-testid="stSidebar"] > div {
+    width: 0px !important;
+    min-width: 0px !important;
+    overflow: hidden !important;
+}
+[data-testid="stMain"],
+[data-testid="stAppViewContainer"] > section:last-child {
+    margin-left: 0 !important;
+    padding-left: 1rem !important;
+    max-width: 100% !important;
+    width: 100% !important;
+    transition: none !important;
+}
+</style>
+""", unsafe_allow_html=True)
+    else:
+        st.markdown("""
+<style>
+section[data-testid="stSidebar"],
+[data-testid="stSidebar"] {
+    display: block !important;
+    visibility: visible !important;
+    opacity: 1 !important;
+    width: 240px !important;
+    min-width: 240px !important;
+    max-width: 340px !important;
+    transform: none !important;
+    transition: none !important;
+    overflow: visible !important;
+    position: relative !important;
+    flex-shrink: 0 !important;
+}
+section[data-testid="stSidebar"] > div,
+[data-testid="stSidebar"] > div {
+    display: block !important;
+    visibility: visible !important;
+    opacity: 1 !important;
+    width: 240px !important;
+    min-width: 240px !important;
+    transform: none !important;
+    overflow-x: hidden !important;
+    overflow-y: auto !important;
+}
+</style>
+""", unsafe_allow_html=True)
+
+
+def render_sidebar_toggle():
+    """
+    Renders the hamburger/arrow toggle button.
+    Styling handled entirely by inject_global_css() in theme.py
+    using data-testid which Streamlit actually renders as a real
+    HTML attribute. key= is never in the DOM so was never matchable.
+    """
+    is_collapsed = st.session_state.get('sidebar_collapsed', False)
+    icon  = "\u2630" if not is_collapsed else "\u25b6"
+    title = "Hide sidebar" if not is_collapsed else "Show sidebar"
+    if st.button(icon, key="btn_sidebar_toggle", help=title):
+        st.session_state['sidebar_collapsed'] = not is_collapsed
+        st.rerun()
+
 
 # ── Inline SVG icons for navigation ──────────────────────────────────────────
 _ICON_HOME = """<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="none"
@@ -42,24 +125,27 @@ _ICON_ABOUT = """<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" 
   <line x1="12" y1="16" x2="12" y2="12"/>
   <line x1="12" y1="8" x2="12.01" y2="8"/></svg>"""
 
+_ICON_CHAT = """<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="none"
+  viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+  <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>"""
+
 _ICON_LOGOUT = """<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="none"
   viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
   <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/>
   <polyline points="16 17 21 12 16 7"/>
   <line x1="21" y1="12" x2="9" y2="12"/></svg>"""
 
-# ── Nav items: (icon_svg, label, page_key, page_path) ─────────────────────────
 NAV_ITEMS = [
-    (_ICON_HOME,      "Home",       "home",       "pages/01_Home.py"),
-    (_ICON_FORYOU,    "For You",    "for_you",    "pages/02_For_You.py"),
-    (_ICON_EXPLORE,   "Explore",    "explore",    "pages/03_Explore.py"),
-    (_ICON_TRENDING,  "Trending",   "trending",   "pages/04_Trending.py"),
-    (_ICON_ANALYTICS, "Analytics",  "analytics",  "pages/05_Analytics.py"),
-    (_ICON_PROFILE,   "My Profile", "my_profile", "pages/06_My_Profile.py"),
-    (_ICON_ABOUT,     "About",      "about",      "pages/07_About.py"),
+    (_ICON_HOME,      "Home",         "home",         "pages/01_Home.py"),
+    (_ICON_FORYOU,    "For You",      "for_you",      "pages/02_For_You.py"),
+    (_ICON_EXPLORE,   "Explore",      "explore",      "pages/03_Explore.py"),
+    (_ICON_TRENDING,  "Trending",     "trending",     "pages/04_Trending.py"),
+    (_ICON_ANALYTICS, "Analytics",   "analytics",    "pages/05_Analytics.py"),
+    (_ICON_CHAT,      "AI Assistant", "ai_assistant", "pages/08_AI_Assistant.py"),
+    (_ICON_PROFILE,   "My Profile",   "my_profile",   "pages/06_My_Profile.py"),
+    (_ICON_ABOUT,     "About",        "about",        "pages/07_About.py"),
 ]
 
-# ── Animated IntelliRec logo SVG ──────────────────────────────────────────────
 _LOGO_SVG = """
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 44 44" width="44" height="44">
   <defs>
@@ -93,7 +179,6 @@ _LOGO_SVG = """
 
 
 def _get_avatar_html(initials: str, size: int = 36) -> str:
-    """Return avatar HTML: photo if uploaded, else gradient initials."""
     photo_b64 = st.session_state.get("profile_photo_b64")
     if photo_b64:
         return (
@@ -110,13 +195,74 @@ def _get_avatar_html(initials: str, size: int = 36) -> str:
     )
 
 
-def render_sidebar(current_page: str = "home"):
+def render_sidebar(current_page: str = "home", hide_ai_fab: bool = False):
     load_css()
     generate_smart_suggestions()
 
     from utils.theme import get_palette
-    _theme = st.session_state.get("theme", "dark")
+    _theme = st.session_state.get("theme", "light")
     _p = get_palette(_theme)
+
+    # Per-theme sidebar CSS — belt-and-suspenders over inject_global_css()
+    if _theme == "dark":
+        _sb_bg      = "#0d0d1f"
+        _sb_text    = "#f0efff"
+        _btn_bg     = "rgba(255,255,255,0.06)"
+        _btn_border = "rgba(255,255,255,0.1)"
+    else:
+        _sb_bg      = "#f0f2f8"
+        _sb_text    = "#0f0f1a"
+        _btn_bg     = "rgba(255,255,255,0.55)"
+        _btn_border = "rgba(99,102,241,0.18)"
+
+    st.markdown(f"""
+<style>
+section[data-testid="stSidebar"],
+section[data-testid="stSidebar"] > div,
+[data-testid="stSidebarContent"],
+[data-testid="stSidebarUserContent"] {{
+    background-color: {_sb_bg} !important;
+    background: {_sb_bg} !important;
+}}
+section[data-testid="stSidebar"] p,
+section[data-testid="stSidebar"] span,
+section[data-testid="stSidebar"] label,
+section[data-testid="stSidebar"] h1,
+section[data-testid="stSidebar"] h2,
+section[data-testid="stSidebar"] h3 {{
+    color: {_sb_text} !important;
+}}
+section[data-testid="stSidebar"] .stButton > button {{
+    background-color: {_btn_bg} !important;
+    background: {_btn_bg} !important;
+    color: {_sb_text} !important;
+    border: 1px solid {_btn_border} !important;
+}}
+section[data-testid="stSidebar"] .stButton > button p,
+section[data-testid="stSidebar"] .stButton > button span {{
+    color: {_sb_text} !important;
+}}
+section[data-testid="stSidebar"] .stButton > button:hover {{
+    background-color: rgba(99,102,241,0.15) !important;
+    border-color: rgba(99,102,241,0.4) !important;
+    color: #6366f1 !important;
+}}
+section[data-testid="stSidebar"] .stButton > button:hover p,
+section[data-testid="stSidebar"] .stButton > button:hover span {{
+    color: #6366f1 !important;
+}}
+section[data-testid="stSidebar"] .stButton > button[kind="primary"] {{
+    background: linear-gradient(135deg, #6366f1, #8b5cf6) !important;
+    color: #ffffff !important;
+    border: none !important;
+    box-shadow: 0 3px 12px rgba(99,102,241,0.35) !important;
+}}
+section[data-testid="stSidebar"] .stButton > button[kind="primary"] p,
+section[data-testid="stSidebar"] .stButton > button[kind="primary"] span {{
+    color: #ffffff !important;
+}}
+</style>
+""", unsafe_allow_html=True)
 
     full_name  = (st.session_state.get("full_name") or "Guest User").strip() or "Guest User"
     email      = st.session_state.get("user_email") or ""
@@ -125,8 +271,6 @@ def render_sidebar(current_page: str = "home"):
     is_guest   = st.session_state.get("user_id") == "guest"
 
     with st.sidebar:
-        # Sidebar visual styling lives in utils/theme.py (glass system).
-        # ── TOP: Logo ─────────────────────────────────────────────────────────
         st.markdown(f"""
 <div style="display:flex;align-items:center;gap:10px;padding:16px 16px 12px;">
   {_LOGO_SVG}
@@ -136,12 +280,11 @@ def render_sidebar(current_page: str = "home"):
                 background-size:200%;
                 -webkit-background-clip:text;-webkit-text-fill-color:transparent;
                 letter-spacing:-0.4px;line-height:1.1;">IntelliRec</div>
-    <div style="font-size:10px;color:#9CA3AF;font-weight:600;letter-spacing:0.8px;
+    <div style="font-size:10px;color:{_p['text_muted']};font-weight:600;letter-spacing:0.8px;
                 text-transform:uppercase;margin-top:1px;">AI Platform</div>
   </div>
 </div>""", unsafe_allow_html=True)
 
-        # ── USER PROFILE CARD ─────────────────────────────────────────────────
         user_tag = "Guest" if is_guest else "Pro"
         tag_color = "#F59E0B" if is_guest else "#10B981"
         st.markdown(f"""
@@ -171,7 +314,6 @@ def render_sidebar(current_page: str = "home"):
 
         st.markdown('<div style="height:2px"></div>', unsafe_allow_html=True)
 
-        # ── NAVIGATION ────────────────────────────────────────────────────────
         st.markdown('<div style="padding:0 8px;">', unsafe_allow_html=True)
         st.markdown(
             f'<div style="font-size:10px;font-weight:600;color:{_p["text_muted"]};'
@@ -182,8 +324,6 @@ def render_sidebar(current_page: str = "home"):
 
         for icon_svg, label, page_key, page_path in NAV_ITEMS:
             is_active = (current_page == page_key)
-            
-            # Use columns for both to maintain alignment
             col_icon, col_btn = st.columns([0.15, 0.85])
             with col_icon:
                 color = "var(--nav-active-color)" if is_active else "var(--nav-color)"
@@ -196,33 +336,169 @@ def render_sidebar(current_page: str = "home"):
 
         st.markdown("</div>", unsafe_allow_html=True)
 
-        # ── SPACER ────────────────────────────────────────────────────────────
         st.markdown('<div style="flex:1;min-height:20px;"></div>', unsafe_allow_html=True)
         st.markdown('<hr>', unsafe_allow_html=True)
 
-        # ── BOTTOM: Theme + Sign Out ──────────────────────────────────────────
         st.markdown('<div style="padding:0 8px 6px;">', unsafe_allow_html=True)
 
-        # Theme toggle — styled pill
         from utils.theme import inject_theme_toggle
         inject_theme_toggle()
 
         st.markdown('<div style="height:6px;"></div>', unsafe_allow_html=True)
 
-        # Sign out — red glass styling lives in utils/theme.py (keyed selector)
-        st.markdown('<div class="ir-signout-wrapper">', unsafe_allow_html=True)
-        if st.button("↓ Sign Out", key="btn_sign_out",
-                     use_container_width=True, type="secondary"):
-            logout_user()
-            st.toast("Signed out successfully!", icon="✓")
-            st.rerun()
-        st.markdown("</div>", unsafe_allow_html=True)
+        if st.session_state.get("_confirm_signout"):
+            st.markdown(
+                f'<p style="font-size:12px;font-weight:600;color:{_p["text_primary"]};'
+                f'text-align:center;margin:4px 0 8px;padding:0 4px;">'
+                f'Are you sure you want to exit?</p>',
+                unsafe_allow_html=True,
+            )
+            col_yes, col_no = st.columns(2)
+            with col_yes:
+                if st.button("Yes, Exit", key="confirm_signout_yes",
+                             use_container_width=True, type="primary"):
+                    st.session_state["_confirm_signout"] = False
+                    logout_user()
+                    st.toast("Signed out successfully!", icon="✅")
+                    st.rerun()
+            with col_no:
+                if st.button("Cancel", key="confirm_signout_no",
+                             use_container_width=True, type="secondary"):
+                    st.session_state["_confirm_signout"] = False
+                    st.rerun()
+        else:
+            _ICON_LOGOUT_LARGE = (
+                '<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="none"'
+                ' viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"'
+                ' stroke-linecap="round" stroke-linejoin="round">'
+                '<path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/>'
+                '<polyline points="16 17 21 12 16 7"/>'
+                '<line x1="21" y1="12" x2="9" y2="12"/>'
+                '</svg>'
+            )
+            with st.container():
+                st.markdown('<div class="signout-container">', unsafe_allow_html=True)
+                st.markdown(
+                    f'<div style="display:flex;justify-content:center;margin-bottom:4px;'
+                    f'color:{_p["text_secondary"]};">{_ICON_LOGOUT_LARGE}</div>',
+                    unsafe_allow_html=True,
+                )
+                if st.button("Sign Out", key="sign_out_clean", use_container_width=True):
+                    st.session_state["_confirm_signout"] = True
+                    st.rerun()
+                st.markdown('</div>', unsafe_allow_html=True)
 
         st.markdown("</div>", unsafe_allow_html=True)
 
-        # ── Powered by tag ────────────────────────────────────────────────────────
         st.markdown(f"""
 <div style="text-align:center;padding:6px 0 10px;
             font-size:10px;color:{_p['text_muted']};letter-spacing:0.3px;">
   Powered by AI &middot; IntelliRec v2.0
 </div>""", unsafe_allow_html=True)
+
+    apply_sidebar_visibility(st.session_state.get('sidebar_collapsed', False))
+
+    if not hide_ai_fab and current_page != "ai_assistant":
+        _is_light = st.session_state.get('theme', 'light') == 'light'
+
+        # Theme-aware FAB — light mode uses deeper purple + heavier shadow
+        if _is_light:
+            fab_bg       = 'linear-gradient(135deg, #4338ca, #7c3aed)'
+            fab_shadow   = '0 8px 32px rgba(67,56,202,0.55), 0 3px 10px rgba(0,0,0,0.18)'
+            fab_border   = '2.5px solid rgba(67, 56, 202, 0.4)'
+            fab_hover_bg = 'linear-gradient(135deg, #3730a3, #6d28d9)'
+            fab_hover_sh = '0 12px 40px rgba(67,56,202,0.7), 0 4px 14px rgba(0,0,0,0.2)'
+            fab_glow_mid = '0 10px 36px rgba(67,56,202,0.65), 0 3px 10px rgba(0,0,0,0.18), 0 0 22px rgba(99,102,241,0.4)'
+        else:
+            fab_bg       = 'linear-gradient(135deg, #6366f1, #8b5cf6)'
+            fab_shadow   = '0 6px 20px rgba(99,102,241,0.45)'
+            fab_border   = '2px solid rgba(255, 255, 255, 0.2)'
+            fab_hover_bg = 'linear-gradient(135deg, #4f46e5, #7c3aed)'
+            fab_hover_sh = '0 8px 30px rgba(99,102,241,0.7)'
+            fab_glow_mid = '0 8px 24px rgba(99,102,241,0.6), 0 0 18px rgba(99,102,241,0.35)'
+
+        st.markdown(f"""
+<style>
+/* ── AI ASSISTANT FAB — Fixed bottom-right pill ──────── */
+/* Uses .st-key-ai_fab (keyed container class) for reliable targeting */
+
+.st-key-ai_fab {{
+    position: fixed !important;
+    bottom: 24px !important;
+    right: 24px !important;
+    z-index: 9999 !important;
+    width: auto !important;
+    background: transparent !important;
+    border: none !important;
+    padding: 0 !important;
+    margin: 0 !important;
+}}
+
+/* Target every possible child: a, div, span, p, button */
+.st-key-ai_fab a,
+.st-key-ai_fab [data-testid="stPageLink"] > a,
+.st-key-ai_fab [data-testid="stPageLink-nav"] > a {{
+    display: flex !important;
+    flex-direction: row !important;
+    align-items: center !important;
+    gap: 8px !important;
+    background: {fab_bg} !important;
+    color: white !important;
+    padding: 12px 22px !important;
+    border-radius: 100px !important;
+    font-weight: 700 !important;
+    font-size: 14px !important;
+    box-shadow: {fab_shadow} !important;
+    text-decoration: none !important;
+    transition: transform 0.25s ease, box-shadow 0.25s ease !important;
+    border: {fab_border} !important;
+    letter-spacing: 0.3px !important;
+}}
+
+/* Float + glow animation */
+@keyframes fab-float-glow {{
+    0%   {{ transform: translateY(0px);  box-shadow: {fab_shadow}; }}
+    50%  {{ transform: translateY(-5px); box-shadow: {fab_glow_mid}; }}
+    100% {{ transform: translateY(0px);  box-shadow: {fab_shadow}; }}
+}}
+.st-key-ai_fab a,
+.st-key-ai_fab [data-testid="stPageLink"] > a,
+.st-key-ai_fab [data-testid="stPageLink-nav"] > a {{
+    animation: fab-float-glow 3s ease-in-out infinite !important;
+}}
+
+/* Hover */
+.st-key-ai_fab a:hover,
+.st-key-ai_fab [data-testid="stPageLink"] > a:hover,
+.st-key-ai_fab [data-testid="stPageLink-nav"] > a:hover {{
+    background: {fab_hover_bg} !important;
+    transform: translateY(-3px) scale(1.06) !important;
+    box-shadow: {fab_hover_sh} !important;
+    animation: none !important;
+}}
+
+/* Text inside — always white, no underline */
+.st-key-ai_fab a p,
+.st-key-ai_fab a span,
+.st-key-ai_fab [data-testid="stPageLink"] a p,
+.st-key-ai_fab [data-testid="stPageLink"] a span {{
+    text-decoration: none !important;
+    color: white !important;
+    margin: 0 !important;
+    font-weight: 700 !important;
+}}
+
+/* Also hide the outer wrapper's own background if Streamlit adds one */
+.st-key-ai_fab > div,
+.st-key-ai_fab [data-testid="stPageLink"] {{
+    background: transparent !important;
+    border: none !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    width: auto !important;
+}}
+</style>
+""", unsafe_allow_html=True)
+
+        with st.container(key="ai_fab"):
+            st.page_link("pages/08_AI_Assistant.py", label="AI Assistant", icon="✨")

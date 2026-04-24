@@ -41,11 +41,13 @@ def _build_topbar_css(card_bg: str, border: str, shadow: str) -> str:
 def render_topbar(page_title: str = "", subtitle: str = ""):
     """
     Renders the shared top bar for every page.
+    Far-left: sidebar toggle button (☰/▶)
     Left: page title + subtitle
     Right: 4 items — Wishlist · Bell · Cart · Avatar
     """
     from utils.theme import get_palette
-    _theme = st.session_state.get("theme", "dark")
+    from utils.sidebar import render_sidebar_toggle
+    _theme = st.session_state.get("theme", "light")
     _p = get_palette(_theme)
 
     st.markdown(_build_topbar_css(
@@ -59,7 +61,11 @@ def render_topbar(page_title: str = "", subtitle: str = ""):
     initials       = "".join([w[0] for w in words[:2]]).upper() or "GU"
     unread         = get_unread_count()
 
-    left_col, right_col = st.columns([4, 3])
+    # ── Top row: toggle | title | action icons ────────────────────────────────
+    toggle_col, left_col, right_col = st.columns([0.4, 3.6, 3])
+
+    with toggle_col:
+        render_sidebar_toggle()
 
     with left_col:
         st.markdown(f"""
@@ -71,6 +77,7 @@ def render_topbar(page_title: str = "", subtitle: str = ""):
 </div>""", unsafe_allow_html=True)
 
     with right_col:
+        st.markdown('<div class="topbar-clean">', unsafe_allow_html=True)
         _hc1, _hc2, _hc3, _hc4 = st.columns([1, 1, 1, 1])
         with _hc1:
             if st.button("♡", key="topbar_wl_btn", type="secondary",
@@ -91,6 +98,7 @@ def render_topbar(page_title: str = "", subtitle: str = ""):
                          use_container_width=True):
                 st.session_state['current_page'] = 'My Profile'
                 st.switch_page("pages/06_My_Profile.py")
+        st.markdown('</div>', unsafe_allow_html=True)
 
     if st.session_state.get("show_topbar_notif", False):
         _render_notif_dropdown(unread)
@@ -106,7 +114,7 @@ def render_topbar(page_title: str = "", subtitle: str = ""):
 
 def _render_cart_dropdown():
     """Cart panel with item list and clear/close buttons."""
-    theme = st.session_state.get('theme', 'dark')
+    theme = st.session_state.get('theme', 'light')
 
     panel_bg      = '#ffffff'  if theme == 'light' else '#1e1e35'
     panel_text    = '#0f0f1a'  if theme == 'light' else '#f1f5f9'
@@ -132,6 +140,8 @@ def _render_cart_dropdown():
         margin-top: 8px;
         margin-bottom: 12px;
         overflow: hidden;
+        position: relative;
+        z-index: 100;
     ">
         <div style="display:flex; justify-content:space-between;
                     align-items:center; margin-bottom:16px; padding: 0 24px;">
@@ -209,7 +219,7 @@ def _render_notif_dropdown(unread: int):
     from utils.notifications import time_ago, get_recent, mark_all_read
     recent = get_recent(6)
 
-    theme = st.session_state.get('theme', 'dark')
+    theme = st.session_state.get('theme', 'light')
 
     panel_bg      = '#ffffff'  if theme == 'light' else '#1e1e35'
     panel_text    = '#0f0f1a'  if theme == 'light' else '#f1f5f9'
