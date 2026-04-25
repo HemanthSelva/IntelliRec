@@ -36,14 +36,17 @@ st.set_page_config(
 _token_hash = st.query_params.get('token_hash')
 _type       = st.query_params.get('type')
 _code       = st.query_params.get('code')
+_reset      = st.query_params.get('reset')
 
-if _token_hash and _type:
-    if _type == 'recovery':
-        # Password reset flow — store token and show update form; do NOT verify yet
-        st.session_state['show_password_update'] = True
-        st.session_state['_recovery_token_hash'] = _token_hash
-        st.query_params.clear()
-    else:
+if _reset == '1' or _type == 'recovery':
+    st.session_state['show_password_update'] = True
+
+if _token_hash and _type == 'recovery':
+    # Password reset flow (Implicit) — store token and show update form; do NOT verify yet
+    st.session_state['_recovery_token_hash'] = _token_hash
+    st.query_params.clear()
+
+elif _token_hash and _type:
         try:
             supabase.auth.verify_otp({'token_hash': _token_hash, 'type': _type})
             st.query_params.clear()
@@ -142,6 +145,11 @@ if not st.session_state.get('welcome_sent'):
                      'Your AI-powered recommendations are ready.')
     st.session_state['welcome_sent'] = True
 
+# ── Password Reset Intercept (If logged in via PKCE code but needs new pw) ────
+if st.session_state.get('show_password_update'):
+    from auth.login import render_login
+    render_login()
+    st.stop()
 
 # ── Redirect authenticated users to Home ─────────────────────────────────────
 st.switch_page("pages/01_Home.py")
