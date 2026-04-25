@@ -54,6 +54,12 @@ def ensure_models_exist():
     """
     Check for missing model files and auto-download from HuggingFace Hub.
     This enables Streamlit Cloud deployment without bundling large files.
+
+    IMPORTANT: This function must NOT call any Streamlit UI functions (st.info,
+    st.progress, st.error, st.success) because it is called at module import time,
+    before any Streamlit page context exists. Doing so raises an exception that
+    prevents 'MODELS_READY' from being defined, causing ImportError in all pages.
+    Uses print() for logging instead.
     """
     os.makedirs(MODEL_DIR, exist_ok=True)
 
@@ -65,26 +71,28 @@ def ensure_models_exist():
     if not missing:
         return True
 
-    # Show download progress in Streamlit
-    st.info(f"⬇️ Downloading {len(missing)} model files… This only happens once.")
-    progress = st.progress(0)
+    print(f"[IntelliRec] Downloading {len(missing)} model files from HuggingFace…")
 
     for i, filename in enumerate(missing):
         filepath = os.path.join(MODEL_DIR, filename)
         url = f"{HF_BASE}/{filename}"
         try:
             urllib.request.urlretrieve(url, filepath)
-            progress.progress((i + 1) / len(missing))
+            print(f"[IntelliRec] Downloaded ({i+1}/{len(missing)}): {filename}")
         except Exception as e:
-            st.error(f"Failed to download {filename}: {e}")
+            print(f"[IntelliRec] Failed to download {filename}: {e}")
             return False
 
-    st.success("✅ Models downloaded successfully!")
+    print("[IntelliRec] All model files downloaded successfully!")
     return True
 
 
-# Attempt auto-download before checking readiness
-ensure_models_exist()
+# Attempt auto-download before checking readiness.
+# Wrapped in try/except so that ANY failure still allows MODELS_READY to be set.
+try:
+    ensure_models_exist()
+except Exception as _ensure_exc:
+    print(f"[IntelliRec] ensure_models_exist() raised: {_ensure_exc}")
 
 MODELS_READY: bool = all(
     os.path.exists(os.path.join(MODEL_DIR, f)) for f in _REQUIRED
