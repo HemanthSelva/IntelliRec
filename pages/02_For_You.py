@@ -152,78 +152,86 @@ if _sim_pid and not MODELS_READY:
 if _sim_pid and MODELS_READY:
     # Look up the source product name
     _products_df = get_products_df()
-    _src_rows = _products_df[_products_df['product_id'] == _sim_pid]
-    _src_name = str(_src_rows.iloc[0].get('title', 'Selected Product'))[:60] if not _src_rows.empty else _sim_pid
-
-    st.markdown(f"""
-    <div style="background:linear-gradient(135deg,{p['accent_soft']},{p['glass_bg']});
-                border:1px solid {p['accent']}20;border-radius:16px;
-                padding:18px 24px;margin-bottom:20px;
-                display:flex;align-items:center;justify-content:space-between;gap:12px;">
-        <div>
-            <span style="font-size:15px;font-weight:700;color:{p['text_primary']}">
-                🔍 Similar to: {_src_name}
-            </span><br/>
-            <span style="font-size:12px;color:{p['text_secondary']}">
-                Products found via TF-IDF cosine similarity
-            </span>
-        </div>
-    </div>
-    """, unsafe_allow_html=True)
-
-    # Clear button — sets a flag then reruns (reliable two-step pattern for Streamlit)
-    if st.button("✕ Clear & show regular recommendations", key="btn_clear_similar_v2", type="secondary"):
-        st.session_state['_clear_similar_requested'] = True
-        st.rerun()
-
-    with st.spinner("Finding similar products…"):
-        _sim_results = get_similar_products(_sim_pid, n=12)
-
-    if _sim_results:
-        st.markdown(f"<p style='font-size:13px;color:{p['text_secondary']};margin-bottom:16px'>"
-                    f"Showing {len(_sim_results)} similar products</p>",
-                    unsafe_allow_html=True)
-        _sim_cols = st.columns(4)
-        for _si, _sr in enumerate(_sim_results):
-            with _sim_cols[_si % 4]:
-                st.markdown(render_product_card_html(_sr, _si), unsafe_allow_html=True)
-
-                # Save button
-                _sr_pid = _sr['product_id']
-                _sr_in_wish = _sr_pid in st.session_state.get('wishlist_ids', set())
-                _sr_label = "✓ Saved" if _sr_in_wish else "+ Save"
-                bc1, bc2 = st.columns([1, 1])
-                with bc1:
-                    if st.button(_sr_label, key=f"sim_save_{_sr_pid}_{_si}", type="secondary", use_container_width=True):
-                        if not isinstance(st.session_state.get('wishlist_ids'), set):
-                            st.session_state['wishlist_ids'] = set()
-                        try:
-                            if _sr_in_wish:
-                                remove_from_wishlist(user_id, _sr_pid)
-                                st.session_state['wishlist_ids'].discard(_sr_pid)
-                                st.toast("Removed from wishlist", icon="✅")
-                            else:
-                                success = add_to_wishlist(user_id, _sr_pid,
-                                    _sr.get('title', ''), _sr.get('price', 0), _sr.get('category', ''))
-                                if success:
-                                    st.session_state['wishlist_ids'].add(_sr_pid)
-                                    _cat = _sr.get('category', '')
-                                    if _cat:
-                                        st.session_state.setdefault('saved_cats', []).append(_cat)
-                                    st.toast("✅ Saved to wishlist!", icon="💾")
-                                else:
-                                    st.toast("Could not save", icon="❌")
-                            st.rerun()
-                        except Exception as _e:
-                            st.toast(f"Error: {_e}", icon="❌")
-                with bc2:
-                    if st.button("Similar", key=f"sim_sim_{_sr_pid}_{_si}", type="secondary", use_container_width=True):
-                        st.session_state['similar_product'] = _sr_pid
-                        st.rerun()
+    # Guard: if models failed to load (e.g. pickle/StringDtype mismatch),
+    # products_df may be empty or missing expected columns — clear & skip.
+    if _products_df is None or _products_df.empty or 'product_id' not in _products_df.columns:
+        st.info("Model data unavailable — showing standard recommendations instead.")
+        st.session_state.pop('similar_product', None)
+        _sim_pid = None
     else:
-        st.info("No similar products found for this item.")
+        _src_rows = _products_df[_products_df['product_id'] == _sim_pid]
+        _src_name = str(_src_rows.iloc[0].get('title', 'Selected Product'))[:60] if not _src_rows.empty else _sim_pid
 
-    st.markdown("---")
+        st.markdown(f"""
+        <div style="background:linear-gradient(135deg,{p['accent_soft']},{p['glass_bg']});
+                    border:1px solid {p['accent']}20;border-radius:16px;
+                    padding:18px 24px;margin-bottom:20px;
+                    display:flex;align-items:center;justify-content:space-between;gap:12px;">
+            <div>
+                <span style="font-size:15px;font-weight:700;color:{p['text_primary']}">
+                    🔍 Similar to: {_src_name}
+                </span><br/>
+                <span style="font-size:12px;color:{p['text_secondary']}">
+                    Products found via TF-IDF cosine similarity
+                </span>
+            </div>
+        </div>
+        """, unsafe_allow_html=True)
+
+        # Clear button — sets a flag then reruns (reliable two-step pattern for Streamlit)
+        if st.button("✕ Clear & show regular recommendations", key="btn_clear_similar_v2", type="secondary"):
+            st.session_state['_clear_similar_requested'] = True
+            st.rerun()
+
+        with st.spinner("Finding similar products…"):
+            _sim_results = get_similar_products(_sim_pid, n=12)
+
+        if _sim_results:
+            st.markdown(f"<p style='font-size:13px;color:{p['text_secondary']};margin-bottom:16px'>"
+                        f"Showing {len(_sim_results)} similar products</p>",
+                        unsafe_allow_html=True)
+            _sim_cols = st.columns(4)
+            for _si, _sr in enumerate(_sim_results):
+                with _sim_cols[_si % 4]:
+                    st.markdown(render_product_card_html(_sr, _si), unsafe_allow_html=True)
+
+                    # Save button
+                    _sr_pid = _sr['product_id']
+                    _sr_in_wish = _sr_pid in st.session_state.get('wishlist_ids', set())
+                    _sr_label = "✓ Saved" if _sr_in_wish else "+ Save"
+                    bc1, bc2 = st.columns([1, 1])
+                    with bc1:
+                        if st.button(_sr_label, key=f"sim_save_{_sr_pid}_{_si}", type="secondary", use_container_width=True):
+                            if not isinstance(st.session_state.get('wishlist_ids'), set):
+                                st.session_state['wishlist_ids'] = set()
+                            try:
+                                if _sr_in_wish:
+                                    remove_from_wishlist(user_id, _sr_pid)
+                                    st.session_state['wishlist_ids'].discard(_sr_pid)
+                                    st.toast("Removed from wishlist", icon="✅")
+                                else:
+                                    success = add_to_wishlist(user_id, _sr_pid,
+                                        _sr.get('title', ''), _sr.get('price', 0), _sr.get('category', ''))
+                                    if success:
+                                        st.session_state['wishlist_ids'].add(_sr_pid)
+                                        _cat = _sr.get('category', '')
+                                        if _cat:
+                                            st.session_state.setdefault('saved_cats', []).append(_cat)
+                                        st.toast("✅ Saved to wishlist!", icon="💾")
+                                    else:
+                                        st.toast("Could not save", icon="❌")
+                                st.rerun()
+                            except Exception as _e:
+                                st.toast(f"Error: {_e}", icon="❌")
+                    with bc2:
+                        if st.button("Similar", key=f"sim_sim_{_sr_pid}_{_si}", type="secondary", use_container_width=True):
+                            st.session_state['similar_product'] = _sr_pid
+                            st.rerun()
+        else:
+            st.info("No similar products found for this item.")
+
+        st.markdown("---")
+
 
 if 'show_filters' not in st.session_state:
     st.session_state['show_filters'] = False
