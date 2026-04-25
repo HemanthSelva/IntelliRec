@@ -82,14 +82,45 @@ section[data-testid="stSidebar"] .stButton > button {
 
 def render_sidebar_toggle():
     """
-    Renders the hamburger/arrow toggle button.
-    Styling handled entirely by inject_global_css() in theme.py
-    using data-testid which Streamlit actually renders as a real
-    HTML attribute. key= is never in the DOM so was never matchable.
+    Renders a modern panel-collapse toggle button.
+    Uses chevron arrows (\u2039 / \u203a) styled as a flat pill with subtle border.
     """
     is_collapsed = st.session_state.get('sidebar_collapsed', False)
-    icon  = "\u2630" if not is_collapsed else "\u25b6"
-    title = "Hide sidebar" if not is_collapsed else "Show sidebar"
+    # \u2039 = collapse (panel is visible), \u203a = expand (panel is hidden)
+    icon  = "\u2039" if not is_collapsed else "\u203a"
+    title = "Collapse sidebar" if not is_collapsed else "Expand sidebar"
+
+    # Inject toggle button style
+    from utils.theme import get_palette
+    _theme = st.session_state.get('theme', 'light')
+    _p = get_palette(_theme)
+    _glow = "box-shadow:0 0 10px rgba(0,180,255,0.35);" if _theme == 'dark' else ""
+    st.markdown(f"""
+<style>
+div[data-testid="stButton"]:has(button[title="{title}"]) button,
+div[data-testid="stButton"]:has(button[aria-label="{title}"]) button {{
+    width: 32px !important;
+    height: 32px !important;
+    min-height: 32px !important;
+    padding: 0 !important;
+    font-size: 18px !important;
+    font-weight: 400 !important;
+    line-height: 1 !important;
+    border-radius: 8px !important;
+    background: {_p['btn_bg']} !important;
+    color: {_p['accent']} !important;
+    border: 1px solid {_p['btn_border']} !important;
+    {_glow}
+    transition: all 0.2s ease !important;
+}}
+div[data-testid="stButton"]:has(button[title="{title}"]) button:hover {{
+    background: {_p['accent_soft']} !important;
+    border-color: {_p['accent']} !important;
+    transform: scale(1.08) !important;
+}}
+</style>
+""", unsafe_allow_html=True)
+
     if st.button(icon, key="btn_sidebar_toggle", help=title):
         st.session_state['sidebar_collapsed'] = not is_collapsed
         st.rerun()

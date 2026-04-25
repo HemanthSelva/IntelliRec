@@ -277,7 +277,7 @@ def render_product_card_html(prod: dict, idx: int = 0, show_match: bool = True) 
 # If st.dialog is not available in the current context, fall back to a no-op
 # so the import chain never crashes at module load time.
 try:
-    _dialog_decorator = st.dialog("Product Details", width="large")
+    _dialog_decorator = st.dialog("Product Details", width="small")
 except Exception:
     # Fallback: identity decorator (dialog won't open, but nothing crashes)
     def _dialog_decorator(fn):
@@ -285,10 +285,26 @@ except Exception:
 
 @_dialog_decorator
 def _show_product_detail_dialog(product: dict):
-    """Modal product detail view — Flipkart-style."""
+    """Modal product detail view."""
     from utils.theme import get_palette
     _theme = st.session_state.get('theme', 'light')
     _p = get_palette(_theme)
+
+    # Inject dark-mode background into the dialog container
+    if _theme == 'dark':
+        st.markdown(
+            f"""<style>
+            [data-testid="stDialog"] > div > div {{
+                background-color: {_p['card_bg']} !important;
+                color: {_p['text_primary']} !important;
+            }}
+            [data-testid="stDialog"] p, [data-testid="stDialog"] span,
+            [data-testid="stDialog"] label, [data-testid="stDialog"] div {{
+                color: {_p['text_primary']} !important;
+            }}
+            </style>""",
+            unsafe_allow_html=True
+        )
 
     cat   = get_category_info(product.get('category', ''))
     sent  = get_sentiment_style(product.get('sentiment_label', ''))
@@ -390,7 +406,8 @@ def _show_product_detail_dialog(product: dict):
             st.rerun()
     with btn_c2:
         if st.button("Find Similar", key="dlg_sim_btn", type="secondary", use_container_width=True):
-            st.session_state["similar_product"] = {"asin": asin, "title": title, "category": category}
+            st.session_state["similar_product"] = asin  # must be a string product_id
+            st.session_state["similar_product_title"] = title
             st.session_state.pop("view_product", None)
             st.switch_page("pages/02_For_You.py")
     with btn_c3:

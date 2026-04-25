@@ -335,13 +335,23 @@ def render_login():
         # Logo
         st.markdown(_LOGO, unsafe_allow_html=True)
 
-        # Heading
+        # Heading — changes based on current auth state
+        _is_reset = st.session_state.get('show_password_update')
+        _is_forgot = st.session_state.get('show_forgot_password')
+        if _is_reset:
+            _h1 = "Set New Password"
+            _h2 = "Choose a strong password for your account."
+        elif _is_forgot:
+            _h1 = "Reset Password"
+            _h2 = "Enter your email and we'll send a reset link."
+        else:
+            _h1 = "Welcome back"
+            _h2 = "Sign in to your account to continue"
         st.markdown(
-            '<div style="padding:0 clamp(1.5rem,6vw,5rem);margin-bottom:1.8rem">'
-            '<h1 style="font-size:28px;font-weight:700;color:#111827;margin:0 0 5px;'
-            'letter-spacing:-.5px">Welcome back</h1>'
-            '<p style="font-size:15px;color:#6B7280;margin:0">'
-            'Sign in to your account to continue</p></div>',
+            f'<div style="padding:0 clamp(1.5rem,6vw,5rem);margin-bottom:1.8rem">'
+            f'<h1 style="font-size:28px;font-weight:700;color:#111827;margin:0 0 5px;'
+            f'letter-spacing:-.5px">{_h1}</h1>'
+            f'<p style="font-size:15px;color:#6B7280;margin:0">{_h2}</p></div>',
             unsafe_allow_html=True,
         )
 
@@ -350,18 +360,15 @@ def render_login():
 
             # ── Password Update form (from reset-password email link) ──────────
             if st.session_state.get('show_password_update'):
-                st.markdown(
-                    "<h3 style='color:#111827;font-size:22px;font-weight:700;"
-                    "margin:0 0 6px'>Set New Password</h3>"
-                    "<p style='color:#6B7280;font-size:14px;margin:0 0 20px'>"
-                    "Choose a new password for your account.</p>",
-                    unsafe_allow_html=True,
-                )
-                new_pw  = st.text_input("New Password",  type="password", key="new_pw_input")
-                conf_pw = st.text_input("Confirm Password", type="password", key="conf_pw_input")
-                if st.button("Update Password", key="btn_update_pw",
+                new_pw  = st.text_input("New Password",  type="password", key="new_pw_input",
+                                        placeholder="Minimum 6 characters")
+                conf_pw = st.text_input("Confirm Password", type="password", key="conf_pw_input",
+                                        placeholder="Re-enter new password")
+                if st.button("Save New Password", key="btn_update_pw",
                              type="primary", use_container_width=True):
-                    if new_pw != conf_pw:
+                    if not new_pw:
+                        st.markdown(_err("Please enter a new password."), unsafe_allow_html=True)
+                    elif new_pw != conf_pw:
                         st.markdown(_err("Passwords do not match."), unsafe_allow_html=True)
                     elif len(new_pw) < 6:
                         st.markdown(
@@ -372,31 +379,30 @@ def render_login():
                         try:
                             _rth = st.session_state.get('_recovery_token_hash', '')
                             if _rth:
+                                # Establish a Supabase session from the recovery token
                                 supabase.auth.verify_otp(
                                     {'token_hash': _rth, 'type': 'recovery'}
                                 )
                             supabase.auth.update_user({"password": new_pw})
-                            
-                            # Log out so the user is forced to sign in with the new password
+                            # Force re-login with the new password
                             from auth.session import logout_user
                             logout_user()
-                            
                             st.session_state.pop('show_password_update', None)
                             st.session_state.pop('_recovery_token_hash', None)
                             st.session_state['pw_reset_success'] = True
                             st.rerun()
                         except Exception as _ue:
-                            st.markdown(_err(f"Error: {str(_ue)}"), unsafe_allow_html=True)
+                            st.markdown(_err(f"Could not update password: {str(_ue)}"),
+                                        unsafe_allow_html=True)
+                st.markdown("<div style='height:12px'></div>", unsafe_allow_html=True)
+                if st.button("← Back to Sign In", key="btn_cancel_reset_pw",
+                             type="secondary", use_container_width=True):
+                    st.session_state.pop('show_password_update', None)
+                    st.session_state.pop('_recovery_token_hash', None)
+                    st.rerun()
 
             # ── Forgot Password form ───────────────────────────────────────────
             elif st.session_state.get('show_forgot_password'):
-                st.markdown(
-                    "<h3 style='color:#111827;font-size:22px;font-weight:700;"
-                    "margin:0 0 6px'>Reset Password</h3>"
-                    "<p style='color:#6B7280;font-size:14px;margin:0 0 20px'>"
-                    "Enter your email and we'll send you a reset link.</p>",
-                    unsafe_allow_html=True,
-                )
                 reset_email = st.text_input(
                     "Email address", placeholder="you@example.com",
                     key="forgot_pw_email",
