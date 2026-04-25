@@ -352,12 +352,9 @@ if st.session_state['show_filters']:
         num_recs  = st.slider("Results", 5, 20, 12, key="fy_num")
         diversity = st.slider("Diversity (%)", 0, 100, 30, key="fy_diversity")
     with col3:
-        # All possible category names (onboarding UI names + dataset names)
+        # Only the 4 categories that actually exist in the dataset
         _FY_ALL_OPTIONS = [
             "Electronics", "Home & Kitchen", "Clothing & Shoes", "Beauty & Personal Care",
-            "Fashion", "Clothing", "Beauty", "Sports", "Books", "Gaming",
-            "Health", "Fitness", "Toys", "Automotive", "Office",
-            "Pet Supplies", "Garden", "Toys & Games",
         ]
         _fy_raw_default = (
             st.session_state.get("pref_cats") or
@@ -517,18 +514,26 @@ if MODELS_READY:
                 st.markdown('<div class="ir-card-actions">', unsafe_allow_html=True)
                 fc1, fc2, fc3, fc4 = st.columns([1, 1, 2, 2])
                 with fc1:
+                    _FY_DATASET_CATS = ["Electronics", "Home & Kitchen", "Clothing & Shoes", "Beauty & Personal Care"]
                     style_up = "primary" if current_fb == "up" else "secondary"
                     if st.button("▲", key=f"up_{pid}_{i}", help="More like this", type=style_up, use_container_width=True):
                         try:
                             save_feedback(user_id, pid, True)
                             st.session_state[feedback_key] = "up"
-                            # Track liked product + category for recommendation boosting
                             st.session_state.setdefault('liked_pids', set()).add(pid)
                             st.session_state.setdefault('disliked_pids', set()).discard(pid)
                             _cat = rec.get('category', '')
-                            if _cat:
-                                st.session_state.setdefault('liked_cats_feedback', []).append(_cat)
-                            st.toast(f"Got it! We'll show more {_cat or 'similar'} picks.", icon="✅")
+                            if _cat and _cat in _FY_DATASET_CATS:
+                                # Ensure liked category is in the active filter
+                                _active = list(st.session_state.get('fy_cats') or _FY_DATASET_CATS)
+                                if _cat not in _active:
+                                    _active.insert(0, _cat)
+                                    st.session_state['fy_cats'] = _active
+                                # Remove from disliked counter
+                                _dc = st.session_state.get('_disliked_cat_count', {})
+                                _dc.pop(_cat, None)
+                                st.session_state['_disliked_cat_count'] = _dc
+                            st.toast(f"Got it! Showing more {_cat or 'similar'} picks.", icon="✅")
                             st.rerun()
                         except Exception:
                             st.toast("Could not save feedback")
@@ -538,13 +543,26 @@ if MODELS_READY:
                         try:
                             save_feedback(user_id, pid, False)
                             st.session_state[feedback_key] = "down"
-                            # Track disliked product + category for recommendation penalizing
                             st.session_state.setdefault('disliked_pids', set()).add(pid)
                             st.session_state.setdefault('liked_pids', set()).discard(pid)
                             _cat = rec.get('category', '')
-                            if _cat:
-                                st.session_state.setdefault('disliked_cats_feedback', []).append(_cat)
-                            st.toast(f"Got it! We'll show fewer {_cat or 'similar'} picks.", icon="✅")
+                            if _cat and _cat in _FY_DATASET_CATS:
+                                # Count downvotes per category; remove after 2
+                                _dc = st.session_state.get('_disliked_cat_count', {})
+                                _dc[_cat] = _dc.get(_cat, 0) + 1
+                                st.session_state['_disliked_cat_count'] = _dc
+                                if _dc[_cat] >= 2:
+                                    _active = list(st.session_state.get('fy_cats') or _FY_DATASET_CATS)
+                                    if _cat in _active and len(_active) > 1:
+                                        _active.remove(_cat)
+                                        st.session_state['fy_cats'] = _active
+                                        st.toast(f"Hiding {_cat} — showing other categories.", icon="✅")
+                                    else:
+                                        st.toast(f"Got it! Fewer {_cat} picks.", icon="✅")
+                                else:
+                                    st.toast(f"Got it! Fewer {_cat} picks next time.", icon="✅")
+                            else:
+                                st.toast("Got it! Adjusting recommendations.", icon="✅")
                             st.rerun()
                         except Exception:
                             st.toast("Could not save feedback")
