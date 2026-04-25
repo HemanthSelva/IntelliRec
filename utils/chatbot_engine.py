@@ -162,6 +162,9 @@ def parse_query(text: str) -> dict:
     _is_inr = "₹" in text or any(w in text_lower for w in ["rs ", "inr", "rupee", "rupees"])
     _is_usd = "$" in text or any(w in text_lower for w in ["dollar", "dollars", "usd"])
 
+    # Store currency hint for use in response messages
+    result["currency"] = "INR" if _is_inr and not _is_usd else "USD"
+
     budget_patterns = [
         r"(?:under|below|within|less than|max|upto|up to)\s*[₹$]?\s*([\d,]+)",
         r"[₹$]\s*([\d,]+)",
@@ -255,10 +258,23 @@ def get_chatbot_recommendations(parsed: dict, user_id: str, n: int = 8) -> list:
     Call existing recommender functions — ZERO new recommendation logic.
     Applies budget filter AFTER prediction (same pattern as For You page).
     Falls back to sample products when ML models aren't trained yet.
+
+    IMPORTANT: All code here must be wrapped in try/except.
+    This function is called from _handle_recommendation which has minimal
+    error handling. Any unhandled exception will surface as an error response.
     """
-    from utils.model_loader import (
-        MODELS_READY, get_hybrid_recommendations, get_cb_recommendations
-    )
+    try:
+        # Import inside try so any import-chain failure (e.g. helpers.py
+        # @st.dialog crashing) doesn't propagate to the caller.
+        from utils.model_loader import (
+            MODELS_READY, get_hybrid_recommendations, get_cb_recommendations
+        )
+    except Exception as _imp_err:
+        print(f"[Chatbot] model_loader import failed: {_imp_err}")
+        # Fall through to demo mode below using direct JSON loading
+        MODELS_READY = False
+        get_hybrid_recommendations = None
+        get_cb_recommendations = None
 
     cats = parsed.get("categories") or [
         "Electronics", "Home & Kitchen",
@@ -288,7 +304,7 @@ def get_chatbot_recommendations(parsed: dict, user_id: str, n: int = 8) -> list:
         if budget and budget > 0:
             _budget_ok = [p for p in _filtered
                           if float(p.get("price") or 0) <= budget]
-            # Only apply budget filter if it doesn't wipe everything out
+            # Only apply budget filter if it leaves at least 1 result
             if _budget_ok:
                 _filtered = _budget_ok
 
@@ -469,9 +485,13 @@ class ChatbotEngine:
         if not products:
             cats = parsed.get("categories", [])
             budget = parsed.get("budget")
+            currency = parsed.get("currency", "USD")
+            currency_sym = "₹" if currency == "INR" else "$"
+            # Show original INR amount if currency was INR
+            budget_display = budget * 83 if currency == "INR" and budget else budget
             msg = "I couldn't find products matching your request."
             if budget:
-                msg += f" Your budget of **₹{budget:,.0f}** may be too restrictive — try increasing it."
+                msg += f" Your budget of **{currency_sym}{budget_display:,.0f}** may be too restrictive — try increasing it."
             if cats:
                 msg += f" Also check that you have **{', '.join(cats)}** in your category filters."
             msg += "\n\n💡 *Try: 'best laptops under ₹50,000' or 'top beauty products'*"
