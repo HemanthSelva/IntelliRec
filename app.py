@@ -1,6 +1,26 @@
 import sys
 import os
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+
+# NumPy compatibility shim for Streamlit Cloud
+try:
+    import numpy as np
+    # Fix for numpy 1.x models loaded in numpy 2.x environment
+    if not hasattr(np, 'bool'):
+        np.bool = bool
+    if not hasattr(np, 'int'):
+        np.int = int
+    if not hasattr(np, 'float'):
+        np.float = float
+    if not hasattr(np, 'complex'):
+        np.complex = complex
+    if not hasattr(np, 'object'):
+        np.object = object
+    if not hasattr(np, 'str'):
+        np.str = str
+except Exception:
+    pass
+
 import streamlit as st
 from database.supabase_client import supabase
 from auth.session import init_session, is_logged_in

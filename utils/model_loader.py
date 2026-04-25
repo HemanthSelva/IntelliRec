@@ -5,6 +5,22 @@ All saved_models are loaded ONCE via st.cache_resource and shared.
 Sourcesys Technologies Internship Project
 """
 
+# NumPy compatibility shim for pkl files trained on numpy 1.x
+try:
+    import numpy as np
+    if not hasattr(np, 'bool'):
+        np.bool = bool
+    if not hasattr(np, 'int'):
+        np.int = int
+    if not hasattr(np, 'float'):
+        np.float = float
+    if not hasattr(np, 'object'):
+        np.object = object
+    if not hasattr(np, 'str'):
+        np.str = str
+except Exception:
+    pass
+
 from datetime import datetime
 
 import os
@@ -88,7 +104,26 @@ def get_svd():
     if not MODELS_READY:
         return None
     try:
-        return _pkl("svd_model.pkl")
+        import pickle
+        filepath = os.path.join(MODEL_DIR, "svd_model.pkl")
+
+        # Try joblib first
+        try:
+            model = joblib.load(filepath)
+            return model
+        except Exception as e1:
+            print(f"SVD joblib load failed: {e1}")
+
+        # Try pickle as fallback
+        try:
+            with open(filepath, 'rb') as f:
+                model = pickle.load(f)
+            return model
+        except Exception as e2:
+            print(f"SVD pickle load failed: {e2}")
+
+        return None
+
     except Exception as e:
         st.warning(f"SVD load error: {e}")
         return None
@@ -115,7 +150,34 @@ def get_products_df() -> pd.DataFrame:
     if not MODELS_READY:
         return pd.DataFrame()
     try:
-        return pd.read_pickle(os.path.join(MODEL_DIR, "products_df.pkl"))
+        import pickle
+        filepath = os.path.join(MODEL_DIR, "products_df.pkl")
+
+        # Try joblib first
+        try:
+            df = joblib.load(filepath)
+            if isinstance(df, pd.DataFrame) and not df.empty:
+                # Fix any dtype incompatibilities (StringDtype → str)
+                for col in df.select_dtypes(include=['object']).columns:
+                    try:
+                        df[col] = df[col].astype(str)
+                    except Exception:
+                        pass
+                return df
+        except Exception as e1:
+            print(f"joblib load failed: {e1}")
+
+        # Try pickle as fallback
+        try:
+            with open(filepath, 'rb') as f:
+                df = pickle.load(f)
+            if isinstance(df, pd.DataFrame):
+                return df
+        except Exception as e2:
+            print(f"pickle load failed: {e2}")
+
+        return pd.DataFrame()
+
     except Exception as e:
         st.warning(f"Products DF load error: {e}")
         return pd.DataFrame()
