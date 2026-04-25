@@ -224,7 +224,6 @@ def render_product_card_html(prod: dict, idx: int = 0, show_match: bool = True) 
     _p = get_palette(_theme)
     card_bg   = _p['card_bg']
     text_col  = _p['text_primary']
-    sub_col   = _p['text_secondary']
     muted_col = _p['text_muted']
     price_col = _p['price_color']
     border_col = _p['border']
@@ -350,19 +349,22 @@ def _show_product_detail_dialog(product: dict):
             unsafe_allow_html=True
         )
     with meta_c3:
-        badge_row = ''
         if category:
-            badge_row += (
+            st.markdown(
+                f'<div style="margin-bottom:4px;">'
                 f'<span style="background:{cat["badge_bg"]};color:{cat["badge_text"]};'
-                f'font-size:11px;font-weight:600;padding:3px 10px;border-radius:100px;'
-                f'margin-right:6px;">{category}</span>'
+                f'font-size:11px;font-weight:600;padding:3px 10px;border-radius:100px;">'
+                f'{category}</span></div>',
+                unsafe_allow_html=True
             )
         if sentiment_label:
-            badge_row += (
+            st.markdown(
+                f'<div>'
                 f'<span style="background:{sent["bg"]};color:{sent["color"]};'
-                f'font-size:11px;font-weight:600;padding:3px 10px;border-radius:100px;">{sentiment_label}</span>'
+                f'font-size:11px;font-weight:600;padding:3px 10px;border-radius:100px;">'
+                f'{sentiment_label}</span></div>',
+                unsafe_allow_html=True
             )
-        st.markdown(f'<div style="padding-top:4px;">{badge_row}</div>', unsafe_allow_html=True)
 
     # Match score bar
     st.markdown(

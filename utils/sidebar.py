@@ -90,15 +90,20 @@ def render_sidebar_toggle():
     icon  = "\u2039" if not is_collapsed else "\u203a"
     title = "Collapse sidebar" if not is_collapsed else "Expand sidebar"
 
-    # Inject toggle button style
+    # Inject toggle button style — use .st-key-{key} which is reliable across all browsers
     from utils.theme import get_palette
     _theme = st.session_state.get('theme', 'light')
     _p = get_palette(_theme)
-    _glow = "box-shadow:0 0 10px rgba(0,180,255,0.35);" if _theme == 'dark' else ""
+    _bg   = _p['btn_bg']
+    _col  = _p['accent']
+    _bord = _p['btn_border']
+    _hover_bg = _p.get('accent_soft', '#e0e7ff')
+    _glow = "box-shadow:0 0 10px rgba(0,180,255,0.35) !important;" if _theme == 'dark' else ""
     st.markdown(f"""
 <style>
-div[data-testid="stButton"]:has(button[title="{title}"]) button,
-div[data-testid="stButton"]:has(button[aria-label="{title}"]) button {{
+/* Sidebar toggle button — keyed as btn_sidebar_toggle */
+.st-key-btn_sidebar_toggle button,
+.st-key-btn_sidebar_toggle > div > button {{
     width: 32px !important;
     height: 32px !important;
     min-height: 32px !important;
@@ -107,16 +112,21 @@ div[data-testid="stButton"]:has(button[aria-label="{title}"]) button {{
     font-weight: 400 !important;
     line-height: 1 !important;
     border-radius: 8px !important;
-    background: {_p['btn_bg']} !important;
-    color: {_p['accent']} !important;
-    border: 1px solid {_p['btn_border']} !important;
+    background: {_bg} !important;
+    color: {_col} !important;
+    border: 1px solid {_bord} !important;
     {_glow}
     transition: all 0.2s ease !important;
 }}
-div[data-testid="stButton"]:has(button[title="{title}"]) button:hover {{
-    background: {_p['accent_soft']} !important;
-    border-color: {_p['accent']} !important;
+.st-key-btn_sidebar_toggle button:hover,
+.st-key-btn_sidebar_toggle > div > button:hover {{
+    background: {_hover_bg} !important;
+    border-color: {_col} !important;
     transform: scale(1.08) !important;
+}}
+.st-key-btn_sidebar_toggle button p,
+.st-key-btn_sidebar_toggle button span {{
+    color: {_col} !important;
 }}
 </style>
 """, unsafe_allow_html=True)
