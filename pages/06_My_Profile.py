@@ -255,8 +255,7 @@ if st.session_state.get("profile_editing"):
                     st.session_state['_temp_photo'] = None
                 if user_id and user_id != 'guest':
                     try:
-                        from auth.session import get_supabase
-                        sb = get_supabase()
+                        from database.supabase_client import supabase as sb
                         sb.table('profiles').upsert({
                             'id': user_id,
                             'full_name': new_name_val,
@@ -593,11 +592,8 @@ with tab3:
                 with wc1:
                     if st.button("Find Similar", key=f"wl_sim_{pid}_{j}",
                                  use_container_width=True, type="primary"):
-                        st.session_state["similar_product"] = {
-                            "asin": pid,
-                            "title": prod.get("title", ""),
-                            "category": prod.get("category", ""),
-                        }
+                        st.session_state["similar_product"] = pid  # must be string product_id
+                        st.session_state["similar_product_title"] = prod.get("title", "")
                         st.switch_page("pages/02_For_You.py")
                 with wc2:
                     if st.button("Remove", key=f"wl_rm_{pid}_{j}", use_container_width=True, type="secondary"):
@@ -656,12 +652,22 @@ with tab4:
         st.markdown(f'<p style="font-size:15px;font-weight:700;color:{p["text_primary"]};margin-bottom:16px;">Notifications</p>',
                     unsafe_allow_html=True)
         st.toggle("In-App Notifications", value=True, key="notif_inapp")
-        st.toggle("Email Digest (coming soon)", value=False, key="notif_email", disabled=True)
-        st.toggle("SMS Alerts (coming soon)", value=False, key="notif_sms", disabled=True)
         st.markdown(f"""
+<div style="display:flex;align-items:center;justify-content:space-between;
+            padding:10px 0;border-bottom:1px solid {p['border']};">
+  <span style="font-size:14px;color:{p['text_secondary']};">Email Digest</span>
+  <span style="font-size:11px;font-weight:600;background:{p['accent_soft']};
+               color:{p['accent']};padding:3px 10px;border-radius:100px;">Coming Soon</span>
+</div>
+<div style="display:flex;align-items:center;justify-content:space-between;
+            padding:10px 0;border-bottom:1px solid {p['border']};">
+  <span style="font-size:14px;color:{p['text_secondary']};">SMS Alerts</span>
+  <span style="font-size:11px;font-weight:600;background:{p['accent_soft']};
+               color:{p['accent']};padding:3px 10px;border-radius:100px;">Coming Soon</span>
+</div>
 <div style="background-color:{p['accent_soft']};border-radius:10px;padding:12px 16px;
-            margin-top:8px;font-size:12.5px;color:{p['text_secondary']};line-height:1.6;">
-  <strong style="color:{p['accent']};">Coming soon via Supabase:</strong><br/>
+            margin-top:12px;font-size:12.5px;color:{p['text_secondary']};line-height:1.6;">
+  <strong style="color:{p['accent']};">Coming soon:</strong><br/>
   Email weekly digests &middot; SMS price drop alerts &middot; Browser push notifications
 </div>""", unsafe_allow_html=True)
         st.markdown('<div style="height:12px"></div>', unsafe_allow_html=True)
@@ -725,6 +731,12 @@ with tab4:
 
     if st.button("🗑️ Clear Wishlist", key="clear_wl_btn", type="secondary"):
         st.session_state["wishlist_ids"] = set()
+        if user_id and user_id != 'guest':
+            try:
+                from database.supabase_client import supabase as _sb
+                _sb.table('wishlist').delete().eq('user_id', user_id).execute()
+            except Exception:
+                pass
         st.toast("Wishlist cleared.", icon="🗑️")
         st.rerun()
 
@@ -758,8 +770,8 @@ with tab4:
             with col_confirm:
                 if st.button("Yes, Delete Forever", key="btn_confirm_delete", type="primary"):
                     try:
-                        from auth.session import get_supabase, logout_user
-                        sb = get_supabase()
+                        from database.supabase_client import supabase as sb
+                        from auth.session import logout_user
                         # Cascade delete in dependency order (children first)
                         for _tbl, _col in [
                             ('feedback',                 'user_id'),
@@ -772,9 +784,20 @@ with tab4:
                                 sb.table(_tbl).delete().eq(_col, user_id).execute()
                             except Exception:
                                 pass
+                        # Also delete the Supabase auth user if service role key is available
+                        try:
+                            from config import get_secret
+                            _srk = get_secret("SUPABASE_SERVICE_ROLE_KEY")
+                            if _srk:
+                                from supabase import create_client
+                                from config import SUPABASE_URL
+                                _admin = create_client(SUPABASE_URL, _srk)
+                                _admin.auth.admin.delete_user(user_id)
+                        except Exception:
+                            pass
                         logout_user()
                         st.toast("Account deleted.", icon="✅")
-                        st.rerun()
+                        st.switch_page("app.py")
                     except Exception as e:
                         st.error(f"Deletion failed: {e}")
             with col_back:

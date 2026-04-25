@@ -84,76 +84,78 @@ def get_palette(theme: str) -> dict:
             'danger_btn_text': '#ffffff',
         }
     else:
+        # ── Cyber Premium Dark Theme ─────────────────────────────────────────
+        # Deep space navy base with cyan-neon accents and glow effects
         return {
-            'page_bg': '#0f0f1a',
-            'glass_bg':          'rgba(20, 20, 40, 0.68)',
-            'glass_bg_strong':   'rgba(25, 25, 50, 0.88)',
-            'glass_bg_subtle':   'rgba(20, 20, 40, 0.42)',
-            'glass_border':      'rgba(255, 255, 255, 0.08)',
-            'glass_border_soft': 'rgba(99, 102, 241, 0.22)',
-            'glass_shadow':      '0 4px 24px rgba(0,0,0,0.35), 0 1px 4px rgba(0,0,0,0.2)',
-            'glass_shadow_lg':   '0 8px 40px rgba(0,0,0,0.5), 0 2px 8px rgba(0,0,0,0.3)',
+            'page_bg': '#050d1a',
+            'glass_bg':          'rgba(8, 20, 40, 0.72)',
+            'glass_bg_strong':   'rgba(10, 24, 48, 0.92)',
+            'glass_bg_subtle':   'rgba(8, 20, 40, 0.45)',
+            'glass_border':      'rgba(0, 180, 255, 0.12)',
+            'glass_border_soft': 'rgba(0, 180, 255, 0.22)',
+            'glass_shadow':      '0 4px 24px rgba(0,0,0,0.5), 0 1px 4px rgba(0,180,255,0.08)',
+            'glass_shadow_lg':   '0 8px 40px rgba(0,0,0,0.65), 0 2px 8px rgba(0,180,255,0.12)',
             'glass_blur':        'blur(20px)',
             'glass_blur_strong': 'blur(32px)',
-            'nav_active_bg':     'linear-gradient(135deg, #6366f1, #8b5cf6)',
+            'nav_active_bg':     'linear-gradient(135deg, #0080cc, #00b4ff)',
             'nav_active_text':   '#ffffff',
-            'sidebar_bg': '#1a1a2e',
-            'sidebar_btn_bg': 'rgba(255, 255, 255, 0.06)',
-            'sidebar_btn_text': '#e2e8f0',
-            'sidebar_btn_border': 'rgba(255,255,255,0.1)',
-            'card_bg': '#1e1e35',
-            'card_bg_hover': '#26263f',
-            'input_bg': '#1e1e35',
-            'stat_card_bg': '#1e1e35',
-            'text_primary': '#f1f5f9',
-            'text_secondary': '#a0aec0',
-            'text_muted': '#6b7280',
-            'text_link': '#a5b4fc',
-            'border': '#2d2d4a',
-            'border_focus': '#6366f1',
-            'btn_bg': '#2d2d44',
-            'btn_text': '#f1f5f9',
-            'btn_border': '#4a4a6a',
-            'filter_btn_bg': '#2d2d44',
-            'filter_btn_text': '#f1f5f9',
-            'filter_btn_active': '#6366f1',
-            'nav_btn_bg': '#2d2d44',
-            'nav_btn_text': '#f1f5f9',
-            'nav_btn_active': '#6366f1',
+            'sidebar_bg': '#070f1e',
+            'sidebar_btn_bg': 'rgba(0, 180, 255, 0.06)',
+            'sidebar_btn_text': '#cce8ff',
+            'sidebar_btn_border': 'rgba(0,180,255,0.15)',
+            'card_bg': '#0d1e35',
+            'card_bg_hover': '#122440',
+            'input_bg': '#0a1628',
+            'stat_card_bg': '#0d1e35',
+            'text_primary': '#e2eeff',
+            'text_secondary': '#7eb8e0',
+            'text_muted': '#3d6080',
+            'text_link': '#00d4ff',
+            'border': 'rgba(0,180,255,0.14)',
+            'border_focus': '#00b4ff',
+            'btn_bg': '#0f2035',
+            'btn_text': '#cce8ff',
+            'btn_border': 'rgba(0,180,255,0.25)',
+            'filter_btn_bg': '#0f2035',
+            'filter_btn_text': '#cce8ff',
+            'filter_btn_active': '#00b4ff',
+            'nav_btn_bg': '#0f2035',
+            'nav_btn_text': '#cce8ff',
+            'nav_btn_active': '#00b4ff',
             'nav_btn_active_text': '#ffffff',
-            'accent': '#6366f1',
-            'accent_soft': '#312e81',
-            'price_color': '#a5b4fc',
+            'accent': '#00b4ff',
+            'accent_soft': '#051527',
+            'price_color': '#00d4ff',
             'star_color': '#f59e0b',
-            'icon_bg_purple': '#1e1a4a',
-            'icon_bg_cyan': '#0c2a3a',
-            'icon_bg_green': '#0d3325',
-            'icon_bg_amber': '#2d1f00',
-            'icon_bg_pink': '#2d0f20',
-            'badge_electronics_bg': '#1e3a5f',
-            'badge_electronics_text': '#93c5fd',
-            'badge_kitchen_bg': '#064e3b',
+            'icon_bg_purple': '#0a1535',
+            'icon_bg_cyan': '#041e30',
+            'icon_bg_green': '#041e18',
+            'icon_bg_amber': '#1e1400',
+            'icon_bg_pink': '#1e0818',
+            'badge_electronics_bg': '#0a2040',
+            'badge_electronics_text': '#7dd3fc',
+            'badge_kitchen_bg': '#042518',
             'badge_kitchen_text': '#6ee7b7',
-            'badge_positive_bg': '#064e3b',
+            'badge_positive_bg': '#042518',
             'badge_positive_text': '#6ee7b7',
-            'badge_mixed_bg': '#78350f',
+            'badge_mixed_bg': '#2a1800',
             'badge_mixed_text': '#fcd34d',
-            'badge_critical_bg': '#7f1d1d',
+            'badge_critical_bg': '#2a0808',
             'badge_critical_text': '#fca5a5',
-            'surface_bg': 'rgba(16,16,35,0.88)',
-            'shadow': '0 2px 8px rgba(0,0,0,0.4)',
-            'dataset_bg': 'rgba(30,20,0,0.6)',
-            'dataset_border': 'rgba(245,158,11,0.3)',
-            'dataset_text': '#fcd34d',
-            'danger_bg': 'rgba(127,29,29,0.3)',
-            'danger_border': 'rgba(252,165,165,0.3)',
+            'surface_bg': 'rgba(5,13,26,0.92)',
+            'shadow': '0 2px 12px rgba(0,0,0,0.5), 0 0 8px rgba(0,180,255,0.06)',
+            'dataset_bg': 'rgba(10,20,0,0.6)',
+            'dataset_border': 'rgba(0,180,255,0.25)',
+            'dataset_text': '#7dd3fc',
+            'danger_bg': 'rgba(80,10,10,0.4)',
+            'danger_border': 'rgba(252,100,100,0.3)',
             'danger_text': '#fca5a5',
-            'action_btn_bg': '#6366f1',
-            'action_btn_text': '#ffffff',
-            'action_btn_border': '#4f46e5',
-            'secondary_btn_bg': '#2d2d44',
-            'secondary_btn_text': '#f1f5f9',
-            'secondary_btn_border': '#4a4a6a',
+            'action_btn_bg': '#00b4ff',
+            'action_btn_text': '#000d1a',
+            'action_btn_border': '#0080cc',
+            'secondary_btn_bg': '#0f2035',
+            'secondary_btn_text': '#cce8ff',
+            'secondary_btn_border': 'rgba(0,180,255,0.25)',
             'danger_btn_bg': '#dc2626',
             'danger_btn_text': '#ffffff',
         }
@@ -898,6 +900,45 @@ div[data-testid="column"] .ir-pill-active div.stButton > button:hover{{backgroun
     border-color: {p['accent']} !important;
     color: {p['accent']} !important;
 }}
+
+/* ============================================================
+   CYBER PREMIUM DARK — GLOW EFFECTS (dark theme only)
+============================================================ */
+{'@keyframes ir-cyber-pulse { 0%,100%{box-shadow:0 0 8px rgba(0,180,255,0.3),0 0 20px rgba(0,180,255,0.15)} 50%{box-shadow:0 0 16px rgba(0,180,255,0.5),0 0 40px rgba(0,180,255,0.25)} }' if theme_val == 'dark' else ''}
+
+{'''
+/* Cyber glow on primary buttons */
+[data-testid="stMain"] .stButton > button[kind="primary"],
+[data-testid="stMain"] .stButton > button[data-testid="baseButton-primary"] {
+    box-shadow: 0 0 12px rgba(0,180,255,0.35), 0 2px 8px rgba(0,0,0,0.4) !important;
+    border: 1px solid rgba(0,180,255,0.5) !important;
+}
+[data-testid="stMain"] .stButton > button[kind="primary"]:hover,
+[data-testid="stMain"] .stButton > button[data-testid="baseButton-primary"]:hover {
+    box-shadow: 0 0 20px rgba(0,180,255,0.55), 0 4px 16px rgba(0,0,0,0.5) !important;
+    transform: translateY(-1px) !important;
+}
+/* Cyber glow on focused inputs */
+[data-baseweb="input"]:focus-within {
+    box-shadow: 0 0 0 2px rgba(0,180,255,0.25), 0 0 12px rgba(0,180,255,0.15) !important;
+    border-color: #00b4ff !important;
+}
+/* Cyber glow on active sidebar nav */
+section[data-testid="stSidebar"] .stButton > button[kind="primary"] {
+    background: linear-gradient(135deg, #0080cc, #00b4ff) !important;
+    box-shadow: 0 0 14px rgba(0,180,255,0.4) !important;
+}
+/* Card hover glow */
+.ir-card:hover, .product-card:hover {
+    box-shadow: 0 4px 24px rgba(0,0,0,0.6), 0 0 16px rgba(0,180,255,0.15) !important;
+    border-color: rgba(0,180,255,0.25) !important;
+}
+/* Cyber subtle top-border glow on stat cards */
+[data-testid="stMain"] div[style*="border-top:3px"] {
+    box-shadow: 0 0 12px rgba(0,180,255,0.08) !important;
+}
+/* Cyan price text glow */
+''' if theme_val == 'dark' else ''}
 
 {system_extra}
 </style>

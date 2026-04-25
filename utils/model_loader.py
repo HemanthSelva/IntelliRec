@@ -60,38 +60,82 @@ _REQUIRED = [
 def ensure_models_exist():
     """
     Check for missing model files and auto-download from HuggingFace Hub.
-    This enables Streamlit Cloud deployment without bundling large files.
+    Uses huggingface_hub library which correctly handles LFS binary files
+    (urllib.request.urlretrieve downloads the LFS pointer text, not the binary).
 
-    IMPORTANT: This function must NOT call any Streamlit UI functions (st.info,
-    st.progress, st.error, st.success) because it is called at module import time,
-    before any Streamlit page context exists. Doing so raises an exception that
-    prevents 'MODELS_READY' from being defined, causing ImportError in all pages.
-    Uses print() for logging instead.
+    IMPORTANT: Must NOT call Streamlit UI functions — runs at import time before
+    any Streamlit page context exists. Uses print() for logging instead.
     """
     os.makedirs(MODEL_DIR, exist_ok=True)
 
+    def _is_valid_pkl(path: str) -> bool:
+        """Return True if file exists and is larger than 1 KB (not an LFS pointer)."""
+        try:
+            return os.path.exists(path) and os.path.getsize(path) > 1024
+        except Exception:
+            return False
+
     missing = [
         f for f in _REQUIRED
-        if not os.path.exists(os.path.join(MODEL_DIR, f))
+        if not _is_valid_pkl(os.path.join(MODEL_DIR, f))
     ]
 
     if not missing:
         return True
 
-    print(f"[IntelliRec] Downloading {len(missing)} model files from HuggingFace…")
+    print(f"[IntelliRec] Downloading {len(missing)} model file(s) from HuggingFace Hub…")
 
-    for i, filename in enumerate(missing):
-        filepath = os.path.join(MODEL_DIR, filename)
-        url = f"{HF_BASE}/{filename}"
-        try:
-            urllib.request.urlretrieve(url, filepath)
-            print(f"[IntelliRec] Downloaded ({i+1}/{len(missing)}): {filename}")
-        except Exception as e:
-            print(f"[IntelliRec] Failed to download {filename}: {e}")
-            return False
+    # Try huggingface_hub first (handles LFS correctly)
+    try:
+        from huggingface_hub import hf_hub_download
+        for i, filename in enumerate(missing):
+            dest = os.path.join(MODEL_DIR, filename)
+            try:
+                hf_hub_download(
+                    repo_id=HF_REPO,
+                    filename=filename,
+                    local_dir=MODEL_DIR,
+                    local_dir_use_symlinks=False,
+                )
+                size_kb = os.path.getsize(dest) // 1024 if os.path.exists(dest) else 0
+                print(f"[IntelliRec] Downloaded ({i+1}/{len(missing)}): {filename} ({size_kb} KB)")
+            except Exception as e:
+                print(f"[IntelliRec] hf_hub_download failed for {filename}: {e}")
+                # Fallback: direct URL with proper accept header for LFS
+                _download_direct(filename, dest)
+    except ImportError:
+        print("[IntelliRec] huggingface_hub not available, using direct download fallback")
+        for filename in missing:
+            dest = os.path.join(MODEL_DIR, filename)
+            _download_direct(filename, dest)
 
-    print("[IntelliRec] All model files downloaded successfully!")
+    still_missing = [f for f in _REQUIRED if not _is_valid_pkl(os.path.join(MODEL_DIR, f))]
+    if still_missing:
+        print(f"[IntelliRec] WARNING: {len(still_missing)} file(s) still missing or invalid: {still_missing}")
+        return False
+
+    print("[IntelliRec] All model files ready!")
     return True
+
+
+def _download_direct(filename: str, dest: str):
+    """Direct HTTP download with LFS media-type header as fallback."""
+    url = f"{HF_BASE}/{filename}?download=true"
+    try:
+        req = urllib.request.Request(url, headers={
+            "Accept": "application/octet-stream",
+            "User-Agent": "IntelliRec/1.0",
+        })
+        with urllib.request.urlopen(req) as resp, open(dest, 'wb') as out:
+            while True:
+                chunk = resp.read(1024 * 1024)
+                if not chunk:
+                    break
+                out.write(chunk)
+        size_kb = os.path.getsize(dest) // 1024
+        print(f"[IntelliRec] Direct download OK: {filename} ({size_kb} KB)")
+    except Exception as e:
+        print(f"[IntelliRec] Direct download also failed for {filename}: {e}")
 
 
 # Attempt auto-download before checking readiness.
@@ -297,6 +341,7 @@ def get_similar_products(product_id: str, n: int = 12) -> list:
     """
     Return n products most similar to the given product_id using
     TF-IDF cosine similarity over the saved model artifacts.
+    Falls back to curated sample products when models are unavailable.
     """
     from sklearn.metrics.pairwise import cosine_similarity as cos_sim
 
@@ -305,11 +350,11 @@ def get_similar_products(product_id: str, n: int = 12) -> list:
     sentiments = get_sentiments()
 
     if tfidf_matrix is None or products.empty or product_indices is None:
-        return []
+        return _load_fallback_recs(n)
 
     # Resolve the product's row index in the matrix
     if product_id not in product_indices.index:
-        return []
+        return _load_fallback_recs(n)
 
     idx = product_indices[product_id]
     # Handle duplicate product_ids → take the first
@@ -338,19 +383,57 @@ def get_similar_products(product_id: str, n: int = 12) -> list:
     return results
 
 
+def _load_fallback_recs(n: int = 12, categories: list = None) -> list:
+    """
+    Load curated sample products from assets/sample_products.json.
+    Used as fallback when ML models are unavailable or still downloading.
+    """
+    import json
+    try:
+        base = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+        path = os.path.join(base, "assets", "sample_products.json")
+        with open(path, "r", encoding="utf-8") as f:
+            items = json.load(f)
+        if categories:
+            norm_cats = normalize_categories(categories)
+            filtered = [p for p in items if p.get("category") in norm_cats]
+            items = filtered if filtered else items
+        result = []
+        for p in items[:n]:
+            card = dict(p)
+            card.setdefault("product_id", card.get("asin", ""))
+            card.setdefault("asin", card.get("product_id", ""))
+            card.setdefault("match_score", 62)
+            card.setdefault("predicted_rating", card.get("rating", 3.5))
+            card.setdefault("explanation", "Curated pick while AI engine warms up")
+            card.setdefault("engine", "Curated")
+            card.setdefault("sentiment_label", card.get("sentiment_label", "Mixed"))
+            card.setdefault("sentiment_score", card.get("sentiment_score", 0.5))
+            card.setdefault("sentiment_compound", 0.0)
+            card.setdefault("store", "")
+            card.setdefault("is_trending", False)
+            card.setdefault("is_bestseller", False)
+            result.append(card)
+        return result
+    except Exception as e:
+        print(f"[IntelliRec] Fallback sample load failed: {e}")
+        return []
+
+
 def get_cf_recommendations(user_id: str, n: int = 12,
                             categories: list = None,
                             sample_size: int = 5000) -> list:
     """
     SVD-based top-n recommendations for user_id.
     Samples `sample_size` products to keep latency reasonable.
+    Falls back to curated sample products when models are unavailable.
     """
     svd        = get_svd()
     products   = get_products_df()
     sentiments = get_sentiments()
 
     if svd is None or products.empty:
-        return []
+        return _load_fallback_recs(n, categories)
 
     df = products.copy()
     if categories:
@@ -391,12 +474,13 @@ def get_cb_recommendations(categories: list = None, n: int = 12) -> list:
     """
     Content-based: top-rated products from given categories.
     Uses products_df directly (no cosine similarity needed for category recs).
+    Falls back to curated sample products when models are unavailable.
     """
     products   = get_products_df()
     sentiments = get_sentiments()
 
     if products.empty:
-        return []
+        return _load_fallback_recs(n, categories)
 
     df = products.copy()
     df["average_rating"] = pd.to_numeric(df["average_rating"], errors="coerce").fillna(0)
@@ -452,8 +536,12 @@ def get_hybrid_recommendations(user_id: str, n: int = 12,
     """
     Hybrid: blend CF + CB with sentiment boosting, category boost,
     time-context nudge, and user feedback loop. diversity controls
-    fraction of CB results.
+    fraction of CB results. Falls back to curated sample products
+    when ML models are unavailable or still downloading.
     """
+    if not MODELS_READY or get_products_df().empty:
+        return _load_fallback_recs(n, categories)
+
     sentiments = get_sentiments()
 
     # Read user preferred categories from session state (set via onboarding/profile)

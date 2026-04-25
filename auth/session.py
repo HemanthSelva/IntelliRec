@@ -1,4 +1,3 @@
-import os
 import streamlit as st
 from database.supabase_client import supabase
 
@@ -17,15 +16,16 @@ def inject_theme():
     dark = st.session_state.get('dark_mode', False)
     if dark:
         st.markdown("""<style>
-[data-testid="stAppViewContainer"]>.main{background:#0F0F0F!important;}
-section[data-testid="stSidebar"]{background:#1A1A1A!important;border-color:#2D2D2D!important;}
+[data-testid="stAppViewContainer"]>.main{background:#050d1a!important;}
+section[data-testid="stSidebar"]{background:#070f1e!important;border-color:rgba(0,180,255,0.14)!important;}
 section[data-testid="stSidebar"] [data-testid="stMarkdownContainer"] p,
-section[data-testid="stSidebar"] label{color:#D1D5DB!important;}
-[data-testid="stMarkdownContainer"] p{color:#D1D5DB!important;}
-h1,h2,h3,h4{color:#F9FAFB!important;}
-.product-card{background:#1A1A1A!important;border-color:#2D2D2D!important;box-shadow:0 2px 8px rgba(0,0,0,0.3)!important;}
-.product-card h4,.product-card p{color:#E5E7EB!important;}
-[data-testid="stMetricValue"]{color:#F9FAFB!important;}
+section[data-testid="stSidebar"] label{color:#cce8ff!important;}
+[data-testid="stMarkdownContainer"] p{color:#e2eeff!important;}
+h1,h2,h3,h4{color:#e2eeff!important;}
+.product-card{background:#0d1e35!important;border-color:rgba(0,180,255,0.14)!important;
+  box-shadow:0 2px 12px rgba(0,0,0,0.5),0 0 8px rgba(0,180,255,0.06)!important;}
+.product-card h4,.product-card p{color:#e2eeff!important;}
+[data-testid="stMetricValue"]{color:#e2eeff!important;}
 </style>""", unsafe_allow_html=True)
 
 
@@ -47,16 +47,12 @@ def init_session():
     for key, val in defaults.items():
         if key not in st.session_state:
             st.session_state[key] = val
-
-    # Attempt to recover existing Supabase session
-    if not st.session_state.get('logged_in'):
-        try:
-            resp = supabase.auth.get_user()
-            if resp and resp.user:
-                _apply_user_session(resp.user)
-        except Exception:
-            # No valid session — user needs to log in
-            pass
+    # NOTE: Do NOT call supabase.auth.get_user() here.
+    # The Supabase Python client is a module-level singleton shared across ALL
+    # concurrent users on Streamlit Cloud. Calling get_user() returns whoever
+    # logged in last on the server, not the current browser user, causing
+    # one user to land directly in another user's session.
+    # Authentication is established only via explicit login actions below.
 
 
 # ── Auth operations ───────────────────────────────────────────────────────────

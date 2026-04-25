@@ -125,14 +125,14 @@ if MODELS_READY:
     """, unsafe_allow_html=True)
 else:
     st.markdown(f"""
-    <div style="background: rgba(245, 158, 11, 0.1);
+    <div style="background: rgba(245, 158, 11, 0.08);
                 border: 1px solid rgba(245, 158, 11, 0.2); border-radius: 12px; padding: 14px 20px; margin-bottom: 24px;
                 display: flex; align-items: center; gap: 12px;">
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#F59E0B" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
             <circle cx="12" cy="12" r="10"></circle><line x1="12" y1="8" x2="12" y2="12"></line><line x1="12" y1="16" x2="12.01" y2="16"></line>
         </svg>
         <span style="font-size: 14px; color: {p['text_primary']}; font-weight: 400;">
-            <strong style="color: #F59E0B; font-weight: 600;">Demo Mode Active</strong> &nbsp;&bull;&nbsp; Models not trained yet. Run `python scripts/train_models.py` to enable personalization.
+            <strong style="color: #F59E0B; font-weight: 600;">AI Engine Loading</strong> &nbsp;&bull;&nbsp; Showing curated picks while models initialize. Full personalization activates automatically.
         </span>
     </div>
     """, unsafe_allow_html=True)
@@ -144,24 +144,28 @@ if st.session_state.get('_clear_similar_requested'):
     st.session_state.pop('_clear_similar_requested', None)
 
 _sim_pid = st.session_state.get('similar_product')
-if _sim_pid and not MODELS_READY:
-    st.info("Similar product recommendations require trained ML models. Showing personalized picks below instead.")
-    st.session_state.pop('similar_product', None)
-    _sim_pid = None
+# Guard: if similar_product was accidentally set to a dict (legacy bug), extract the id
+if isinstance(_sim_pid, dict):
+    _sim_pid = _sim_pid.get('asin') or _sim_pid.get('product_id') or None
+    if _sim_pid:
+        st.session_state['similar_product'] = _sim_pid
 
-if _sim_pid and MODELS_READY:
-    # Look up the source product name
+if _sim_pid:
+    # Look up the source product name — works whether models are live or in fallback mode
     _products_df = get_products_df()
-    # Guard: if models failed to load (e.g. pickle/StringDtype mismatch),
-    # products_df may be empty or missing expected columns — clear & skip.
-    if _products_df is None or _products_df.empty or 'product_id' not in _products_df.columns:
-        st.info("Model data unavailable — showing standard recommendations instead.")
-        st.session_state.pop('similar_product', None)
-        _sim_pid = None
-    else:
-        _src_rows = _products_df[_products_df['product_id'] == _sim_pid]
-        _src_name = str(_src_rows.iloc[0].get('title', 'Selected Product'))[:60] if not _src_rows.empty else _sim_pid
+    _has_live_models = MODELS_READY and not (_products_df is None or _products_df.empty or 'product_id' not in _products_df.columns)
+    if True:  # always enter to show similar results (fallback is handled inside get_similar_products)
+        # Resolve source product name from live DF or session state fallback
+        _src_name = _sim_pid
+        if _has_live_models and not _products_df.empty:
+            _src_rows = _products_df[_products_df['product_id'] == _sim_pid]
+            if not _src_rows.empty:
+                _src_name = str(_src_rows.iloc[0].get('title', _sim_pid))[:60]
+        # Also check if the product title was stored when user clicked Similar
+        if _src_name == _sim_pid:
+            _src_name = st.session_state.get('similar_product_title', _sim_pid)[:60]
 
+        _engine_label = "TF-IDF cosine similarity" if _has_live_models else "curated picks (AI engine loading)"
         st.markdown(f"""
         <div style="background:linear-gradient(135deg,{p['accent_soft']},{p['glass_bg']});
                     border:1px solid {p['accent']}20;border-radius:16px;
@@ -172,7 +176,7 @@ if _sim_pid and MODELS_READY:
                     🔍 Similar to: {_src_name}
                 </span><br/>
                 <span style="font-size:12px;color:{p['text_secondary']}">
-                    Products found via TF-IDF cosine similarity
+                    Products found via {_engine_label}
                 </span>
             </div>
         </div>
@@ -511,7 +515,7 @@ if MODELS_READY:
 
                 # Actions — feedback + details + save row
                 st.markdown('<div class="ir-card-actions">', unsafe_allow_html=True)
-                fc1, fc2, fc3, fc4 = st.columns([1, 1, 1, 2])
+                fc1, fc2, fc3, fc4 = st.columns([1, 1, 2, 2])
                 with fc1:
                     style_up = "primary" if current_fb == "up" else "secondary"
                     if st.button("▲", key=f"up_{pid}_{i}", help="More like this", type=style_up, use_container_width=True):
@@ -640,7 +644,7 @@ else:
                 """, unsafe_allow_html=True)
 
                 st.markdown('<div class="ir-card-actions">', unsafe_allow_html=True)
-                fc1, fc2, fc3, fc4 = st.columns([1, 1, 1, 2])
+                fc1, fc2, fc3, fc4 = st.columns([1, 1, 2, 2])
                 with fc1:
                     style_up = "primary" if current_fb == "up" else "secondary"
                     if st.button("▲", key=f"up_{prod['asin']}_{i}", help="More like this", type=style_up, use_container_width=True):
