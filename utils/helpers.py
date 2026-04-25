@@ -272,7 +272,18 @@ def render_product_card_html(prod: dict, idx: int = 0, show_match: bool = True) 
     )
 
 
-@st.dialog("Product Details", width="large")
+# Apply @st.dialog lazily so helpers.py can be safely imported by non-page
+# modules (e.g. chatbot_engine.py → model_loader.py → helpers.py).
+# If st.dialog is not available in the current context, fall back to a no-op
+# so the import chain never crashes at module load time.
+try:
+    _dialog_decorator = st.dialog("Product Details", width="large")
+except Exception:
+    # Fallback: identity decorator (dialog won't open, but nothing crashes)
+    def _dialog_decorator(fn):
+        return fn
+
+@_dialog_decorator
 def _show_product_detail_dialog(product: dict):
     """Modal product detail view — Flipkart-style."""
     from utils.theme import get_palette
