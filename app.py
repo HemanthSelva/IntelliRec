@@ -2,22 +2,24 @@ import sys
 import os
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
-# NumPy compatibility shim for Streamlit Cloud
+# NumPy compatibility shim — suppresses FutureWarning for deprecated np aliases
+import warnings as _warnings
 try:
-    import numpy as np
-    # Fix for numpy 1.x models loaded in numpy 2.x environment
-    if not hasattr(np, 'bool'):
-        np.bool = bool
-    if not hasattr(np, 'int'):
-        np.int = int
-    if not hasattr(np, 'float'):
-        np.float = float
-    if not hasattr(np, 'complex'):
-        np.complex = complex
-    if not hasattr(np, 'object'):
-        np.object = object
-    if not hasattr(np, 'str'):
-        np.str = str
+    import numpy as _np_shim
+    with _warnings.catch_warnings():
+        _warnings.simplefilter("ignore")
+        if not hasattr(_np_shim, 'bool') or _np_shim.bool is not bool:
+            _np_shim.bool = bool
+        if not hasattr(_np_shim, 'int') or _np_shim.int is not int:
+            _np_shim.int = int
+        if not hasattr(_np_shim, 'float') or _np_shim.float is not float:
+            _np_shim.float = float
+        if not hasattr(_np_shim, 'complex') or _np_shim.complex is not complex:
+            _np_shim.complex = complex
+        if not hasattr(_np_shim, 'object') or _np_shim.object is not object:
+            _np_shim.object = object
+        if not hasattr(_np_shim, 'str') or _np_shim.str is not str:
+            _np_shim.str = str
 except Exception:
     pass
 

@@ -6,18 +6,25 @@ Sourcesys Technologies Internship Project
 """
 
 # NumPy compatibility shim for pkl files trained on numpy 1.x
+# Suppresses FutureWarning when assigning deprecated np.bool/int/float/etc.
+import warnings as _warnings
 try:
-    import numpy as np
-    if not hasattr(np, 'bool'):
-        np.bool = bool
-    if not hasattr(np, 'int'):
-        np.int = int
-    if not hasattr(np, 'float'):
-        np.float = float
-    if not hasattr(np, 'object'):
-        np.object = object
-    if not hasattr(np, 'str'):
-        np.str = str
+    import numpy as _np_shim
+    with _warnings.catch_warnings():
+        _warnings.simplefilter("ignore")
+        # These aliases were removed in numpy 2.0 but some older pickled models need them
+        if not hasattr(_np_shim, 'bool') or _np_shim.bool is not bool:
+            _np_shim.bool = bool
+        if not hasattr(_np_shim, 'int') or _np_shim.int is not int:
+            _np_shim.int = int
+        if not hasattr(_np_shim, 'float') or _np_shim.float is not float:
+            _np_shim.float = float
+        if not hasattr(_np_shim, 'complex') or _np_shim.complex is not complex:
+            _np_shim.complex = complex
+        if not hasattr(_np_shim, 'object') or _np_shim.object is not object:
+            _np_shim.object = object
+        if not hasattr(_np_shim, 'str') or _np_shim.str is not str:
+            _np_shim.str = str
 except Exception:
     pass
 
@@ -101,7 +108,9 @@ MODELS_READY: bool = all(
 
 def _pkl(filename: str):
     """Load a joblib/pickle file from MODEL_DIR."""
-    return joblib.load(os.path.join(MODEL_DIR, filename), mmap_mode='r')
+    # NOTE: mmap_mode='r' is NOT used here because all pkl files are compressed
+    # (joblib default). mmap_mode is only compatible with uncompressed files.
+    return joblib.load(os.path.join(MODEL_DIR, filename))
 
 
 # ── Cached loaders ─────────────────────────────────────────────────────────────
@@ -111,29 +120,22 @@ def get_svd():
     """Return the trained Surprise SVD model (loaded once)."""
     if not MODELS_READY:
         return None
+    filepath = os.path.join(MODEL_DIR, "svd_model.pkl")
+    try:
+        # joblib without mmap_mode (compressed pkl files are incompatible with mmap)
+        model = joblib.load(filepath)
+        print(f"[IntelliRec] SVD model loaded OK: {type(model).__name__}")
+        return model
+    except Exception as e1:
+        print(f"[IntelliRec] SVD joblib load failed: {e1}, trying pickle...")
     try:
         import pickle
-        filepath = os.path.join(MODEL_DIR, "svd_model.pkl")
-
-        # Try joblib first
-        try:
-            model = joblib.load(filepath, mmap_mode='r')
-            return model
-        except Exception as e1:
-            print(f"SVD joblib load failed: {e1}")
-
-        # Try pickle as fallback
-        try:
-            with open(filepath, 'rb') as f:
-                model = pickle.load(f)
-            return model
-        except Exception as e2:
-            print(f"SVD pickle load failed: {e2}")
-
-        return None
-
-    except Exception as e:
-        st.warning(f"SVD load error: {e}")
+        with open(filepath, 'rb') as f:
+            model = pickle.load(f)
+        print(f"[IntelliRec] SVD model loaded via pickle: {type(model).__name__}")
+        return model
+    except Exception as e2:
+        print(f"[IntelliRec] SVD pickle load also failed: {e2}")
         return None
 
 
@@ -146,49 +148,57 @@ def get_tfidf():
         vec     = _pkl("tfidf_vectorizer.pkl")
         matrix  = _pkl("tfidf_matrix.pkl")
         indices = _pkl("product_indices.pkl")
+        print(f"[IntelliRec] TF-IDF loaded OK — matrix shape: {matrix.shape}")
         return vec, matrix, indices
     except Exception as e:
-        st.warning(f"TF-IDF load error: {e}")
+        print(f"[IntelliRec] TF-IDF load error: {e}")
         return None, None, None
 
 
 @st.cache_data(show_spinner=False)
 def get_products_df() -> pd.DataFrame:
-    """Return the full 400K-product metadata DataFrame."""
+    """Return the full product metadata DataFrame with all columns cast to safe types."""
     if not MODELS_READY:
         return pd.DataFrame()
+    filepath = os.path.join(MODEL_DIR, "products_df.pkl")
+    df = None
+
+    # Try joblib first (no mmap_mode — compressed pkls are incompatible)
     try:
-        import pickle
-        filepath = os.path.join(MODEL_DIR, "products_df.pkl")
+        df = joblib.load(filepath)
+    except Exception as e1:
+        print(f"[IntelliRec] products_df joblib load failed: {e1}, trying pickle...")
 
-        # Try joblib first
+    # Fallback to pickle
+    if df is None or not isinstance(df, pd.DataFrame):
         try:
-            df = joblib.load(filepath, mmap_mode='r')
-            if isinstance(df, pd.DataFrame) and not df.empty:
-                # Fix any dtype incompatibilities (StringDtype → str)
-                for col in df.select_dtypes(include=['object']).columns:
-                    try:
-                        df[col] = df[col].astype(str)
-                    except Exception:
-                        pass
-                return df
-        except Exception as e1:
-            print(f"joblib load failed: {e1}")
-
-        # Try pickle as fallback
-        try:
+            import pickle
             with open(filepath, 'rb') as f:
                 df = pickle.load(f)
-            if isinstance(df, pd.DataFrame):
-                return df
         except Exception as e2:
-            print(f"pickle load failed: {e2}")
+            print(f"[IntelliRec] products_df pickle load also failed: {e2}")
+            return pd.DataFrame()
 
+    if df is None or not isinstance(df, pd.DataFrame) or df.empty:
         return pd.DataFrame()
 
-    except Exception as e:
-        st.warning(f"Products DF load error: {e}")
-        return pd.DataFrame()
+    # ── Normalise all column dtypes to plain Python types ────────────────────
+    # Covers both legacy 'object' dtype AND pandas nullable StringDtype / BooleanDtype
+    try:
+        for col in df.columns:
+            col_dtype = str(df[col].dtype)
+            if col_dtype in ('object', 'string', 'str') or 'String' in col_dtype:
+                # Cast nullable StringDtype → regular str; NA → 'nan' then we strip below
+                df[col] = df[col].astype(object).fillna('').astype(str)
+                # Replace the literal 'nan' string introduced by astype(str) on NA
+                df[col] = df[col].replace({'nan': '', '<NA>': ''})
+            elif 'boolean' in col_dtype or 'Boolean' in col_dtype:
+                df[col] = df[col].astype(object).fillna(False).astype(bool)
+    except Exception as _cast_err:
+        print(f"[IntelliRec] dtype normalisation warning: {_cast_err}")
+
+    print(f"[IntelliRec] products_df loaded OK — {len(df):,} rows, columns: {list(df.columns)}")
+    return df
 
 
 @st.cache_resource(show_spinner=False)
@@ -197,9 +207,11 @@ def get_sentiments() -> dict:
     if not MODELS_READY:
         return {}
     try:
-        return _pkl("product_sentiments.pkl")
+        data = _pkl("product_sentiments.pkl")
+        print(f"[IntelliRec] Sentiments loaded OK — {len(data):,} entries")
+        return data
     except Exception as e:
-        st.warning(f"Sentiments load error: {e}")
+        print(f"[IntelliRec] Sentiments load error: {e}")
         return {}
 
 
@@ -209,7 +221,7 @@ def get_metrics() -> dict:
     path = os.path.join(MODEL_DIR, "model_metrics.pkl")
     if os.path.exists(path):
         try:
-            return joblib.load(path, mmap_mode='r'), True   # (metrics, is_real)
+            return joblib.load(path), True   # (metrics, is_real)
         except Exception:
             pass
     # Fallback dummy
@@ -235,15 +247,29 @@ def get_metrics() -> dict:
 # ── Recommendation helpers ─────────────────────────────────────────────────────
 
 def _parse_price(raw) -> float:
-    """Safely convert any price value to a float."""
+    """Safely convert any price value to a float, handling NaN/NA/None/empty."""
     try:
         if raw is None:
             return 0.0
-        cleaned = str(raw).replace("$", "").replace(",", "").strip()
+        # Handle pandas NA and numpy nan BEFORE converting to string
+        try:
+            import math
+            if isinstance(raw, float) and math.isnan(raw):
+                return 0.0
+        except Exception:
+            pass
+        # Handle pandas NA type
+        raw_str = str(raw)
+        if raw_str in ('', 'nan', 'NaN', '<NA>', 'None', 'NA'):
+            return 0.0
+        cleaned = raw_str.replace("$", "").replace(",", "").strip()
         # Handle 'from X.XX' patterns found in Amazon data
         if cleaned.lower().startswith("from"):
             cleaned = cleaned[4:].strip()
-        return float(cleaned)
+        result = float(cleaned)
+        # Guard against float('nan') result
+        import math
+        return result if not math.isnan(result) else 0.0
     except (ValueError, TypeError):
         return 0.0
 
