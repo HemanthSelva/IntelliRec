@@ -38,12 +38,18 @@ _type       = st.query_params.get('type')
 _code       = st.query_params.get('code')
 
 if _token_hash and _type:
-    try:
-        supabase.auth.verify_otp({'token_hash': _token_hash, 'type': _type})
+    if _type == 'recovery':
+        # Password reset flow — store token and show update form; do NOT verify yet
+        st.session_state['show_password_update'] = True
+        st.session_state['_recovery_token_hash'] = _token_hash
         st.query_params.clear()
-        st.session_state.show_email_confirmed = True
-    except Exception:
-        st.markdown("""
+    else:
+        try:
+            supabase.auth.verify_otp({'token_hash': _token_hash, 'type': _type})
+            st.query_params.clear()
+            st.session_state.show_email_confirmed = True
+        except Exception:
+            st.markdown("""
 <div style="background:#FEE2E2;color:#DC2626;border-left:4px solid #DC2626;
             border-radius:8px;padding:14px 18px;margin:16px 0;font-size:14px;">
   <strong>Confirmation link expired.</strong> Request a new one by signing in and clicking

@@ -202,6 +202,22 @@ def resend_verification_email(email: str):
         return False, f"Could not resend email: {str(e)}"
 
 
+def send_password_reset(email: str):
+    try:
+        from config import STREAMLIT_URL
+        redirect_url = STREAMLIT_URL or "http://localhost:8501"
+        supabase.auth.reset_password_email(
+            email,
+            options={"redirect_to": redirect_url}
+        )
+        return True, "Reset link sent! Check your inbox."
+    except Exception as e:
+        error = str(e).lower()
+        if "user not found" in error or "unable to find" in error:
+            return False, "No account found with this email."
+        return False, f"Could not send reset email: {str(e)}"
+
+
 def logout_user():
     try:
         supabase.auth.sign_out()
