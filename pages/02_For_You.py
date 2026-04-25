@@ -8,7 +8,7 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from auth.session import check_login
 from utils.sidebar import render_sidebar
 from utils.topbar import render_topbar
-from utils.helpers import render_product_card_html, get_match_score, EXPLANATIONS, normalize_categories
+from utils.helpers import render_product_card_html, get_match_score, EXPLANATIONS, normalize_categories, maybe_show_product_dialog
 from utils.notifications import add_notification
 from utils.explainer import generate_explanation
 from utils.model_loader import (
@@ -63,6 +63,7 @@ if 'wishlist_ids' not in st.session_state:
 
 # ── Top Bar ───────────────────────────────────────────────────────────────────
 render_topbar("For You", "AI-powered recommendations tuned to your taste")
+maybe_show_product_dialog()
 
 st.markdown(f"""
 <style>
@@ -143,6 +144,11 @@ if st.session_state.get('_clear_similar_requested'):
     st.session_state.pop('_clear_similar_requested', None)
 
 _sim_pid = st.session_state.get('similar_product')
+if _sim_pid and not MODELS_READY:
+    st.info("Similar product recommendations require trained ML models. Showing personalized picks below instead.")
+    st.session_state.pop('similar_product', None)
+    _sim_pid = None
+
 if _sim_pid and MODELS_READY:
     # Look up the source product name
     _products_df = get_products_df()
@@ -412,9 +418,11 @@ if MODELS_READY:
         )
         print(f"[FOR_YOU] Categories passed to engine: {_cats_to_use}")
         try:
-            if engine == "Collaborative":
+            _is_guest = (user_id == 'guest')
+            if engine == "Collaborative" and not _is_guest:
                 recs = get_cf_recommendations(user_id, n=num_recs * 2, categories=_cats_to_use)
-            elif engine == "Content-Based":
+            elif engine == "Content-Based" or (engine == "Collaborative" and _is_guest):
+                # Guest users can't use collaborative filtering (no user history)
                 recs = get_cb_recommendations(categories=_cats_to_use, n=num_recs * 2)
             else:
                 recs = get_hybrid_recommendations(
@@ -423,7 +431,7 @@ if MODELS_READY:
                     diversity=diversity / 100.0
                 )
         except Exception as e:
-            st.error(f"Recommendation engine error: {e}")
+            st.warning(f"Recommendation engine note: {e}")
             recs = []
 
     # Apply price + rating post-filters
@@ -444,6 +452,11 @@ if MODELS_READY:
             filtered = _fallback[:num_recs]
         except Exception:
             filtered = []
+
+    # Fallback 3: if all ML engines fail, use sample products
+    if not filtered:
+        _sp = load_sample_products()
+        filtered = _sp[:num_recs] if _sp else []
 
     if not filtered:
         st.markdown(f"""
@@ -488,9 +501,9 @@ if MODELS_READY:
                 </details>
                 """, unsafe_allow_html=True)
 
-                # Actions — feedback + save row
+                # Actions — feedback + details + save row
                 st.markdown('<div class="ir-card-actions">', unsafe_allow_html=True)
-                fc1, fc2, fc3 = st.columns([1, 1, 2])
+                fc1, fc2, fc3, fc4 = st.columns([1, 1, 1, 2])
                 with fc1:
                     style_up = "primary" if current_fb == "up" else "secondary"
                     if st.button("▲", key=f"up_{pid}_{i}", help="More like this", type=style_up, use_container_width=True):
@@ -524,6 +537,10 @@ if MODELS_READY:
                         except Exception:
                             st.toast("Could not save feedback")
                 with fc3:
+                    if st.button("Details", key=f"fy_det_{pid}_{i}", type="secondary", use_container_width=True):
+                        st.session_state["view_product"] = rec
+                        st.rerun()
+                with fc4:
                     save_label = "✓ Saved" if in_wish else "+ Save"
                     if st.button(save_label, key=f"fy_save_{pid}_{i}", type="secondary", use_container_width=True):
                         # Ensure wishlist_ids is always a set before any operation
@@ -559,16 +576,25 @@ if MODELS_READY:
                 st.markdown('</div>', unsafe_allow_html=True)
 
 else:
-    # ── DEMO MODE (original JSON-based) ──────────────────────────────────────
-    products = load_sample_products()
-    filtered = [
-        prod for prod in products
-        if prod.get('category') in (categories if 'categories' in dir() else ["Electronics", "Home & Kitchen"])
-        and prod.get('rating', 0) >= (min_rating if 'min_rating' in dir() else 3.0)
-        and (price_range[0] if 'price_range' in dir() else 0) <= prod.get('price', 0) <= (price_range[1] if 'price_range' in dir() else 500)
-    ]
+    # ── DEMO MODE — show sample products without heavy filtering ──────────────
+    _demo_all = load_sample_products()
+    _pref_cats_demo = normalize_categories(
+        st.session_state.get("pref_cats") or
+        st.session_state.get("preferred_categories") or []
+    )
+    _nr = num_recs if 'num_recs' in dir() else 12
+    _mr = min_rating if 'min_rating' in dir() else 1.0
+    _pr = price_range if 'price_range' in dir() else (0, 99999)
 
-    num_recs_fb = num_recs if 'num_recs' in dir() else 12
+    # Apply a loose filter: preferred cats first, then all categories
+    if _pref_cats_demo:
+        filtered = [p for p in _demo_all if p.get("category") in _pref_cats_demo and p.get("rating", 0) >= _mr]
+        if not filtered:
+            filtered = _demo_all  # fallback: show everything
+    else:
+        filtered = _demo_all
+
+    num_recs_fb = _nr
 
     if not filtered:
         st.markdown(f"""
@@ -606,7 +632,7 @@ else:
                 """, unsafe_allow_html=True)
 
                 st.markdown('<div class="ir-card-actions">', unsafe_allow_html=True)
-                fc1, fc2, fc3 = st.columns([1, 1, 2])
+                fc1, fc2, fc3, fc4 = st.columns([1, 1, 1, 2])
                 with fc1:
                     style_up = "primary" if current_fb == "up" else "secondary"
                     if st.button("▲", key=f"up_{prod['asin']}_{i}", help="More like this", type=style_up, use_container_width=True):
@@ -638,6 +664,10 @@ else:
                         except Exception:
                             st.toast("Could not save feedback")
                 with fc3:
+                    if st.button("Details", key=f"fy_det_{prod['asin']}_{i}", type="secondary", use_container_width=True):
+                        st.session_state["view_product"] = prod
+                        st.rerun()
+                with fc4:
                     save_label = "✓ Saved" if in_wish else "+ Save"
                     if st.button(save_label, key=f"fy_save_{prod['asin']}_{i}", type="secondary", use_container_width=True):
                         # Ensure wishlist_ids is always a set before any operation

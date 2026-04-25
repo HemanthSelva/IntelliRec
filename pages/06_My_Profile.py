@@ -591,29 +591,14 @@ with tab3:
                 st.markdown(render_product_card_html(prod, j, show_match=False), unsafe_allow_html=True)
                 wc1, wc2 = st.columns([1, 1])
                 with wc1:
-                    from utils.cart import add_to_cart, is_in_cart
-                    _already_in_cart = is_in_cart(pid)
-                    _cart_label = "In Cart" if _already_in_cart else "+ Cart"
-                    _cart_type  = "secondary" if _already_in_cart else "primary"
-                    if st.button(_cart_label, key=f"wl_cart_{pid}_{j}",
-                                 use_container_width=True, type=_cart_type):
-                        if _already_in_cart:
-                            st.toast("Already in your cart.")
-                        else:
-                            try:
-                                added = add_to_cart(
-                                    pid,
-                                    prod.get("title", ""),
-                                    prod.get("price", 0),
-                                    prod.get("category", "")
-                                )
-                                if added:
-                                    st.toast("Item added to cart.")
-                                    st.rerun()
-                                else:
-                                    st.toast("Already in your cart.")
-                            except Exception as _ce:
-                                st.toast(f"Could not add to cart: {_ce}")
+                    if st.button("Find Similar", key=f"wl_sim_{pid}_{j}",
+                                 use_container_width=True, type="primary"):
+                        st.session_state["similar_product"] = {
+                            "asin": pid,
+                            "title": prod.get("title", ""),
+                            "category": prod.get("category", ""),
+                        }
+                        st.switch_page("pages/02_For_You.py")
                 with wc2:
                     if st.button("Remove", key=f"wl_rm_{pid}_{j}", use_container_width=True, type="secondary"):
                         try:
@@ -775,7 +760,18 @@ with tab4:
                     try:
                         from auth.session import get_supabase, logout_user
                         sb = get_supabase()
-                        sb.table('profiles').delete().eq('id', user_id).execute()
+                        # Cascade delete in dependency order (children first)
+                        for _tbl, _col in [
+                            ('feedback',                 'user_id'),
+                            ('recommendation_history',   'user_id'),
+                            ('wishlist',                 'user_id'),
+                            ('user_preferences',         'user_id'),
+                            ('profiles',                 'id'),
+                        ]:
+                            try:
+                                sb.table(_tbl).delete().eq(_col, user_id).execute()
+                            except Exception:
+                                pass
                         logout_user()
                         st.toast("Account deleted.", icon="✅")
                         st.rerun()

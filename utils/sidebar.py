@@ -47,12 +47,12 @@ section[data-testid="stSidebar"],
     display: block !important;
     visibility: visible !important;
     opacity: 1 !important;
-    width: 240px !important;
-    min-width: 240px !important;
-    max-width: 340px !important;
+    width: 260px !important;
+    min-width: 260px !important;
+    max-width: 260px !important;
     transform: none !important;
     transition: none !important;
-    overflow: visible !important;
+    overflow: hidden !important;
     position: relative !important;
     flex-shrink: 0 !important;
 }
@@ -61,11 +61,20 @@ section[data-testid="stSidebar"] > div,
     display: block !important;
     visibility: visible !important;
     opacity: 1 !important;
-    width: 240px !important;
-    min-width: 240px !important;
+    width: 260px !important;
+    min-width: 260px !important;
+    max-width: 260px !important;
     transform: none !important;
     overflow-x: hidden !important;
     overflow-y: auto !important;
+    box-sizing: border-box !important;
+}
+section[data-testid="stSidebar"] .stButton > button {
+    overflow: hidden !important;
+    text-overflow: ellipsis !important;
+    white-space: nowrap !important;
+    max-width: 100% !important;
+    box-sizing: border-box !important;
 }
 </style>
 """, unsafe_allow_html=True)
@@ -136,14 +145,14 @@ _ICON_LOGOUT = """<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16"
   <line x1="21" y1="12" x2="9" y2="12"/></svg>"""
 
 NAV_ITEMS = [
-    (_ICON_HOME,      "Home",         "home",         "pages/01_Home.py"),
-    (_ICON_FORYOU,    "For You",      "for_you",      "pages/02_For_You.py"),
-    (_ICON_EXPLORE,   "Explore",      "explore",      "pages/03_Explore.py"),
-    (_ICON_TRENDING,  "Trending",     "trending",     "pages/04_Trending.py"),
-    (_ICON_ANALYTICS, "Analytics",   "analytics",    "pages/05_Analytics.py"),
-    (_ICON_CHAT,      "AI Assistant", "ai_assistant", "pages/08_AI_Assistant.py"),
-    (_ICON_PROFILE,   "My Profile",   "my_profile",   "pages/06_My_Profile.py"),
-    (_ICON_ABOUT,     "About",        "about",        "pages/07_About.py"),
+    ("🏠", "Home",         "home",         "pages/01_Home.py"),
+    ("⭐", "For You",      "for_you",      "pages/02_For_You.py"),
+    ("🔍", "Explore",      "explore",      "pages/03_Explore.py"),
+    ("📈", "Trending",     "trending",     "pages/04_Trending.py"),
+    ("📊", "Analytics",    "analytics",    "pages/05_Analytics.py"),
+    ("✨", "AI Assistant", "ai_assistant", "pages/08_AI_Assistant.py"),
+    ("👤", "My Profile",   "my_profile",   "pages/06_My_Profile.py"),
+    ("ℹ️", "About",        "about",        "pages/07_About.py"),
 ]
 
 _LOGO_SVG = """
@@ -322,17 +331,13 @@ section[data-testid="stSidebar"] .stButton > button[kind="primary"] span {{
             unsafe_allow_html=True
         )
 
-        for icon_svg, label, page_key, page_path in NAV_ITEMS:
+        for emoji, label, page_key, page_path in NAV_ITEMS:
             is_active = (current_page == page_key)
-            col_icon, col_btn = st.columns([0.15, 0.85])
-            with col_icon:
-                color = "var(--nav-active-color)" if is_active else "var(--nav-color)"
-                st.markdown(f'<div style="padding:10px 0 0 4px;color:{color};">{icon_svg}</div>', unsafe_allow_html=True)
-            with col_btn:
-                btn_type = "primary" if is_active else "secondary"
-                if st.button(label, key=f"nav_{page_key}", use_container_width=True, type=btn_type):
-                    if not is_active:
-                        st.switch_page(page_path)
+            btn_label = f"{emoji}  {label}"
+            btn_type = "primary" if is_active else "secondary"
+            if st.button(btn_label, key=f"nav_{page_key}", use_container_width=True, type=btn_type):
+                if not is_active:
+                    st.switch_page(page_path)
 
         st.markdown("</div>", unsafe_allow_html=True)
 

@@ -4,11 +4,12 @@ import os
 import sys
 import pandas as pd
 import plotly.express as px
+from datetime import datetime
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from auth.session import check_login
 from utils.sidebar import render_sidebar
 from utils.topbar import render_topbar
-from utils.helpers import get_sentiment_style, get_category_info
+from utils.helpers import get_sentiment_style, get_category_info, maybe_show_product_dialog
 from utils.model_loader import MODELS_READY, get_trending
 
 st.set_page_config(page_title="Trending | IntelliRec", page_icon="💡", layout="wide", initial_sidebar_state="expanded")
@@ -75,9 +76,9 @@ def load_sample_products():
         return []
 
 
-@st.cache_data(show_spinner=False, ttl=3600)
-def load_trending_pool() -> pd.DataFrame:
-    """Return a large trending pool from model_loader for time-filter slicing."""
+@st.cache_data(show_spinner=False, ttl=600)
+def load_trending_pool(_hour_seed: int = 0) -> pd.DataFrame:
+    """Return a large trending pool; _hour_seed busts cache each hour for variation."""
     if MODELS_READY:
         df = get_trending(n=200)
         if not df.empty:
@@ -111,13 +112,16 @@ def apply_category_diversity(df: pd.DataFrame, max_per_cat: int = 3, total: int 
 
 
 products = load_sample_products()  # keep for compatibility
-df = load_trending_pool()
+_now = datetime.now()
+_hour_seed = _now.hour * 100 + _now.day
+df = load_trending_pool(_hour_seed)
 
 if df.empty:
     df = pd.DataFrame(load_sample_products())
 
 # ── Top Bar ───────────────────────────────────────────────────────────────────
 render_topbar("What's Hot Right Now", "Discover what the IntelliRec community is loving")
+maybe_show_product_dialog()
 
 # ── Time filter ───────────────────────────────────────────────────────────────
 st.markdown(f"""
@@ -197,7 +201,9 @@ else:  # This Month
 # Apply category diversity: max 3 products per category
 if not trend_df.empty:
     trend_df = apply_category_diversity(trend_df, max_per_cat=3, total=n_products)
-    trend_df = trend_df.reset_index(drop=True)
+    # Shuffle top candidates slightly so each session feels fresh
+    _shuffle_seed = _hour_seed + ({"Today": 0, "This Week": 7, "This Month": 31}.get(time_filter, 0))
+    trend_df = trend_df.sample(frac=1, random_state=_shuffle_seed % 999).reset_index(drop=True)
 
 if trend_df.empty:
     trend_df = df.head(10)
@@ -391,6 +397,11 @@ for i, row in top_list.iterrows():
   <span style="color:{_sent_color};font-weight:600">{row.get('sentiment_label','Mixed')}</span><br>
   <span style="color:{p['text_muted']}">{int(row['review_count']):,} reviews &middot; ★ {row['rating']}</span>
 </div>""", unsafe_allow_html=True)
+        st.markdown('<div style="height:6px"></div>', unsafe_allow_html=True)
+        _row_dict = row.to_dict() if hasattr(row, 'to_dict') else dict(row)
+        if st.button("Details", key=f"tr_det_{i}", type="secondary", use_container_width=True):
+            st.session_state["view_product"] = _row_dict
+            st.rerun()
 
     st.markdown(f'<hr style="margin:6px 0;border:none;border-top:1px solid {p["border"]}">',
                 unsafe_allow_html=True)

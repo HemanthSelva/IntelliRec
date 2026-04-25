@@ -7,7 +7,7 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from auth.session import check_login
 from utils.sidebar import render_sidebar
 from utils.topbar import render_topbar
-from utils.helpers import render_product_card_html, normalize_categories
+from utils.helpers import render_product_card_html, normalize_categories, maybe_show_product_dialog
 from utils.notifications import add_notification
 from utils.model_loader import MODELS_READY, get_products_df, get_sentiments
 from database.db_operations import add_to_wishlist, remove_from_wishlist
@@ -135,6 +135,7 @@ if 'wishlist_ids' not in st.session_state:
 
 # ── Top Bar ───────────────────────────────────────────────────────────────────
 render_topbar("Explore Products", "Browse, search and filter our full catalogue")
+maybe_show_product_dialog()
 
 # ── Top Filter Panel ────────────────────────────────────────────────────────────
 # Initialise defaults on first load or after reset
@@ -317,12 +318,9 @@ else:
         with cols[i % 4]:
             st.markdown(render_product_card_html(prod, i, show_match=False),
                         unsafe_allow_html=True)
-            bc1, bc2 = st.columns([1, 1])
+            bc1, bc2, bc3 = st.columns(3)
             with bc1:
-                _sbg = p['accent_soft'] if in_wish else p['accent']
-                _stxt = p['accent'] if in_wish else '#ffffff'
                 if st.button(save_label, key=f"ex_save_{prod['asin']}_{i}", type="secondary", use_container_width=True):
-                    # Ensure wishlist_ids is always a set before any operation
                     if not isinstance(st.session_state.get('wishlist_ids'), set):
                         st.session_state['wishlist_ids'] = set()
                     try:
@@ -344,6 +342,10 @@ else:
                     except Exception as _save_err:
                         st.toast(f"Error: {_save_err}", icon="❌")
             with bc2:
+                if st.button("Details", key=f"ex_det_{prod['asin']}_{i}", type="secondary", use_container_width=True):
+                    st.session_state["view_product"] = prod
+                    st.rerun()
+            with bc3:
                 if st.button("Similar", key=f"ex_sim_{prod['asin']}_{i}", type="secondary", use_container_width=True):
                     st.session_state['similar_product'] = prod['asin']
                     st.switch_page("pages/02_For_You.py")

@@ -244,20 +244,45 @@ def get_chatbot_recommendations(parsed: dict, user_id: str, n: int = 8) -> list:
     """
     Call existing recommender functions — ZERO new recommendation logic.
     Applies budget filter AFTER prediction (same pattern as For You page).
+    Falls back to sample products when ML models aren't trained yet.
     """
     try:
         from utils.model_loader import (
             MODELS_READY, get_hybrid_recommendations, get_cb_recommendations
         )
 
-        if not MODELS_READY:
-            return []
-
         cats = parsed.get("categories") or [
             "Electronics", "Home & Kitchen",
             "Clothing & Shoes", "Beauty & Personal Care"
         ]
         budget = parsed.get("budget")
+
+        if not MODELS_READY:
+            # Demo mode: filter sample products by category and budget
+            import json, os
+            _base = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+            _sp_path = os.path.join(_base, "assets", "sample_products.json")
+            try:
+                with open(_sp_path) as f:
+                    _samples = json.load(f)
+            except Exception:
+                return []
+            # filter by category
+            _filtered = [p for p in _samples if p.get("category") in cats]
+            if not _filtered:
+                _filtered = _samples
+            # apply budget
+            if budget:
+                _budget_filtered = [p for p in _filtered if float(p.get("price") or 0) <= budget]
+                if _budget_filtered:
+                    _filtered = _budget_filtered
+            # Add product_id if missing
+            for p in _filtered:
+                if "product_id" not in p:
+                    p["product_id"] = p.get("asin", "")
+                if "match_score" not in p:
+                    p["match_score"] = min(99, int(p.get("rating", 4.0) / 5.0 * 100))
+            return sorted(_filtered, key=lambda x: x.get("rating", 0), reverse=True)[:n]
 
         # Use hybrid by default; fall back to CB if no user_id
         if user_id and user_id != "guest":
@@ -271,7 +296,7 @@ def get_chatbot_recommendations(parsed: dict, user_id: str, n: int = 8) -> list:
 
         return recs[:n]
 
-    except Exception as e:
+    except Exception:
         return []
 
 

@@ -7,12 +7,10 @@ import streamlit as st
 from database.supabase_client import supabase
 
 CATEGORIES = [
-    ("💻", "Electronics"),     ("🏠", "Home & Kitchen"),
-    ("📚", "Books"),           ("👗", "Fashion"),
-    ("⚽", "Sports"),          ("🎮", "Gaming"),
-    ("💄", "Beauty"),          ("🚗", "Automotive"),
-    ("🧸", "Toys & Games"),    ("🌿", "Health"),
-    ("📎", "Office"),          ("🐾", "Pet Supplies"),
+    ("💻", "Electronics"),
+    ("🏠", "Home & Kitchen"),
+    ("💄", "Beauty & Personal Care"),
+    ("👗", "Clothing & Shoes"),
 ]
 
 STYLES = [
@@ -138,12 +136,12 @@ def show_onboarding():
    letter-spacing:1.5px;margin-bottom:12px;">What do you shop for?</p>
 """, unsafe_allow_html=True)
 
-    # ── Category grid — buttons only, no HTML divs ─────────────────────────────
-    cols = st.columns(4)
+    # ── Category grid — 2×2 layout for 4 categories ───────────────────────────
+    cols = st.columns(2)
     for idx, (emoji, cat) in enumerate(CATEGORIES):
         is_sel    = cat in selected
-        btn_label = f"{emoji}\n{cat}" if not is_sel else f"✓ {emoji}\n{cat}"
-        with cols[idx % 4]:
+        btn_label = f"{emoji}  {cat}" if not is_sel else f"✓  {emoji}  {cat}"
+        with cols[idx % 2]:
             if st.button(
                 btn_label,
                 key=f"ob_cat_{idx}",
@@ -156,11 +154,11 @@ def show_onboarding():
                     selected.add(cat)
                 st.rerun()
 
-    # Count hint
-    hint_color = "#6C63FF" if count >= 3 else "#EF4444"
+    # Count hint — minimum 1 required
+    hint_color = "#6C63FF" if count >= 1 else "#EF4444"
     st.markdown(f"""
 <p style="font-size:13px;color:{hint_color};font-weight:500;margin:4px 0 2rem;">
-  {'✓ ' if count >= 3 else ''}{count} selected{' — great!' if count >= 3 else ' · pick at least 3'}
+  {'✓ ' if count >= 1 else ''}{count} selected{' — great!' if count >= 1 else ' · pick at least 1 category'}
 </p>
 """, unsafe_allow_html=True)
 
@@ -188,12 +186,12 @@ def show_onboarding():
     st.markdown("<div style='height:1.5rem'></div>", unsafe_allow_html=True)
     col_l, col_c, col_r = st.columns([1, 2, 1])
     with col_c:
-        if count < 3:
+        if count < 1:
             st.markdown(f"""
 <div style="background:#F3F4F6;border-radius:10px;padding:13px 20px;
             text-align:center;font-size:14px;color:#9CA3AF;font-weight:500;">
   Personalise My Feed →<br>
-  <span style="font-size:12px;">Select at least 3 categories ({count} of 3 selected)</span>
+  <span style="font-size:12px;">Select at least 1 category to continue</span>
 </div>
 """, unsafe_allow_html=True)
         else:
@@ -230,7 +228,9 @@ def _save_onboarding():
     st.session_state.onboarding_done = True
     if 'current_user' in st.session_state and st.session_state.current_user:
         st.session_state.current_user['preferred_categories'] = categories
+        st.session_state.current_user['preferred_engine'] = style
     # Sync to the key the recommendation engine actually reads
     st.session_state["pref_cats"] = categories
     st.session_state["preferred_categories"] = categories
+    st.session_state["preferred_engine"] = style
     st.rerun()
