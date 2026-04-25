@@ -376,6 +376,11 @@ def render_login():
                                     {'token_hash': _rth, 'type': 'recovery'}
                                 )
                             supabase.auth.update_user({"password": new_pw})
+                            
+                            # Log out so the user is forced to sign in with the new password
+                            from auth.session import logout_user
+                            logout_user()
+                            
                             st.session_state.pop('show_password_update', None)
                             st.session_state.pop('_recovery_token_hash', None)
                             st.session_state['pw_reset_success'] = True

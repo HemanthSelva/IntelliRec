@@ -206,7 +206,12 @@ def send_password_reset(email: str):
     try:
         from config import STREAMLIT_URL
         redirect_url = STREAMLIT_URL or "http://localhost:8501"
-        supabase.auth.reset_password_email(
+        if "?" in redirect_url:
+            redirect_url += "&reset=1"
+        else:
+            redirect_url += "?reset=1"
+
+        supabase.auth.reset_password_for_email(
             email,
             options={"redirect_to": redirect_url}
         )
