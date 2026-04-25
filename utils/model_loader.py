@@ -101,7 +101,7 @@ MODELS_READY: bool = all(
 
 def _pkl(filename: str):
     """Load a joblib/pickle file from MODEL_DIR."""
-    return joblib.load(os.path.join(MODEL_DIR, filename))
+    return joblib.load(os.path.join(MODEL_DIR, filename), mmap_mode='r')
 
 
 # ── Cached loaders ─────────────────────────────────────────────────────────────
@@ -117,7 +117,7 @@ def get_svd():
 
         # Try joblib first
         try:
-            model = joblib.load(filepath)
+            model = joblib.load(filepath, mmap_mode='r')
             return model
         except Exception as e1:
             print(f"SVD joblib load failed: {e1}")
@@ -163,7 +163,7 @@ def get_products_df() -> pd.DataFrame:
 
         # Try joblib first
         try:
-            df = joblib.load(filepath)
+            df = joblib.load(filepath, mmap_mode='r')
             if isinstance(df, pd.DataFrame) and not df.empty:
                 # Fix any dtype incompatibilities (StringDtype → str)
                 for col in df.select_dtypes(include=['object']).columns:
@@ -209,7 +209,7 @@ def get_metrics() -> dict:
     path = os.path.join(MODEL_DIR, "model_metrics.pkl")
     if os.path.exists(path):
         try:
-            return joblib.load(path), True   # (metrics, is_real)
+            return joblib.load(path, mmap_mode='r'), True   # (metrics, is_real)
         except Exception:
             pass
     # Fallback dummy
