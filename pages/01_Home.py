@@ -8,7 +8,7 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from auth.session import check_login
 from utils.sidebar import render_sidebar
 from utils.topbar import render_topbar
-from utils.helpers import render_product_card_html, normalize_categories
+from utils.helpers import render_product_card_html, normalize_categories, maybe_show_product_dialog
 from utils.notifications import add_notification
 from utils.model_loader import MODELS_READY, get_products_df, get_sentiments, get_hybrid_recommendations
 from database.db_operations import add_to_wishlist, remove_from_wishlist
@@ -104,19 +104,9 @@ def _get_real_products_as_list(n=40):
 
     df["price_num"] = df["price"].apply(_safe_price)
 
-    # Use the user's preferred categories instead of hardcoded defaults
-    user_cats_raw = (
-        st.session_state.get("pref_cats")
-        or st.session_state.get("preferred_categories")
-        or ["Electronics", "Home & Kitchen", "Beauty & Personal Care", "Clothing & Shoes"]
-    )
-    if not user_cats_raw:
-        user_cats_raw = ["Electronics", "Home & Kitchen", "Beauty & Personal Care", "Clothing & Shoes"]
-
-    # ── Normalize onboarding names → dataset names ────────────────────────
-    user_cats = normalize_categories(user_cats_raw)
-    print(f"[HOME] Raw pref_cats: {user_cats_raw}")
-    print(f"[HOME] Normalized cats: {user_cats}")
+    # Always load from all 4 canonical categories so every section has data.
+    # User preferences influence recommendation ordering, not product availability.
+    user_cats = ["Electronics", "Home & Kitchen", "Beauty & Personal Care", "Clothing & Shoes"]
 
     n_per_cat = max(2, n // len(user_cats))
     cat_frames = []
@@ -185,6 +175,8 @@ render_topbar(
     page_title=display,
     subtitle="Here are today's picks curated by your AI engines"
 )
+
+maybe_show_product_dialog()
 
 # ── Search ────────────────────────────────────────────────────────────────────
 search = st.text_input("Search products",
@@ -372,7 +364,7 @@ def render_section(title: str, icon_svg: str, prods: list, section_key: str):
             in_wish = prod["asin"] in st.session_state.get("wishlist_ids", set())
             save_label = "✓ Saved" if in_wish else "+ Save"
 
-            bc1, bc2 = st.columns([1, 1])
+            bc1, bc2, bc3 = st.columns(3)
             with bc1:
                 if st.button(save_label, key=f"{section_key}_save_{prod['asin']}", type="secondary", use_container_width=True):
                     if not isinstance(st.session_state.get("wishlist_ids"), set):
@@ -401,6 +393,10 @@ def render_section(title: str, icon_svg: str, prods: list, section_key: str):
                     except Exception as _save_err:
                         st.toast(f"Error: {_save_err}", icon="❌")
             with bc2:
+                if st.button("Details", key=f"{section_key}_det_{prod['asin']}", type="secondary", use_container_width=True):
+                    st.session_state["view_product"] = prod
+                    st.rerun()
+            with bc3:
                 if st.button("Similar", key=f"{section_key}_sim_{prod['asin']}", type="secondary", use_container_width=True):
                     st.session_state["similar_product"] = prod["asin"]
                     st.switch_page("pages/02_For_You.py")
@@ -417,13 +413,35 @@ if active == "All":
         or []
     )
     _norm_pref = normalize_categories(_raw_pref) if _raw_pref else []
-    if _norm_pref:
+    _pref_engine = st.session_state.get("preferred_engine", "hybrid")
+
+    # Use ML engine if models are ready and user is logged in
+    _rec_from_engine = []
+    if MODELS_READY and user_id != "guest":
+        try:
+            _cats_for_rec = _norm_pref if _norm_pref else None
+            if _pref_engine == "accuracy":
+                from utils.model_loader import get_cf_recommendations
+                _raw_recs = get_cf_recommendations(user_id, n=12, categories=_cats_for_rec)
+            elif _pref_engine == "diversity":
+                from utils.model_loader import get_cb_recommendations
+                _raw_recs = get_cb_recommendations(categories=_cats_for_rec, n=12)
+            else:
+                _raw_recs = get_hybrid_recommendations(user_id, n=12, categories=_cats_for_rec, diversity=0.3)
+            _rec_from_engine = _raw_recs[:8] if _raw_recs else []
+        except Exception:
+            _rec_from_engine = []
+
+    if _rec_from_engine:
+        render_section("Recommended For You", _SVG_STAR_SEC, _rec_from_engine, "rec")
+    elif _norm_pref:
         rec_products = [pr for pr in products if pr.get("category") in _norm_pref]
         if not rec_products:
             rec_products = pool[:8]
+        render_section("Recommended For You", _SVG_STAR_SEC, rec_products[:8], "rec")
     else:
-        rec_products = pool[:8]
-    render_section("Recommended For You", _SVG_STAR_SEC, rec_products[:8], "rec")
+        render_section("Recommended For You", _SVG_STAR_SEC, pool[:8], "rec")
+
     if _norm_pref:
         st.caption("Based on your interests: " + ", ".join(_norm_pref))
 elif active in _DATASET_CATS:
@@ -467,7 +485,7 @@ if active == "All":
         or st.session_state.get("preferred_categories")
         or []
     )
-    _user_section_cats = normalize_categories(_raw_pref2) if _raw_pref2 else _DATASET_CATS
+    _user_section_cats = _DATASET_CATS  # Always show all 4 categories
     for _ci, _cat in enumerate(_user_section_cats):
         _cat_prods = sorted(
             [pr for pr in products if pr.get("category") == _cat],

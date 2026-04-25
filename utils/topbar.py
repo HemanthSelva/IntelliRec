@@ -62,18 +62,18 @@ def render_topbar(page_title: str = "", subtitle: str = ""):
     unread         = get_unread_count()
 
     # ── Top row: toggle | title | action icons ────────────────────────────────
-    toggle_col, left_col, right_col = st.columns([0.4, 3.6, 3])
+    toggle_col, left_col, right_col = st.columns([0.5, 4.5, 2], vertical_alignment="center")
 
     with toggle_col:
         render_sidebar_toggle()
 
     with left_col:
         st.markdown(f"""
-<div style="padding:2px 0 14px;">
-  <h1 style="color:{_p['text_primary']};font-size:32px;
-  font-weight:700;margin:0;">{page_title}</h1>
-  <p style="color:{_p['text_secondary']};font-size:16px;
-  margin-top:8px;margin-bottom:0;">{subtitle}</p>
+<div style="padding:4px 0 8px;">
+  <h1 style="color:{_p['text_primary']};font-size:28px;
+  font-weight:700;margin:0;line-height:1.2;">{page_title}</h1>
+  <p style="color:{_p['text_secondary']};font-size:15px;
+  margin-top:4px;margin-bottom:0;line-height:1.4;">{subtitle}</p>
 </div>""", unsafe_allow_html=True)
 
     with right_col:

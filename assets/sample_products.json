@@ -11,7 +11,8 @@
         "is_trending": false,
         "is_bestseller": false,
         "image_placeholder_color": "#48DBFB",
-        "description_short": "Industry-leading noise cancellation with 30-hour battery life and multipoint connection."
+        "description_short": "Industry-leading noise cancellation with 30-hour battery life and multipoint connection.",
+        "product_id": "B0000001"
     },
     {
         "asin": "B0000002",
@@ -25,7 +26,8 @@
         "is_trending": false,
         "is_bestseller": false,
         "image_placeholder_color": "#FF6B6B",
-        "description_short": "Pressure cooker, slow cooker, rice cooker, steamer, sauté, yogurt maker and warmer in one."
+        "description_short": "Pressure cooker, slow cooker, rice cooker, steamer, saut\u00c3\u00a9, yogurt maker and warmer in one.",
+        "product_id": "B0000002"
     },
     {
         "asin": "B0000003",
@@ -39,7 +41,8 @@
         "is_trending": false,
         "is_bestseller": false,
         "image_placeholder_color": "#5F27CD",
-        "description_short": "Active Noise Cancellation, Adaptive Transparency, Personalized Spatial Audio with MagSafe charging."
+        "description_short": "Active Noise Cancellation, Adaptive Transparency, Personalized Spatial Audio with MagSafe charging.",
+        "product_id": "B0000003"
     },
     {
         "asin": "B0000004",
@@ -53,7 +56,8 @@
         "is_trending": true,
         "is_bestseller": false,
         "image_placeholder_color": "#54A0FF",
-        "description_short": "Laser detects hidden dust, intelligent suction auto-adjusts, LCD screen displays run-time."
+        "description_short": "Laser detects hidden dust, intelligent suction auto-adjusts, LCD screen displays run-time.",
+        "product_id": "B0000004"
     },
     {
         "asin": "B0000005",
@@ -67,7 +71,8 @@
         "is_trending": false,
         "is_bestseller": false,
         "image_placeholder_color": "#FF9F43",
-        "description_short": "11 one-touch cooking presets, preheat function, shake reminder, dishwasher-safe basket."
+        "description_short": "11 one-touch cooking presets, preheat function, shake reminder, dishwasher-safe basket.",
+        "product_id": "B0000005"
     },
     {
         "asin": "B0000006",
@@ -81,7 +86,8 @@
         "is_trending": false,
         "is_bestseller": false,
         "image_placeholder_color": "#FF6B6B",
-        "description_short": "10-speed slide control, 59 touchpoints around the bowl for a thorough mix, 10+ attachments available."
+        "description_short": "10-speed slide control, 59 touchpoints around the bowl for a thorough mix, 10+ attachments available.",
+        "product_id": "B0000006"
     },
     {
         "asin": "B0000007",
@@ -95,7 +101,8 @@
         "is_trending": false,
         "is_bestseller": false,
         "image_placeholder_color": "#5F27CD",
-        "description_short": "Variable speed control, aircraft-grade stainless steel blades, self-cleaning in 30-60 seconds."
+        "description_short": "Variable speed control, aircraft-grade stainless steel blades, self-cleaning in 30-60 seconds.",
+        "product_id": "B0000007"
     },
     {
         "asin": "B0000008",
@@ -109,7 +116,8 @@
         "is_trending": false,
         "is_bestseller": false,
         "image_placeholder_color": "#5F27CD",
-        "description_short": "Smart backlit keys, Easy-Switch for 3 devices, USB-C charging, compatible with Windows and macOS."
+        "description_short": "Smart backlit keys, Easy-Switch for 3 devices, USB-C charging, compatible with Windows and macOS.",
+        "product_id": "B0000008"
     },
     {
         "asin": "B0000009",
@@ -123,7 +131,8 @@
         "is_trending": false,
         "is_bestseller": true,
         "image_placeholder_color": "#5F27CD",
-        "description_short": "Avoids pet waste, 60-day clean base disposal, PrecisionVision Navigation, smart mapping."
+        "description_short": "Avoids pet waste, 60-day clean base disposal, PrecisionVision Navigation, smart mapping.",
+        "product_id": "B0000009"
     },
     {
         "asin": "B0000010",
@@ -137,7 +146,8 @@
         "is_trending": false,
         "is_bestseller": false,
         "image_placeholder_color": "#54A0FF",
-        "description_short": "OLED evo panel, Brightness Booster, a9 AI Processor 4K Gen6, webOS 23, built-in Google Assistant."
+        "description_short": "OLED evo panel, Brightness Booster, a9 AI Processor 4K Gen6, webOS 23, built-in Google Assistant.",
+        "product_id": "B0000010"
     },
     {
         "asin": "B0000011",
@@ -151,7 +161,8 @@
         "is_trending": false,
         "is_bestseller": false,
         "image_placeholder_color": "#1DD1A1",
-        "description_short": "Quiet and aware modes, high-fidelity audio, up to 24-hour battery life, USB-C charging."
+        "description_short": "Quiet and aware modes, high-fidelity audio, up to 24-hour battery life, USB-C charging.",
+        "product_id": "B0000011"
     },
     {
         "asin": "B0000012",
@@ -165,7 +176,8 @@
         "is_trending": false,
         "is_bestseller": false,
         "image_placeholder_color": "#FF9F43",
-        "description_short": "Adaptive Noise Cancelling, Ambient Aware, 70-hour battery life, JBL Pure Bass Sound."
+        "description_short": "Adaptive Noise Cancelling, Ambient Aware, 70-hour battery life, JBL Pure Bass Sound.",
+        "product_id": "B0000012"
     },
     {
         "asin": "B0000013",
@@ -179,7 +191,8 @@
         "is_trending": false,
         "is_bestseller": false,
         "image_placeholder_color": "#54A0FF",
-        "description_short": "720-watt motor, stainless steel S-blade, dough blade, shredding disc, slicing disc included."
+        "description_short": "720-watt motor, stainless steel S-blade, dough blade, shredding disc, slicing disc included.",
+        "product_id": "B0000013"
     },
     {
         "asin": "B0000014",
@@ -193,7 +206,8 @@
         "is_trending": true,
         "is_bestseller": false,
         "image_placeholder_color": "#1DD1A1",
-        "description_short": "Built-in conical burr grinder, 15 bar pressure, PID temperature control, manual microfoam milk texturing."
+        "description_short": "Built-in conical burr grinder, 15 bar pressure, PID temperature control, manual microfoam milk texturing.",
+        "product_id": "B0000014"
     },
     {
         "asin": "B0000015",
@@ -207,7 +221,8 @@
         "is_trending": false,
         "is_bestseller": false,
         "image_placeholder_color": "#1DD1A1",
-        "description_short": "24.1 Megapixel APS-C CMOS sensor, 4K UHD video, Dual Pixel CMOS AF, eye detection AF."
+        "description_short": "24.1 Megapixel APS-C CMOS sensor, 4K UHD video, Dual Pixel CMOS AF, eye detection AF.",
+        "product_id": "B0000015"
     },
     {
         "asin": "B0000016",
@@ -221,7 +236,8 @@
         "is_trending": true,
         "is_bestseller": false,
         "image_placeholder_color": "#1DD1A1",
-        "description_short": "Smart digital display, 140W bidirectional USB-C port, charges MacBook Pro in 2 hours."
+        "description_short": "Smart digital display, 140W bidirectional USB-C port, charges MacBook Pro in 2 hours.",
+        "product_id": "B0000016"
     },
     {
         "asin": "B0000017",
@@ -235,7 +251,8 @@
         "is_trending": true,
         "is_bestseller": false,
         "image_placeholder_color": "#54A0FF",
-        "description_short": "Superior heat distribution, tight-fitting lid, compatible with all cooktops including induction."
+        "description_short": "Superior heat distribution, tight-fitting lid, compatible with all cooktops including induction.",
+        "product_id": "B0000017"
     },
     {
         "asin": "B0000018",
@@ -249,7 +266,8 @@
         "is_trending": false,
         "is_bestseller": false,
         "image_placeholder_color": "#48DBFB",
-        "description_short": "IPS Black technology for 2x deeper blacks, 3840x2160 resolution, 90W USB-C Power Delivery."
+        "description_short": "IPS Black technology for 2x deeper blacks, 3840x2160 resolution, 90W USB-C Power Delivery.",
+        "product_id": "B0000018"
     },
     {
         "asin": "B0000019",
@@ -263,7 +281,8 @@
         "is_trending": false,
         "is_bestseller": false,
         "image_placeholder_color": "#1DD1A1",
-        "description_short": "3-layer nonstick interior, oven-safe to 450°F, induction compatible, dishwasher safe."
+        "description_short": "3-layer nonstick interior, oven-safe to 450\u00c2\u00b0F, induction compatible, dishwasher safe.",
+        "product_id": "B0000019"
     },
     {
         "asin": "B0000020",
@@ -277,7 +296,8 @@
         "is_trending": false,
         "is_bestseller": false,
         "image_placeholder_color": "#1DD1A1",
-        "description_short": "3-ply bonded construction, stainless steel cooking surface, oven and broiler safe up to 600°F."
+        "description_short": "3-ply bonded construction, stainless steel cooking surface, oven and broiler safe up to 600\u00c2\u00b0F.",
+        "product_id": "B0000020"
     },
     {
         "asin": "B0000021",
@@ -291,7 +311,8 @@
         "is_trending": true,
         "is_bestseller": true,
         "image_placeholder_color": "#FF9F43",
-        "description_short": "S9 SiP chip, Double Tap gesture, crash detection, blood oxygen app, always-on Retina display."
+        "description_short": "S9 SiP chip, Double Tap gesture, crash detection, blood oxygen app, always-on Retina display.",
+        "product_id": "B0000021"
     },
     {
         "asin": "B0000022",
@@ -305,7 +326,8 @@
         "is_trending": false,
         "is_bestseller": false,
         "image_placeholder_color": "#1DD1A1",
-        "description_short": "30,000 BTU-per-hour input, porcelain-enameled cast iron grates, GS4 grilling system."
+        "description_short": "30,000 BTU-per-hour input, porcelain-enameled cast iron grates, GS4 grilling system.",
+        "product_id": "B0000022"
     },
     {
         "asin": "B0000023",
@@ -319,7 +341,8 @@
         "is_trending": true,
         "is_bestseller": false,
         "image_placeholder_color": "#1DD1A1",
-        "description_short": "DuoClean PowerFins, self-cleaning brushroll, anti-allergen complete seal, 60-min runtime."
+        "description_short": "DuoClean PowerFins, self-cleaning brushroll, anti-allergen complete seal, 60-min runtime.",
+        "product_id": "B0000023"
     },
     {
         "asin": "B0000024",
@@ -333,7 +356,8 @@
         "is_trending": false,
         "is_bestseller": false,
         "image_placeholder_color": "#5F27CD",
-        "description_short": "HEPA H13 and activated carbon filtration, 350° oscillation, auto mode, real-time air quality reporting."
+        "description_short": "HEPA H13 and activated carbon filtration, 350\u00c2\u00b0 oscillation, auto mode, real-time air quality reporting.",
+        "product_id": "B0000024"
     },
     {
         "asin": "B0000025",
@@ -347,7 +371,8 @@
         "is_trending": false,
         "is_bestseller": false,
         "image_placeholder_color": "#FF9F43",
-        "description_short": "Intel Core i9-13980HX, NVIDIA GeForce RTX 4070, 16GB DDR5, 1TB PCIe SSD, ROG Intelligent Cooling."
+        "description_short": "Intel Core i9-13980HX, NVIDIA GeForce RTX 4070, 16GB DDR5, 1TB PCIe SSD, ROG Intelligent Cooling.",
+        "product_id": "B0000025"
     },
     {
         "asin": "B0000026",
@@ -361,7 +386,8 @@
         "is_trending": false,
         "is_bestseller": false,
         "image_placeholder_color": "#5F27CD",
-        "description_short": "Non-slip base, pour spout, angled interior surface, includes 1.5, 3, and 5 quart bowls."
+        "description_short": "Non-slip base, pour spout, angled interior surface, includes 1.5, 3, and 5 quart bowls.",
+        "product_id": "B0000026"
     },
     {
         "asin": "B0000027",
@@ -375,7 +401,8 @@
         "is_trending": false,
         "is_bestseller": false,
         "image_placeholder_color": "#FF9F43",
-        "description_short": "Barcode reading technology, 5 cup sizes from espresso to Alto, 30-second heat-up time."
+        "description_short": "Barcode reading technology, 5 cup sizes from espresso to Alto, 30-second heat-up time.",
+        "product_id": "B0000027"
     },
     {
         "asin": "B0000028",
@@ -389,7 +416,8 @@
         "is_trending": false,
         "is_bestseller": false,
         "image_placeholder_color": "#54A0FF",
-        "description_short": "MultiStream Technology, BrewID auto-adjusts brew settings, 78 oz reservoir, compatible with My K-Cup."
+        "description_short": "MultiStream Technology, BrewID auto-adjusts brew settings, 78 oz reservoir, compatible with My K-Cup.",
+        "product_id": "B0000028"
     },
     {
         "asin": "B0000029",
@@ -403,7 +431,8 @@
         "is_trending": false,
         "is_bestseller": false,
         "image_placeholder_color": "#1DD1A1",
-        "description_short": "24.2MP Exmor CMOS sensor, 4K video, real-time Eye AF, directional 3-capsule mic, product showcase mode."
+        "description_short": "24.2MP Exmor CMOS sensor, 4K video, real-time Eye AF, directional 3-capsule mic, product showcase mode.",
+        "product_id": "B0000029"
     },
     {
         "asin": "B0000030",
@@ -417,7 +446,8 @@
         "is_trending": false,
         "is_bestseller": false,
         "image_placeholder_color": "#1DD1A1",
-        "description_short": "210W suction power, AI-powered auto-adjust, all-in-one clean station, up to 60-min runtime."
+        "description_short": "210W suction power, AI-powered auto-adjust, all-in-one clean station, up to 60-min runtime.",
+        "product_id": "B0000030"
     },
     {
         "asin": "B0000031",
@@ -431,7 +461,8 @@
         "is_trending": true,
         "is_bestseller": false,
         "image_placeholder_color": "#FF6B6B",
-        "description_short": "6 smart programs, EvenCrisp technology, no-preheat, ClearCook viewing window, dishwasher-safe tray."
+        "description_short": "6 smart programs, EvenCrisp technology, no-preheat, ClearCook viewing window, dishwasher-safe tray.",
+        "product_id": "B0000031"
     },
     {
         "asin": "B0000032",
@@ -445,7 +476,8 @@
         "is_trending": false,
         "is_bestseller": true,
         "image_placeholder_color": "#54A0FF",
-        "description_short": "13 cooking functions, Super Convection technology, interior oven light, Element IQ system."
+        "description_short": "13 cooking functions, Super Convection technology, interior oven light, Element IQ system.",
+        "product_id": "B0000032"
     },
     {
         "asin": "B0000033",
@@ -459,7 +491,8 @@
         "is_trending": false,
         "is_bestseller": false,
         "image_placeholder_color": "#1DD1A1",
-        "description_short": "GaN II technology, charges MacBook Air in 2h, dynamic power distribution, foldable plug."
+        "description_short": "GaN II technology, charges MacBook Air in 2h, dynamic power distribution, foldable plug.",
+        "product_id": "B0000033"
     },
     {
         "asin": "B0000034",
@@ -473,7 +506,8 @@
         "is_trending": false,
         "is_bestseller": false,
         "image_placeholder_color": "#54A0FF",
-        "description_short": "7-inch OLED screen, wide adjustable stand, 64GB internal storage, enhanced audio, wired LAN port."
+        "description_short": "7-inch OLED screen, wide adjustable stand, 64GB internal storage, enhanced audio, wired LAN port.",
+        "product_id": "B0000034"
     },
     {
         "asin": "B0000035",
@@ -487,7 +521,8 @@
         "is_trending": false,
         "is_bestseller": false,
         "image_placeholder_color": "#FF9F43",
-        "description_short": "6000MHz speed, 2x16GB kit, individually tuned RGB lighting, XMP 3.0 and EXPO support."
+        "description_short": "6000MHz speed, 2x16GB kit, individually tuned RGB lighting, XMP 3.0 and EXPO support.",
+        "product_id": "B0000035"
     },
     {
         "asin": "B0000036",
@@ -501,7 +536,8 @@
         "is_trending": true,
         "is_bestseller": false,
         "image_placeholder_color": "#54A0FF",
-        "description_short": "Dual-zone temperature control, integrated drip tray, brushed stainless steel, removable nonstick plates."
+        "description_short": "Dual-zone temperature control, integrated drip tray, brushed stainless steel, removable nonstick plates.",
+        "product_id": "B0000036"
     },
     {
         "asin": "B0000037",
@@ -515,7 +551,8 @@
         "is_trending": false,
         "is_bestseller": false,
         "image_placeholder_color": "#54A0FF",
-        "description_short": "Pre-seasoned with natural vegetable oil, heat retention, oven, stovetop, grill and campfire safe."
+        "description_short": "Pre-seasoned with natural vegetable oil, heat retention, oven, stovetop, grill and campfire safe.",
+        "product_id": "B0000037"
     },
     {
         "asin": "B0000038",
@@ -529,7 +566,8 @@
         "is_trending": false,
         "is_bestseller": false,
         "image_placeholder_color": "#1DD1A1",
-        "description_short": "Fits a 12\" pizza, 9 cooking functions, keep-warm setting, stainless steel exterior, easy-clean interior."
+        "description_short": "Fits a 12\" pizza, 9 cooking functions, keep-warm setting, stainless steel exterior, easy-clean interior.",
+        "product_id": "B0000038"
     },
     {
         "asin": "B0000039",
@@ -543,7 +581,8 @@
         "is_trending": true,
         "is_bestseller": false,
         "image_placeholder_color": "#5F27CD",
-        "description_short": "Exynos 1380, 10090mAh battery, IP68 water resistance, S Pen included, expandable storage up to 1TB."
+        "description_short": "Exynos 1380, 10090mAh battery, IP68 water resistance, S Pen included, expandable storage up to 1TB.",
+        "product_id": "B0000039"
     },
     {
         "asin": "B0000040",
@@ -557,7 +596,8 @@
         "is_trending": false,
         "is_bestseller": false,
         "image_placeholder_color": "#1DD1A1",
-        "description_short": "Turbo mode cooks 30% faster, app-guided cooking, magnetic clip, 1100+ recipes in the Joule app."
+        "description_short": "Turbo mode cooks 30% faster, app-guided cooking, magnetic clip, 1100+ recipes in the Joule app.",
+        "product_id": "B0000040"
     },
     {
         "asin": "B0000041",
@@ -571,7 +611,8 @@
         "is_trending": false,
         "is_bestseller": true,
         "image_placeholder_color": "#54A0FF",
-        "description_short": "1200W heating element, connects to the Anova app via Wi-Fi and Bluetooth, IPX7 waterproof."
+        "description_short": "1200W heating element, connects to the Anova app via Wi-Fi and Bluetooth, IPX7 waterproof.",
+        "product_id": "B0000041"
     },
     {
         "asin": "B0000042",
@@ -585,7 +626,8 @@
         "is_trending": true,
         "is_bestseller": false,
         "image_placeholder_color": "#54A0FF",
-        "description_short": "5 program settings, wireless connectivity, 2.2HP motor, built-in wireless connectivity, self-cleaning."
+        "description_short": "5 program settings, wireless connectivity, 2.2HP motor, built-in wireless connectivity, self-cleaning.",
+        "product_id": "B0000042"
     },
     {
         "asin": "B0000043",
@@ -599,7 +641,8 @@
         "is_trending": false,
         "is_bestseller": false,
         "image_placeholder_color": "#48DBFB",
-        "description_short": "1500-watt motor, 72-oz pitcher, 8-cup processor bowl, two 16-oz Nutri Ninja cups, total crushing blades."
+        "description_short": "1500-watt motor, 72-oz pitcher, 8-cup processor bowl, two 16-oz Nutri Ninja cups, total crushing blades.",
+        "product_id": "B0000043"
     },
     {
         "asin": "B0000044",
@@ -613,7 +656,8 @@
         "is_trending": false,
         "is_bestseller": true,
         "image_placeholder_color": "#FF9F43",
-        "description_short": "6 cooking presets, auto-shutoff, non-stick crisper tray, up to 70% fewer calories than frying."
+        "description_short": "6 cooking presets, auto-shutoff, non-stick crisper tray, up to 70% fewer calories than frying.",
+        "product_id": "B0000044"
     },
     {
         "asin": "B0000045",
@@ -627,7 +671,8 @@
         "is_trending": false,
         "is_bestseller": false,
         "image_placeholder_color": "#48DBFB",
-        "description_short": "Liquid Retina XDR display, ProRes video, Apple Pencil hover, Wi-Fi 6E, 10-hour battery life."
+        "description_short": "Liquid Retina XDR display, ProRes video, Apple Pencil hover, Wi-Fi 6E, 10-hour battery life.",
+        "product_id": "B0000045"
     },
     {
         "asin": "B0000046",
@@ -641,7 +686,8 @@
         "is_trending": false,
         "is_bestseller": false,
         "image_placeholder_color": "#48DBFB",
-        "description_short": "12th Gen Intel Core i5, 8GB RAM, Windows 11 Home, 13-inch PixelSense touchscreen, up to 15.5-hour battery."
+        "description_short": "12th Gen Intel Core i5, 8GB RAM, Windows 11 Home, 13-inch PixelSense touchscreen, up to 15.5-hour battery.",
+        "product_id": "B0000046"
     },
     {
         "asin": "B0000047",
@@ -655,7 +701,8 @@
         "is_trending": false,
         "is_bestseller": false,
         "image_placeholder_color": "#FF9F43",
-        "description_short": "13 cooking functions, Super Convection, Element IQ system, interior oven light, non-stick coating."
+        "description_short": "13 cooking functions, Super Convection, Element IQ system, interior oven light, non-stick coating.",
+        "product_id": "B0000047"
     },
     {
         "asin": "B0000048",
@@ -669,7 +716,8 @@
         "is_trending": false,
         "is_bestseller": false,
         "image_placeholder_color": "#FF9F43",
-        "description_short": "300 ppi glare-free display, included Premium Pen, write in books and documents, 12-week battery."
+        "description_short": "300 ppi glare-free display, included Premium Pen, write in books and documents, 12-week battery.",
+        "product_id": "B0000048"
     },
     {
         "asin": "B0000049",
@@ -683,7 +731,8 @@
         "is_trending": false,
         "is_bestseller": false,
         "image_placeholder_color": "#FF6B6B",
-        "description_short": "3 heat settings: low, high, and warm, locking lid for easy transport, fits up to 7-pound roast."
+        "description_short": "3 heat settings: low, high, and warm, locking lid for easy transport, fits up to 7-pound roast.",
+        "product_id": "B0000049"
     },
     {
         "asin": "B0000050",
@@ -697,6 +746,187 @@
         "is_trending": true,
         "is_bestseller": false,
         "image_placeholder_color": "#5F27CD",
-        "description_short": "World's smallest and lightest premium noise cancelling earbuds, 360 Reality Audio, LDAC codec support."
+        "description_short": "World's smallest and lightest premium noise cancelling earbuds, 360 Reality Audio, LDAC codec support.",
+        "product_id": "B0000050"
+    },
+    {
+        "asin": "B0000051",
+        "product_id": "B0000051",
+        "title": "L'Oreal Paris Revitalift 1.5% Pure Hyaluronic Acid Serum",
+        "price": 28.99,
+        "rating": 4.6,
+        "review_count": 12450,
+        "category": "Beauty & Personal Care",
+        "sentiment_score": 0.89,
+        "sentiment_label": "Positive",
+        "is_trending": true,
+        "is_bestseller": true,
+        "image_placeholder_color": "#FF6B9D",
+        "description_short": "Concentrated 1.5% pure hyaluronic acid serum. Visibly plumps skin and reduces wrinkles."
+    },
+    {
+        "asin": "B0000052",
+        "product_id": "B0000052",
+        "title": "Neutrogena Hydro Boost Water Gel Face Moisturizer",
+        "price": 19.47,
+        "rating": 4.5,
+        "review_count": 28600,
+        "category": "Beauty & Personal Care",
+        "sentiment_score": 0.85,
+        "sentiment_label": "Positive",
+        "is_trending": false,
+        "is_bestseller": true,
+        "image_placeholder_color": "#74B9FF",
+        "description_short": "Lightweight water gel face moisturizer with hyaluronic acid for lasting hydration."
+    },
+    {
+        "asin": "B0000053",
+        "product_id": "B0000053",
+        "title": "CeraVe Daily Moisturizing Lotion for Normal to Dry Skin",
+        "price": 13.99,
+        "rating": 4.7,
+        "review_count": 55000,
+        "category": "Beauty & Personal Care",
+        "sentiment_score": 0.92,
+        "sentiment_label": "Positive",
+        "is_trending": true,
+        "is_bestseller": true,
+        "image_placeholder_color": "#A29BFE",
+        "description_short": "Non-greasy daily moisturizer with ceramides and hyaluronic acid for 24-hour hydration."
+    },
+    {
+        "asin": "B0000054",
+        "product_id": "B0000054",
+        "title": "ELF Cosmetics Power Grip Primer Gel-Based Face Primer",
+        "price": 10.0,
+        "rating": 4.4,
+        "review_count": 32000,
+        "category": "Beauty & Personal Care",
+        "sentiment_score": 0.78,
+        "sentiment_label": "Positive",
+        "is_trending": true,
+        "is_bestseller": false,
+        "image_placeholder_color": "#FD79A8",
+        "description_short": "Sticky gel-based primer grips makeup for long-lasting wear with hyaluronic acid."
+    },
+    {
+        "asin": "B0000055",
+        "product_id": "B0000055",
+        "title": "OGX Argan Oil of Morocco Shampoo for Frizzy Hair",
+        "price": 9.49,
+        "rating": 4.5,
+        "review_count": 41200,
+        "category": "Beauty & Personal Care",
+        "sentiment_score": 0.81,
+        "sentiment_label": "Positive",
+        "is_trending": false,
+        "is_bestseller": true,
+        "image_placeholder_color": "#FDCB6E",
+        "description_short": "Renewing shampoo infused with argan oil to tame frizz and add brilliant shine."
+    },
+    {
+        "asin": "B0000056",
+        "product_id": "B0000056",
+        "title": "Maybelline New York Sky High Washable Mascara",
+        "price": 12.98,
+        "rating": 4.3,
+        "review_count": 19800,
+        "category": "Beauty & Personal Care",
+        "sentiment_score": 0.74,
+        "sentiment_label": "Positive",
+        "is_trending": true,
+        "is_bestseller": false,
+        "image_placeholder_color": "#2D3436",
+        "description_short": "Buildable lengthening mascara with flexible fiber bristle brush for sky-high lashes."
+    },
+    {
+        "asin": "B0000057",
+        "product_id": "B0000057",
+        "title": "Levi Strauss 505 Regular Fit Jeans",
+        "price": 49.99,
+        "rating": 4.4,
+        "review_count": 15600,
+        "category": "Clothing & Shoes",
+        "sentiment_score": 0.82,
+        "sentiment_label": "Positive",
+        "is_trending": false,
+        "is_bestseller": true,
+        "image_placeholder_color": "#0984E3",
+        "description_short": "Classic straight leg jeans with regular fit through thigh and knee. Iconic 505 cut."
+    },
+    {
+        "asin": "B0000058",
+        "product_id": "B0000058",
+        "title": "Nike Air Force 1 Low Top Sneaker",
+        "price": 89.95,
+        "rating": 4.6,
+        "review_count": 42300,
+        "category": "Clothing & Shoes",
+        "sentiment_score": 0.88,
+        "sentiment_label": "Positive",
+        "is_trending": true,
+        "is_bestseller": true,
+        "image_placeholder_color": "#DFE6E9",
+        "description_short": "Iconic low-cut basketball shoe with perforated leather upper and padded collar."
+    },
+    {
+        "asin": "B0000059",
+        "product_id": "B0000059",
+        "title": "Champion Mens Powerblend Fleece Hoodie Sweatshirt",
+        "price": 34.0,
+        "rating": 4.5,
+        "review_count": 28900,
+        "category": "Clothing & Shoes",
+        "sentiment_score": 0.84,
+        "sentiment_label": "Positive",
+        "is_trending": false,
+        "is_bestseller": true,
+        "image_placeholder_color": "#636E72",
+        "description_short": "Fleece hoodie with reduced pilling, moisture management and signature C logo."
+    },
+    {
+        "asin": "B0000060",
+        "product_id": "B0000060",
+        "title": "Adidas Ultraboost 22 Running Shoes Women",
+        "price": 119.95,
+        "rating": 4.7,
+        "review_count": 18400,
+        "category": "Clothing & Shoes",
+        "sentiment_score": 0.91,
+        "sentiment_label": "Positive",
+        "is_trending": true,
+        "is_bestseller": true,
+        "image_placeholder_color": "#00B894",
+        "description_short": "Running shoes with BOOST midsole for incredible energy return and Primeknit upper."
+    },
+    {
+        "asin": "B0000061",
+        "product_id": "B0000061",
+        "title": "Hanes EcoSmart Pullover Hoodie Sweatshirt",
+        "price": 19.0,
+        "rating": 4.3,
+        "review_count": 48600,
+        "category": "Clothing & Shoes",
+        "sentiment_score": 0.72,
+        "sentiment_label": "Positive",
+        "is_trending": false,
+        "is_bestseller": false,
+        "image_placeholder_color": "#B2BEC3",
+        "description_short": "Made with recycled polyester from plastic bottles, EcoSmart technology."
+    },
+    {
+        "asin": "B0000062",
+        "product_id": "B0000062",
+        "title": "Converse Chuck Taylor All Star Low Top Sneaker",
+        "price": 55.0,
+        "rating": 4.5,
+        "review_count": 67800,
+        "category": "Clothing & Shoes",
+        "sentiment_score": 0.86,
+        "sentiment_label": "Positive",
+        "is_trending": true,
+        "is_bestseller": true,
+        "image_placeholder_color": "#E17055",
+        "description_short": "Classic sneaker with canvas upper, rubber toe cap and vulcanized rubber sole."
     }
 ]

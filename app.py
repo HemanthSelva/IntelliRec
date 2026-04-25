@@ -100,6 +100,20 @@ elif _code:
 # ── Session init ──────────────────────────────────────────────────────────────
 init_session()
 
+# ── Show OAuth error if present ───────────────────────────────────────────────
+if st.session_state.get('oauth_error'):
+    _err_msg = st.session_state.pop('oauth_error')
+    st.markdown(f"""
+<div style="background:#FEE2E2;color:#DC2626;border-left:4px solid #DC2626;
+            border-radius:8px;padding:14px 18px;margin:16px 0;font-size:14px;">
+  <strong>Google Sign-In failed.</strong> {_err_msg}<br>
+  <span style="font-size:12px;margin-top:4px;display:block">
+    Please try again or use email/password login.
+    If this persists, ensure the redirect URL is authorized in your Google Console.
+  </span>
+</div>
+""", unsafe_allow_html=True)
+
 # ── Sidebar collapse state (used by CSS-based toggle in sidebar.py) ───────────
 if 'sidebar_collapsed' not in st.session_state:
     st.session_state['sidebar_collapsed'] = False

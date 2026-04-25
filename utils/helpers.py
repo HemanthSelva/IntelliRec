@@ -3,6 +3,7 @@ IntelliRec Helpers — Product card rendering, SVG icons, category/sentiment dat
 SVG strings are kept as single-line (no newlines) to prevent Python-Markdown from
 treating indented lines inside the HTML as code blocks.
 """
+import streamlit as st
 
 # ── Category Name Normalisation ───────────────────────────────────────────────
 # Maps onboarding / UI names → exact dataset category names.
@@ -158,7 +159,6 @@ def get_category_info(category: str) -> dict:
 
 
 def get_sentiment_style(label: str) -> dict:
-    import streamlit as st
     theme = st.session_state.get("theme", "light")
     styles = _SENTIMENT_DARK if theme == "dark" else _SENTIMENT_LIGHT
     fallback = {"bg": "#1e1e35", "color": "#6b7280"} if theme == "dark" else {"bg": "#F3F4F6", "color": "#6B7280"}
@@ -219,7 +219,6 @@ def render_product_card_html(prod: dict, idx: int = 0, show_match: bool = True) 
     IMPORTANT: The output must be a flat string with NO newlines to prevent
     Streamlit's Python-Markdown from misinterpreting indented HTML as code blocks.
     """
-    import streamlit as st
     from utils.theme import get_palette
     _theme = st.session_state.get('theme', 'light')
     _p = get_palette(_theme)
@@ -271,3 +270,126 @@ def render_product_card_html(prod: dict, idx: int = 0, show_match: bool = True) 
         '</div>'
         '</div>'
     )
+
+
+@st.dialog("Product Details", width="large")
+def _show_product_detail_dialog(product: dict):
+    """Modal product detail view — Flipkart-style."""
+    from utils.theme import get_palette
+    _theme = st.session_state.get('theme', 'light')
+    _p = get_palette(_theme)
+
+    cat   = get_category_info(product.get('category', ''))
+    sent  = get_sentiment_style(product.get('sentiment_label', ''))
+    score = get_match_score(product)
+
+    title    = product.get('title', 'Product')
+    price    = get_product_price(product)
+    rating   = float(product.get('rating', 0))
+    reviews  = int(product.get('review_count', 0))
+    category = product.get('category', '')
+    sentiment_label = product.get('sentiment_label', '')
+    description = product.get('description', product.get('features', ''))
+    asin     = product.get('asin', product.get('product_id', ''))
+
+    stars_full = get_stars(rating)
+
+    # Header gradient banner
+    st.markdown(
+        f'<div style="background:linear-gradient(135deg,{cat["color1"]},{cat["color2"]});'
+        f'border-radius:16px;padding:28px;display:flex;align-items:center;'
+        f'justify-content:center;margin-bottom:20px;">'
+        f'{cat["svg"]}</div>',
+        unsafe_allow_html=True
+    )
+
+    # Title + price row
+    st.markdown(
+        f'<h2 style="font-size:18px;font-weight:700;color:{_p["text_primary"]};'
+        f'margin:0 0 8px;line-height:1.4;">{title}</h2>',
+        unsafe_allow_html=True
+    )
+
+    meta_c1, meta_c2, meta_c3 = st.columns([1.2, 1, 1])
+    with meta_c1:
+        st.markdown(
+            f'<div style="font-size:22px;font-weight:800;color:{_p["price_color"]};">{price}</div>',
+            unsafe_allow_html=True
+        )
+    with meta_c2:
+        st.markdown(
+            f'<div style="font-size:14px;color:#F59E0B;font-weight:600;">{stars_full}'
+            f'<span style="font-size:12px;color:{_p["text_muted"]};font-weight:400;"> {rating:.1f} ({reviews:,})</span></div>',
+            unsafe_allow_html=True
+        )
+    with meta_c3:
+        badge_row = ''
+        if category:
+            badge_row += (
+                f'<span style="background:{cat["badge_bg"]};color:{cat["badge_text"]};'
+                f'font-size:11px;font-weight:600;padding:3px 10px;border-radius:100px;'
+                f'margin-right:6px;">{category}</span>'
+            )
+        if sentiment_label:
+            badge_row += (
+                f'<span style="background:{sent["bg"]};color:{sent["color"]};'
+                f'font-size:11px;font-weight:600;padding:3px 10px;border-radius:100px;">{sentiment_label}</span>'
+            )
+        st.markdown(f'<div style="padding-top:4px;">{badge_row}</div>', unsafe_allow_html=True)
+
+    # Match score bar
+    st.markdown(
+        f'<div style="margin:12px 0;">'
+        f'<div style="display:flex;justify-content:space-between;margin-bottom:4px;">'
+        f'<span style="font-size:12px;color:{_p["text_secondary"]};font-weight:500;">AI Match Score</span>'
+        f'<span style="font-size:12px;font-weight:700;color:#6366f1;">{score}%</span></div>'
+        f'<div style="background:{_p["border"]};border-radius:4px;height:6px;">'
+        f'<div style="background:linear-gradient(90deg,#6366f1,#8b5cf6);height:6px;'
+        f'border-radius:4px;width:{score}%;"></div></div></div>',
+        unsafe_allow_html=True
+    )
+
+    # Description / features
+    if description:
+        st.markdown(
+            f'<p style="font-size:14px;color:{_p["text_secondary"]};'
+            f'line-height:1.6;margin:8px 0 16px;">'
+            f'{str(description)[:300]}{"..." if len(str(description)) > 300 else ""}</p>',
+            unsafe_allow_html=True
+        )
+
+    st.markdown(f'<hr style="border:none;border-top:1px solid {_p["border"]};margin:12px 0;">', unsafe_allow_html=True)
+
+    # Action buttons
+    btn_c1, btn_c2, btn_c3 = st.columns(3)
+    with btn_c1:
+        _in_wl = asin in (st.session_state.get("wishlist_ids") or set())
+        if st.button("♡ Wishlist" if not _in_wl else "♥ Saved", key="dlg_wl_btn",
+                     type="primary" if not _in_wl else "secondary", use_container_width=True):
+            if not _in_wl:
+                try:
+                    from database.db_operations import add_to_wishlist
+                    add_to_wishlist(st.session_state.get("user_id"), asin, title, category)
+                    _wl = st.session_state.get("wishlist_ids") or set()
+                    _wl.add(asin)
+                    st.session_state["wishlist_ids"] = _wl
+                    st.toast("Added to wishlist!", icon="♥")
+                except Exception:
+                    pass
+            st.rerun()
+    with btn_c2:
+        if st.button("Find Similar", key="dlg_sim_btn", type="secondary", use_container_width=True):
+            st.session_state["similar_product"] = {"asin": asin, "title": title, "category": category}
+            st.session_state.pop("view_product", None)
+            st.switch_page("pages/02_For_You.py")
+    with btn_c3:
+        if st.button("Close", key="dlg_close_btn", type="secondary", use_container_width=True):
+            st.session_state.pop("view_product", None)
+            st.rerun()
+
+
+def maybe_show_product_dialog():
+    """Call at the top of any page to trigger the product detail modal when set."""
+    prod = st.session_state.get("view_product")
+    if prod:
+        _show_product_detail_dialog(prod)

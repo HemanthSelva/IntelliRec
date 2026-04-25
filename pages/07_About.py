@@ -240,8 +240,31 @@ for col, m in zip(tc, team):
   <p style="font-size:12px;color:{m['color']};font-weight:500;margin:0">{m['role']}</p>
 </div>""", unsafe_allow_html=True)
 
+# ── Contact Section ───────────────────────────────────────────────────────────
+st.markdown('<div style="height:32px"></div>', unsafe_allow_html=True)
+st.markdown(f"""
+<div style="background:{p['card_bg']};border:1px solid {p['border']};border-radius:20px;
+            padding:32px 24px;text-align:center;box-shadow:{p['shadow']};
+            max-width:560px;margin:0 auto;">
+  <div style="font-size:28px;margin-bottom:12px;">📬</div>
+  <h3 style="font-size:20px;font-weight:700;color:{p['text_primary']};margin:0 0 8px;">Get in Touch</h3>
+  <p style="font-size:14px;color:{p['text_secondary']};margin:0 0 20px;line-height:1.6;">
+    For support, feedback, or partnership inquiries — we'd love to hear from you.
+  </p>
+  <div style="display:inline-flex;align-items:center;gap:8px;
+              background:linear-gradient(135deg,rgba(99,102,241,0.1),rgba(139,92,246,0.1));
+              border:1px solid rgba(99,102,241,0.25);border-radius:100px;
+              padding:10px 24px;">
+    <span style="font-size:16px;">✉️</span>
+    <a href="mailto:intellirec.support@gmail.com"
+       style="font-size:14px;font-weight:600;color:{p['accent']};text-decoration:none;">
+      intellirec.support@gmail.com
+    </a>
+  </div>
+</div>""", unsafe_allow_html=True)
+
 # ── Footer ────────────────────────────────────────────────────────────────────
-st.markdown('<div style="height:24px"></div>', unsafe_allow_html=True)
+st.markdown('<div style="height:32px"></div>', unsafe_allow_html=True)
 st.markdown(f"""
 <div style="text-align:center;padding:16px 0;border-top:1px solid {p['border']}">
   <p style="font-size:13px;color:{p['text_muted']}">

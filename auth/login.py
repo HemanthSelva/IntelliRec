@@ -117,6 +117,12 @@ div.stButton>button[kind="secondary"]:hover p{color:#6C63FF!important}
 [data-baseweb="checkbox"]:has(input:checked) p{color:#374151!important}
 input[type="checkbox"]{accent-color:#6C63FF!important;width:16px!important;height:16px!important;cursor:pointer!important}
 
+/* ── Forgot password link ── */
+.fp-link-btn{
+  font-family:'Inter',sans-serif;font-size:13px;font-weight:500;
+  color:#6C63FF;text-decoration:none;cursor:pointer;display:inline-block}
+.fp-link-btn:hover{color:#4F46E5;text-decoration:underline}
+
 /* ── Google button ── */
 .g-btn{display:flex;align-items:center;justify-content:center;gap:10px;
   width:100%;background:#fff;border:1.5px solid #E5E7EB;border-radius:10px;
@@ -305,6 +311,12 @@ _LOGO = """
 def render_login():
     init_session()
 
+    # ── Handle "Forgot password?" link click via URL param ─────────────────────
+    if st.query_params.get('forgot') == '1':
+        st.query_params.clear()
+        st.session_state['show_forgot_password'] = True
+        st.rerun()
+
     if 'show_forgot_password' not in st.session_state:
         st.session_state['show_forgot_password'] = False
     if 'show_password_update' not in st.session_state:
@@ -366,10 +378,8 @@ def render_login():
                             supabase.auth.update_user({"password": new_pw})
                             st.session_state.pop('show_password_update', None)
                             st.session_state.pop('_recovery_token_hash', None)
-                            st.markdown(
-                                _ok("Password updated! You can now sign in below."),
-                                unsafe_allow_html=True,
-                            )
+                            st.session_state['pw_reset_success'] = True
+                            st.rerun()
                         except Exception as _ue:
                             st.markdown(_err(f"Error: {str(_ue)}"), unsafe_allow_html=True)
 
@@ -409,6 +419,13 @@ def render_login():
 
             # ── Normal login form ──────────────────────────────────────────────
             else:
+                # Password reset success banner
+                if st.session_state.pop("pw_reset_success", False):
+                    st.markdown(
+                        _ok("✅ Password updated successfully! Please sign in with your new password."),
+                        unsafe_allow_html=True,
+                    )
+
                 # Email confirmed banner
                 if st.session_state.pop("show_email_confirmed", False):
                     st.markdown(
@@ -424,13 +441,13 @@ def render_login():
                     placeholder="Enter your password", key="li_pass",
                 )
 
-                # Functional "Forgot password?" button (right-aligned)
-                _fp1, _fp2 = st.columns([3, 1])
-                with _fp2:
-                    if st.button("Forgot password?", key="btn_forgot_pw",
-                                 type="secondary", use_container_width=True):
-                        st.session_state['show_forgot_password'] = True
-                        st.rerun()
+                # "Forgot password?" rendered as a clean text link
+                st.markdown(
+                    '<div style="text-align:right;margin:2px 0 10px">'
+                    '<a href="?forgot=1" class="fp-link-btn" target="_self">'
+                    'Forgot password?</a></div>',
+                    unsafe_allow_html=True,
+                )
 
                 # Sign In
                 if st.button("Sign In", use_container_width=True, type="primary", key="li_btn"):
