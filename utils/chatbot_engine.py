@@ -40,7 +40,8 @@ _CATEGORY_KEYWORDS = {
         "shoes", "sneakers", "boots", "sandals", "jacket", "coat", "sweater",
         "hoodie", "fashion", "wear", "outfit", "clothes", "apparel", "kurta",
         "saree", "leggings", "shorts", "skirt", "cap", "hat", "gloves",
-        "socks", "underwear", "bra", "lingerie",
+        "socks", "underwear", "bra", "lingerie", "running", "athletic",
+        "sportswear", "tracksuit", "joggers",
     ],
     "Beauty & Personal Care": [
         "beauty", "skincare", "skin", "cream", "moisturiser", "moisturizer",
@@ -157,10 +158,14 @@ def parse_query(text: str) -> dict:
     }
 
     # 1. Extract budget — patterns like "under 50000", "below 500", "within 1000", "₹500", "$200"
+    # Detect currency symbol BEFORE running the pattern so we know if we need INR→USD conversion.
+    _is_inr = "₹" in text or any(w in text_lower for w in ["rs ", "inr", "rupee", "rupees"])
+    _is_usd = "$" in text or any(w in text_lower for w in ["dollar", "dollars", "usd"])
+
     budget_patterns = [
         r"(?:under|below|within|less than|max|upto|up to)\s*[₹$]?\s*([\d,]+)",
         r"[₹$]\s*([\d,]+)",
-        r"([\d,]+)\s*(?:rs|inr|rupees|dollars?)",
+        r"([\d,]+)\s*(?:rs|inr|rupees?|dollars?|usd)",
         r"budget\s*(?:of|is|:)?\s*[₹$]?\s*([\d,]+)",
     ]
     for pat in budget_patterns:
@@ -168,7 +173,12 @@ def parse_query(text: str) -> dict:
         if m:
             try:
                 raw_num = m.group(1).replace(",", "")
-                result["budget"] = float(raw_num)
+                amount  = float(raw_num)
+                # Convert INR to USD so budget comparison works against USD-priced products
+                # Rough conversion: 1 USD ≈ 83 INR (avoids filtering out everything)
+                if _is_inr and not _is_usd and amount > 500:
+                    amount = amount / 83.0
+                result["budget"] = amount
                 break
             except (ValueError, AttributeError):
                 pass
@@ -246,57 +256,72 @@ def get_chatbot_recommendations(parsed: dict, user_id: str, n: int = 8) -> list:
     Applies budget filter AFTER prediction (same pattern as For You page).
     Falls back to sample products when ML models aren't trained yet.
     """
+    from utils.model_loader import (
+        MODELS_READY, get_hybrid_recommendations, get_cb_recommendations
+    )
+
+    cats = parsed.get("categories") or [
+        "Electronics", "Home & Kitchen",
+        "Clothing & Shoes", "Beauty & Personal Care"
+    ]
+    budget = parsed.get("budget")  # already converted to USD if originally INR
+
+    if not MODELS_READY:
+        # ── Demo mode: serve from sample_products.json ──────────────────────
+        import json, os
+        _base = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+        _sp_path = os.path.join(_base, "assets", "sample_products.json")
+        try:
+            with open(_sp_path, encoding="utf-8") as f:
+                _samples = json.load(f)
+        except Exception as _je:
+            print(f"[Chatbot] sample_products.json load failed: {_je}")
+            return []
+
+        # Step 1: filter by requested categories
+        _cat_filtered = [p for p in _samples if p.get("category") in cats]
+
+        # Step 2: if nothing matched, fall back to ALL products (still useful)
+        _filtered = _cat_filtered if _cat_filtered else list(_samples)
+
+        # Step 3: apply budget (USD price, already converted from INR if needed)
+        if budget and budget > 0:
+            _budget_ok = [p for p in _filtered
+                          if float(p.get("price") or 0) <= budget]
+            # Only apply budget filter if it doesn't wipe everything out
+            if _budget_ok:
+                _filtered = _budget_ok
+
+        # Step 4: normalise product_id / match_score fields
+        results = []
+        for prod in _filtered:
+            prod = dict(prod)  # shallow copy — don't mutate the cached list
+            if "product_id" not in prod or not prod["product_id"]:
+                prod["product_id"] = prod.get("asin", "")
+            if "match_score" not in prod:
+                prod["match_score"] = min(99, int(float(prod.get("rating", 4.0)) / 5.0 * 100))
+            results.append(prod)
+
+        # Sort by rating descending
+        results.sort(key=lambda x: float(x.get("rating", 0)), reverse=True)
+        return results[:n]
+
+    # ── Live ML mode ──────────────────────────────────────────────────────────
     try:
-        from utils.model_loader import (
-            MODELS_READY, get_hybrid_recommendations, get_cb_recommendations
-        )
-
-        cats = parsed.get("categories") or [
-            "Electronics", "Home & Kitchen",
-            "Clothing & Shoes", "Beauty & Personal Care"
-        ]
-        budget = parsed.get("budget")
-
-        if not MODELS_READY:
-            # Demo mode: filter sample products by category and budget
-            import json, os
-            _base = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-            _sp_path = os.path.join(_base, "assets", "sample_products.json")
-            try:
-                with open(_sp_path) as f:
-                    _samples = json.load(f)
-            except Exception:
-                return []
-            # filter by category
-            _filtered = [p for p in _samples if p.get("category") in cats]
-            if not _filtered:
-                _filtered = _samples
-            # apply budget
-            if budget:
-                _budget_filtered = [p for p in _filtered if float(p.get("price") or 0) <= budget]
-                if _budget_filtered:
-                    _filtered = _budget_filtered
-            # Add product_id if missing
-            for p in _filtered:
-                if "product_id" not in p:
-                    p["product_id"] = p.get("asin", "")
-                if "match_score" not in p:
-                    p["match_score"] = min(99, int(p.get("rating", 4.0) / 5.0 * 100))
-            return sorted(_filtered, key=lambda x: x.get("rating", 0), reverse=True)[:n]
-
-        # Use hybrid by default; fall back to CB if no user_id
         if user_id and user_id != "guest":
             recs = get_hybrid_recommendations(user_id, n=n * 2, categories=cats)
         else:
             recs = get_cb_recommendations(categories=cats, n=n * 2)
 
-        # Apply budget filter post-prediction (same as For You page — no model change)
-        if budget:
-            recs = [r for r in recs if float(r.get("price") or 0) <= budget]
+        # Apply budget filter post-prediction
+        if budget and budget > 0:
+            budget_filtered = [r for r in recs if float(r.get("price") or 0) <= budget]
+            if budget_filtered:
+                recs = budget_filtered
 
         return recs[:n]
-
-    except Exception:
+    except Exception as _exc:
+        print(f"[Chatbot] ML recommendation error: {_exc}")
         return []
 
 
