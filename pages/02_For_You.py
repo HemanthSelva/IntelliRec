@@ -362,8 +362,8 @@ if st.session_state['show_filters']:
             _FY_ALL_OPTIONS,
             default=_fy_default_cats if 'fy_cats' not in st.session_state else st.session_state['fy_cats'],
             key="fy_cats")
-        min_rating  = st.slider("Min Rating", 1.0, 5.0, 3.0, 0.5, key="fy_rating")
-        price_range = st.slider("Price ($)", 0, 5000, (0, 5000), key="fy_price")
+        min_rating  = st.slider("Min Rating", 1.0, 5.0, 1.0, 0.5, key="fy_rating")
+        price_range = st.slider("Price ($)", 0, 99999, (0, 99999), key="fy_price")
 
     fcol1, fcol2 = st.columns(2)
     with fcol1:
@@ -389,8 +389,8 @@ else:
         ["Electronics", "Home & Kitchen", "Clothing & Shoes", "Beauty & Personal Care"]
     )
     categories = st.session_state.get('fy_cats', _fy_fallback_cats)
-    min_rating  = st.session_state.get('fy_rating', 3.0)
-    price_range = st.session_state.get('fy_price', (0, 5000))
+    min_rating  = st.session_state.get('fy_rating', 1.0)
+    price_range = st.session_state.get('fy_price', (0, 99999))
 
 st.markdown("---")
 
@@ -433,6 +433,17 @@ if MODELS_READY:
         and price_range[0] <= float(r.get('price') or 0) <= price_range[1]
     ]
 
+    # Fallback 1: relax price/rating filters — keep all recs as-is
+    if not filtered and recs:
+        filtered = recs[:num_recs]
+
+    # Fallback 2: categories may not have matched — retry without category filter
+    if not filtered:
+        try:
+            _fallback = get_cb_recommendations(categories=None, n=num_recs * 2)
+            filtered = _fallback[:num_recs]
+        except Exception:
+            filtered = []
 
     if not filtered:
         st.markdown(f"""

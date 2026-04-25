@@ -1,7 +1,9 @@
 import streamlit as st
 from auth.session import (
-    login_user, init_session, login_with_google, resend_verification_email,
+    login_user, init_session, login_with_google,
+    resend_verification_email, send_password_reset,
 )
+from database.supabase_client import supabase
 
 # ── Google Font import ─────────────────────────────────────────────────────────
 _FONT_LINK = (
@@ -303,6 +305,11 @@ _LOGO = """
 def render_login():
     init_session()
 
+    if 'show_forgot_password' not in st.session_state:
+        st.session_state['show_forgot_password'] = False
+    if 'show_password_update' not in st.session_state:
+        st.session_state['show_password_update'] = False
+
     st.markdown(_FONT_LINK, unsafe_allow_html=True)
     st.markdown(_CSS, unsafe_allow_html=True)
 
@@ -329,125 +336,199 @@ def render_login():
         _, form_col, _ = st.columns([0.12, 0.76, 0.12])
         with form_col:
 
-            # Email confirmed banner
-            if st.session_state.pop("show_email_confirmed", False):
+            # ── Password Update form (from reset-password email link) ──────────
+            if st.session_state.get('show_password_update'):
                 st.markdown(
-                    _ok("Email confirmed successfully! Sign in below."),
+                    "<h3 style='color:#111827;font-size:22px;font-weight:700;"
+                    "margin:0 0 6px'>Set New Password</h3>"
+                    "<p style='color:#6B7280;font-size:14px;margin:0 0 20px'>"
+                    "Choose a new password for your account.</p>",
                     unsafe_allow_html=True,
                 )
-
-            email = st.text_input(
-                "Email address", placeholder="you@example.com", key="li_email"
-            )
-            password = st.text_input(
-                "Password", type="password",
-                placeholder="Enter your password", key="li_pass",
-            )
-
-            st.markdown(
-                '<div style="text-align:right;margin:3px 0 20px">'
-                '<span style="font-size:13px;color:#6C63FF;font-weight:500;'
-                'cursor:pointer">Forgot password?</span></div>',
-                unsafe_allow_html=True,
-            )
-
-            # Sign In
-            if st.button("Sign In", use_container_width=True, type="primary", key="li_btn"):
-                if not email or not password:
-                    st.markdown(_err("Please enter your email and password."), unsafe_allow_html=True)
-                else:
-                    with st.spinner("Signing in..."):
-                        success, msg = login_user(email, password)
-                    if success:
-                        st.rerun()
-                    elif msg == "EMAIL_NOT_CONFIRMED":
-                        st.session_state["_li_unconfirmed_email"] = email
-                        st.rerun()
+                new_pw  = st.text_input("New Password",  type="password", key="new_pw_input")
+                conf_pw = st.text_input("Confirm Password", type="password", key="conf_pw_input")
+                if st.button("Update Password", key="btn_update_pw",
+                             type="primary", use_container_width=True):
+                    if new_pw != conf_pw:
+                        st.markdown(_err("Passwords do not match."), unsafe_allow_html=True)
+                    elif len(new_pw) < 6:
+                        st.markdown(
+                            _err("Password must be at least 6 characters."),
+                            unsafe_allow_html=True,
+                        )
                     else:
-                        st.markdown(_err(f"Sign-in failed: {msg}"), unsafe_allow_html=True)
+                        try:
+                            _rth = st.session_state.get('_recovery_token_hash', '')
+                            if _rth:
+                                supabase.auth.verify_otp(
+                                    {'token_hash': _rth, 'type': 'recovery'}
+                                )
+                            supabase.auth.update_user({"password": new_pw})
+                            st.session_state.pop('show_password_update', None)
+                            st.session_state.pop('_recovery_token_hash', None)
+                            st.markdown(
+                                _ok("Password updated! You can now sign in below."),
+                                unsafe_allow_html=True,
+                            )
+                        except Exception as _ue:
+                            st.markdown(_err(f"Error: {str(_ue)}"), unsafe_allow_html=True)
 
-            # Unconfirmed email UI
-            if st.session_state.get("_li_unconfirmed_email"):
+            # ── Forgot Password form ───────────────────────────────────────────
+            elif st.session_state.get('show_forgot_password'):
                 st.markdown(
-                    _info("<strong>Please verify your email first.</strong> "
-                          "Check your inbox for the confirmation link."),
+                    "<h3 style='color:#111827;font-size:22px;font-weight:700;"
+                    "margin:0 0 6px'>Reset Password</h3>"
+                    "<p style='color:#6B7280;font-size:14px;margin:0 0 20px'>"
+                    "Enter your email and we'll send you a reset link.</p>",
                     unsafe_allow_html=True,
                 )
-                resend_email = st.text_input(
-                    "Email address for resend",
-                    value=st.session_state["_li_unconfirmed_email"],
-                    key="li_resend_email",
+                reset_email = st.text_input(
+                    "Email address", placeholder="you@example.com",
+                    key="forgot_pw_email",
                 )
-                if st.button("Resend Verification Email", use_container_width=True,
-                             type="secondary", key="li_resend_btn"):
-                    ok, rmsg = resend_verification_email(resend_email)
-                    if ok:
-                        st.markdown(_ok(rmsg), unsafe_allow_html=True)
-                        st.session_state.pop("_li_unconfirmed_email", None)
+                rp1, rp2 = st.columns(2)
+                with rp1:
+                    if st.button("Send Reset Link", key="btn_send_reset",
+                                 type="primary", use_container_width=True):
+                        if reset_email:
+                            ok, msg = send_password_reset(reset_email)
+                            st.markdown(
+                                _ok(msg) if ok else _err(msg),
+                                unsafe_allow_html=True,
+                            )
+                        else:
+                            st.markdown(
+                                _err("Please enter your email address."),
+                                unsafe_allow_html=True,
+                            )
+                with rp2:
+                    if st.button("Back to Sign In", key="btn_back_reset",
+                                 type="secondary", use_container_width=True):
+                        st.session_state['show_forgot_password'] = False
+                        st.rerun()
+
+            # ── Normal login form ──────────────────────────────────────────────
+            else:
+                # Email confirmed banner
+                if st.session_state.pop("show_email_confirmed", False):
+                    st.markdown(
+                        _ok("Email confirmed successfully! Sign in below."),
+                        unsafe_allow_html=True,
+                    )
+
+                email = st.text_input(
+                    "Email address", placeholder="you@example.com", key="li_email"
+                )
+                password = st.text_input(
+                    "Password", type="password",
+                    placeholder="Enter your password", key="li_pass",
+                )
+
+                # Functional "Forgot password?" button (right-aligned)
+                _fp1, _fp2 = st.columns([3, 1])
+                with _fp2:
+                    if st.button("Forgot password?", key="btn_forgot_pw",
+                                 type="secondary", use_container_width=True):
+                        st.session_state['show_forgot_password'] = True
+                        st.rerun()
+
+                # Sign In
+                if st.button("Sign In", use_container_width=True, type="primary", key="li_btn"):
+                    if not email or not password:
+                        st.markdown(_err("Please enter your email and password."), unsafe_allow_html=True)
                     else:
-                        st.markdown(_err(rmsg), unsafe_allow_html=True)
+                        with st.spinner("Signing in..."):
+                            success, msg = login_user(email, password)
+                        if success:
+                            st.rerun()
+                        elif msg == "EMAIL_NOT_CONFIRMED":
+                            st.session_state["_li_unconfirmed_email"] = email
+                            st.rerun()
+                        else:
+                            st.markdown(_err(f"Sign-in failed: {msg}"), unsafe_allow_html=True)
 
-            # ── Divider ────────────────────────────────────────────────────────
-            st.markdown(
-                '<div style="display:flex;align-items:center;gap:12px;margin:16px 0">'
-                '<div style="flex:1;height:1px;background:#E5E7EB"></div>'
-                '<span style="font-size:12px;color:#9CA3AF;font-weight:500">or</span>'
-                '<div style="flex:1;height:1px;background:#E5E7EB"></div></div>',
-                unsafe_allow_html=True,
-            )
+                # Unconfirmed email UI
+                if st.session_state.get("_li_unconfirmed_email"):
+                    st.markdown(
+                        _info("<strong>Please verify your email first.</strong> "
+                              "Check your inbox for the confirmation link."),
+                        unsafe_allow_html=True,
+                    )
+                    resend_email = st.text_input(
+                        "Email address for resend",
+                        value=st.session_state["_li_unconfirmed_email"],
+                        key="li_resend_email",
+                    )
+                    if st.button("Resend Verification Email", use_container_width=True,
+                                 type="secondary", key="li_resend_btn"):
+                        ok, rmsg = resend_verification_email(resend_email)
+                        if ok:
+                            st.markdown(_ok(rmsg), unsafe_allow_html=True)
+                            st.session_state.pop("_li_unconfirmed_email", None)
+                        else:
+                            st.markdown(_err(rmsg), unsafe_allow_html=True)
 
-            # Guest
-            if st.button("Continue as Guest", use_container_width=True,
-                         type="secondary", key="li_guest"):
-                st.session_state.logged_in = True
-                st.session_state.full_name = "Guest User"
-                st.session_state.username = "guest_user"
-                st.session_state.user_id = "guest"
-                st.session_state.is_guest = True
-                st.session_state.user_email = "guest@intellirec.com"
-                st.session_state.current_user = {
-                    "username": "guest_user", "name": "Guest User",
-                    "email": "guest@intellirec.com", "member_since": "Today",
-                }
-                st.rerun()
-
-            # ── Google divider ─────────────────────────────────────────────────
-            st.markdown(
-                '<div style="display:flex;align-items:center;gap:12px;margin:12px 0">'
-                '<div style="flex:1;height:1px;background:#E5E7EB"></div>'
-                '<span style="font-size:12px;color:#9CA3AF;font-weight:500">'
-                'or continue with</span>'
-                '<div style="flex:1;height:1px;background:#E5E7EB"></div></div>',
-                unsafe_allow_html=True,
-            )
-
-            # Google button
-            _g_url = login_with_google()
-            _g_href = _g_url if _g_url else "#"
-            st.markdown(
-                f'<a href="{_g_href}" target="_self" class="g-btn">'
-                f'{_GOOGLE_SVG} Continue with Google</a>',
-                unsafe_allow_html=True,
-            )
-            if not _g_url:
+                # ── Divider ────────────────────────────────────────────────────
                 st.markdown(
-                    _err("Google sign-in unavailable - check Supabase config."),
+                    '<div style="display:flex;align-items:center;gap:12px;margin:16px 0">'
+                    '<div style="flex:1;height:1px;background:#E5E7EB"></div>'
+                    '<span style="font-size:12px;color:#9CA3AF;font-weight:500">or</span>'
+                    '<div style="flex:1;height:1px;background:#E5E7EB"></div></div>',
                     unsafe_allow_html=True,
                 )
 
-            # ── Sign up link ───────────────────────────────────────────────────
-            st.markdown(
-                '<div style="text-align:center;margin-top:24px;margin-bottom:4px">'
-                '<span style="font-size:14px;color:#6B7280">'
-                "Don't have an account?&nbsp;</span></div>",
-                unsafe_allow_html=True,
-            )
-            _, su_col, _ = st.columns([0.25, 0.5, 0.25])
-            with su_col:
-                if st.button("Sign up here", use_container_width=True, key="li_signup"):
-                    st.session_state.show_signup = True
-                    st.session_state.pop("_li_unconfirmed_email", None)
+                # Guest
+                if st.button("Continue as Guest", use_container_width=True,
+                             type="secondary", key="li_guest"):
+                    st.session_state.logged_in = True
+                    st.session_state.full_name = "Guest User"
+                    st.session_state.username = "guest_user"
+                    st.session_state.user_id = "guest"
+                    st.session_state.is_guest = True
+                    st.session_state.user_email = "guest@intellirec.com"
+                    st.session_state.current_user = {
+                        "username": "guest_user", "name": "Guest User",
+                        "email": "guest@intellirec.com", "member_since": "Today",
+                    }
                     st.rerun()
+
+                # ── Google divider ─────────────────────────────────────────────
+                st.markdown(
+                    '<div style="display:flex;align-items:center;gap:12px;margin:12px 0">'
+                    '<div style="flex:1;height:1px;background:#E5E7EB"></div>'
+                    '<span style="font-size:12px;color:#9CA3AF;font-weight:500">'
+                    'or continue with</span>'
+                    '<div style="flex:1;height:1px;background:#E5E7EB"></div></div>',
+                    unsafe_allow_html=True,
+                )
+
+                # Google button
+                _g_url = login_with_google()
+                _g_href = _g_url if _g_url else "#"
+                st.markdown(
+                    f'<a href="{_g_href}" target="_self" class="g-btn">'
+                    f'{_GOOGLE_SVG} Continue with Google</a>',
+                    unsafe_allow_html=True,
+                )
+                if not _g_url:
+                    st.markdown(
+                        _err("Google sign-in unavailable - check Supabase config."),
+                        unsafe_allow_html=True,
+                    )
+
+                # ── Sign up link ───────────────────────────────────────────────
+                st.markdown(
+                    '<div style="text-align:center;margin-top:24px;margin-bottom:4px">'
+                    '<span style="font-size:14px;color:#6B7280">'
+                    "Don't have an account?&nbsp;</span></div>",
+                    unsafe_allow_html=True,
+                )
+                _, su_col, _ = st.columns([0.25, 0.5, 0.25])
+                with su_col:
+                    if st.button("Sign up here", use_container_width=True, key="li_signup"):
+                        st.session_state.show_signup = True
+                        st.session_state.pop("_li_unconfirmed_email", None)
+                        st.rerun()
 
         st.markdown("</div>", unsafe_allow_html=True)
         st.markdown("<div style='height:9vh;min-height:48px'></div>", unsafe_allow_html=True)

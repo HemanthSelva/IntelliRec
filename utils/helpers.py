@@ -27,6 +27,14 @@ CATEGORY_NAME_MAP = {
     "Health":                   "Beauty & Personal Care",
     "Office":                   "Electronics",
     "Pet Supplies":             "Home & Kitchen",
+    # Alternative pkl-name variants (defensive — covers any training-time variation)
+    "Beauty_and_Personal_Care":      "Beauty & Personal Care",
+    "Beauty and Personal Care":      "Beauty & Personal Care",
+    "Clothing_Shoes_and_Jewelry":    "Clothing & Shoes",
+    "Clothing, Shoes & Jewelry":     "Clothing & Shoes",
+    "Clothing Shoes and Jewelry":    "Clothing & Shoes",
+    "Home_and_Kitchen":              "Home & Kitchen",
+    "Home and Kitchen":              "Home & Kitchen",
 }
 
 
@@ -105,6 +113,17 @@ CATEGORY_MAP = {
         "svg": _SVG_BOX_CAT,
         "color1": "#a18cd1", "color2": "#fbc2eb",
         "badge_bg": "#8B5CF6", "badge_text": "white"
+    },
+    # Full dataset-name aliases so get_category_info() returns correct styling
+    "Beauty & Personal Care": {
+        "svg": _SVG_BEAUTY_CAT,
+        "color1": "#ff9a9e", "color2": "#fecfef",
+        "badge_bg": "#DB2777", "badge_text": "white"
+    },
+    "Clothing & Shoes": {
+        "svg": _SVG_FASHION_CAT,
+        "color1": "#fa709a", "color2": "#fee140",
+        "badge_bg": "#F59E0B", "badge_text": "white"
     },
 }
 
