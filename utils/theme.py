@@ -1157,10 +1157,10 @@ section[data-testid="stSidebar"] .stButton > button[kind="primary"] {
 }}
 
 /* ── Calendar / date picker portal ──────────────────────────────────── */
-[data-baseweb="calendar"],
-[data-baseweb="calendar"] > div,
-[data-baseweb="datepicker"],
-[data-baseweb="datepicker"] > div {{
+[data-baseweb="calendar"][data-baseweb="calendar"],
+[data-baseweb="calendar"][data-baseweb="calendar"] > div,
+[data-baseweb="datepicker"][data-baseweb="datepicker"],
+[data-baseweb="datepicker"][data-baseweb="datepicker"] > div {{
     background:       {_CARD_BG} !important;
     background-color: {_CARD_BG} !important;
     color:            {_TEXT_PRIMARY} !important;
@@ -1168,40 +1168,69 @@ section[data-testid="stSidebar"] .stButton > button[kind="primary"] {
     border-radius:    16px !important;
     box-shadow:       {_SHADOW_LG} !important;
 }}
-[data-baseweb="calendar"] div {{
+[data-baseweb="calendar"][data-baseweb="calendar"] div {{
     color:            {_TEXT_PRIMARY} !important;
     background-color: transparent !important;
 }}
-[data-baseweb="calendar"] button {{
+[data-baseweb="calendar"][data-baseweb="calendar"] button {{
     color:            {_TEXT_PRIMARY} !important;
     background-color: transparent !important;
 }}
-[data-baseweb="calendar"] button[aria-selected="true"] {{
+[data-baseweb="calendar"][data-baseweb="calendar"] button[aria-selected="true"][aria-selected="true"] {{
     background-color: {_ACCENT} !important;
     background:       {_ACCENT} !important;
     color:            #ffffff !important;
     border-radius:    50% !important;
 }}
-[data-baseweb="calendar"] button:not([aria-selected="true"]):hover {{
+/* Calendar hover: tripled specificity to beat Styletron class:hover */
+[data-baseweb="calendar"][data-baseweb="calendar"][data-baseweb="calendar"] button:not([aria-selected="true"]):hover {{
     background-color: {_ACCENT_SOFT} !important;
+    background:       {_ACCENT_SOFT} !important;
     color:            {_ACCENT} !important;
     border-radius:    50% !important;
 }}
-[data-baseweb="calendar"] span {{ color: {_TEXT_PRIMARY} !important; }}
+[data-baseweb="calendar"][data-baseweb="calendar"][data-baseweb="calendar"] button[aria-selected="true"]:hover {{
+    background-color: {_ACCENT} !important;
+    color:            #ffffff !important;
+}}
+[data-baseweb="calendar"][data-baseweb="calendar"] span {{
+    color: {_TEXT_PRIMARY} !important;
+}}
 
-/* ── Arrow buttons (▲▼) — small icon secondary buttons ──────────────── */
-/* These inherit dark bg from config.toml base=dark in light mode        */
-[data-testid="stMain"] button[data-testid="baseButton-secondary"] {{
+/* ── Arrow/feedback buttons (▲▼) — correct selectors for Streamlit 1.56 */
+/* Streamlit 1.56 has NO data-testid="baseButton-secondary".              */
+/* Buttons with key="up_xxx" get class st-key-up_xxx on parent div.       */
+/* Target by key prefix AND generic stButton button dark-bg override.     */
+div[class*="st-key-up_"] button,
+div[class*="st-key-dn_"] button {{
     background-color: {_BTN_BG} !important;
     background:       {_BTN_BG} !important;
     color:            {_BTN_TEXT} !important;
     border:           1.5px solid {_BTN_BORDER} !important;
 }}
-[data-testid="stMain"] button[data-testid="baseButton-secondary"] p,
-[data-testid="stMain"] button[data-testid="baseButton-secondary"] span {{
+div[class*="st-key-up_"] button p,
+div[class*="st-key-up_"] button span,
+div[class*="st-key-dn_"] button p,
+div[class*="st-key-dn_"] button span {{
     color: {_BTN_TEXT} !important;
 }}
-[data-testid="stMain"] button[data-testid="baseButton-secondary"]:hover {{
+div[class*="st-key-up_"] button:hover,
+div[class*="st-key-dn_"] button:hover {{
+    background-color: {_ACCENT_SOFT} !important;
+    border-color:     {_ACCENT} !important;
+    color:            {_ACCENT} !important;
+}}
+/* Generic fallback: ALL st.button secondary buttons via stButton testid  */
+div[data-testid="stButton"] button {{
+    background-color: {_BTN_BG} !important;
+    color:            {_BTN_TEXT} !important;
+    border:           1.5px solid {_BTN_BORDER} !important;
+}}
+div[data-testid="stButton"] button p,
+div[data-testid="stButton"] button span {{
+    color: {_BTN_TEXT} !important;
+}}
+div[data-testid="stButton"] button:hover {{
     background-color: {_ACCENT_SOFT} !important;
     border-color:     {_ACCENT} !important;
     color:            {_ACCENT} !important;
@@ -1233,19 +1262,6 @@ section[data-testid="stSidebar"] .stButton > button[kind="primary"] {
 }}
 [data-testid="stToast"] p, [data-testid="stToast"] span {{
     color: {_TEXT_PRIMARY} !important;
-}}
-/* ── Calendar date hover fix ─────────────────────────────────────────── */
-[data-baseweb="calendar"] button:hover {{
-    background-color: {_ACCENT_SOFT} !important;
-    color: {_TEXT_PRIMARY} !important;
-}}
-[data-baseweb="calendar"] button[aria-selected="true"] {{
-    background-color: {_ACCENT} !important;
-    color: #ffffff !important;
-}}
-[data-baseweb="calendar"] button[aria-selected="true"]:hover {{
-    background-color: {_ACCENT} !important;
-    color: #ffffff !important;
 }}
 </style>
 """, unsafe_allow_html=True)
@@ -1418,17 +1434,27 @@ section[data-testid="stSidebar"] .stButton > button[kind="primary"] {
 
         function fixArrowButtons() {{
             if (!isStillLight()) return;
-            doc.querySelectorAll('button[data-testid="baseButton-secondary"]').forEach(function(el) {{
-                var bg = window.getComputedStyle(el).backgroundColor || '';
-                var m = bg.match(/rgb\((\d+),\s*(\d+),\s*(\d+)\)/);
-                if (m && (parseInt(m[1])+parseInt(m[2])+parseInt(m[3])) < 200) {{
-                    el.style.setProperty('background-color', '#f3f4f6', 'important');
-                    el.style.setProperty('color', '#1a1a2e', 'important');
-                    el.style.setProperty('border', '1px solid #e5e7eb', 'important');
-                    el.querySelectorAll('p,span').forEach(function(c) {{
-                        c.style.setProperty('color', '#1a1a2e', 'important');
-                    }});
-                }}
+            // Streamlit 1.56: buttons are inside div[data-testid="stButton"]
+            // Also target by key class: st-key-up_ and st-key-dn_
+            var selectors = [
+                'div[data-testid="stButton"] button',
+                'div[class*="st-key-up_"] button',
+                'div[class*="st-key-dn_"] button'
+            ];
+            selectors.forEach(function(sel) {{
+                doc.querySelectorAll(sel).forEach(function(el) {{
+                    var bg = window.getComputedStyle(el).backgroundColor || '';
+                    var m = bg.match(/rgb\((\d+),\s*(\d+),\s*(\d+)\)/);
+                    if (m && (parseInt(m[1])+parseInt(m[2])+parseInt(m[3])) < 200) {{
+                        el.style.setProperty('background-color', INPUT_BG, 'important');
+                        el.style.setProperty('background', INPUT_BG, 'important');
+                        el.style.setProperty('color', POPUP_TEXT, 'important');
+                        el.style.setProperty('border', '1.5px solid ' + POPUP_BORDER, 'important');
+                        el.querySelectorAll('p,span').forEach(function(c) {{
+                            c.style.setProperty('color', POPUP_TEXT, 'important');
+                        }});
+                    }}
+                }});
             }});
         }}
 
