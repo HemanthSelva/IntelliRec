@@ -570,6 +570,7 @@ if MODELS_READY:
                 with fc3:
                     if st.button("Details", key=f"fy_det_{pid}_{i}", type="secondary", use_container_width=True):
                         st.session_state["view_product"] = rec
+                        st.session_state["_view_product_triggered"] = True
                         st.rerun()
                 with fc4:
                     save_label = "✓ Saved" if in_wish else "+ Save"
@@ -697,6 +698,7 @@ else:
                 with fc3:
                     if st.button("Details", key=f"fy_det_{prod['asin']}_{i}", type="secondary", use_container_width=True):
                         st.session_state["view_product"] = prod
+                        st.session_state["_view_product_triggered"] = True
                         st.rerun()
                 with fc4:
                     save_label = "✓ Saved" if in_wish else "+ Save"
