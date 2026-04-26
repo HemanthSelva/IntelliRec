@@ -1038,199 +1038,54 @@ section[data-testid="stSidebar"] .stButton > button[kind="primary"] {
 </style>
 """, unsafe_allow_html=True)
 
-    # ── JS: header-gap killer + dark-mode CSS override injected into parent <head> ──
-    import json as _json
+    # ── JS: header-gap killer only (BaseWeb now handled by config.toml dark theme) ──
     import streamlit.components.v1 as _components
+    _components.html("""
+<script>
+(function () {
+    var SELECTORS = [
+        '.stApp',
+        '[data-testid="stAppViewContainer"]',
+        '[data-testid="stMain"]',
+        '[data-testid="stHeader"]',
+        '[data-testid="stToolbar"]',
+        '[data-testid="stStatusWidget"]',
+        '[data-testid="stSidebarContent"]',
+    ];
 
-    _colors = _json.dumps({
-        'cardBg':     p['card_bg'],
-        'cardBgHov':  p['card_bg_hover'],
-        'inputBg':    p['input_bg'],
-        'pageBg':     p['page_bg'],
-        'textPri':    p['text_primary'],
-        'textSec':    p['text_secondary'],
-        'textMut':    p['text_muted'],
-        'accent':     p['accent'],
-        'border':     p['border'],
-        'btnBg':      p['btn_bg'],
-        'btnTx':      p['btn_text'],
-        'btnBdr':     p['btn_border'],
-    })
-    _is_dark = 'true' if theme_val == 'dark' else 'false'
-
-    _js = (
-        "<script>\n(function () {\n"
-        "var IS_DARK=" + _is_dark + ";\n"
-        "var C=" + _colors + ";\n"
-        """
-/* ── 1. Kill header gap ────────────────────────────────────────── */
-var GAP_SELS=['.stApp','[data-testid="stAppViewContainer"]','[data-testid="stMain"]',
-    '[data-testid="stHeader"]','[data-testid="stToolbar"]',
-    '[data-testid="stStatusWidget"]','[data-testid="stSidebarContent"]'];
-function killGap(){
-    GAP_SELS.forEach(function(sel){
-        var el=window.parent.document.querySelector(sel);
-        if(!el)return;
-        el.style.setProperty('padding-top','0','important');
-        el.style.setProperty('margin-top','0','important');
-        if(sel.indexOf('stHeader')>-1||sel.indexOf('stToolbar')>-1||sel.indexOf('stStatus')>-1){
-            el.style.setProperty('height','0','important');
-            el.style.setProperty('min-height','0','important');
-            el.style.setProperty('overflow','hidden','important');
-            el.style.setProperty('display','none','important');
-        }
-    });
-    window.parent.scrollTo(0,0);
-}
-killGap();setTimeout(killGap,100);setTimeout(killGap,400);setTimeout(killGap,800);
-var _app=window.parent.document.querySelector('.stApp');
-if(_app){new MutationObserver(killGap).observe(_app,{attributes:true,attributeFilter:['style'],subtree:false});}
-
-/* ── 2. Dark mode: inject CSS as the LAST stylesheet in <head> ── */
-if(!IS_DARK){return;}
-var SID='ir-dark-force';
-function buildCSS(){
-    return [
-        /* Popover / Menu background */
-        '[data-baseweb="popover"]{background-color:'+C.cardBg+' !important;}',
-        '[data-baseweb="popover"]>*,[data-baseweb="popover"]>*>*{background-color:'+C.cardBg+' !important;}',
-        '[data-baseweb="menu"],[data-baseweb="menu"] ul{background-color:'+C.cardBg+' !important;}',
-        'ul[role="listbox"],[role="listbox"]{background-color:'+C.cardBg+' !important;}',
-        /* List items — text must be visible by default */
-        '[data-baseweb="menu"] li,[data-baseweb="menu"] [role="option"],[role="option"]{'+
-            'background-color:transparent !important;'+
-            'color:'+C.textPri+' !important;'+
-            '-webkit-text-fill-color:'+C.textPri+' !important;}',
-        '[data-baseweb="menu"] li *,[data-baseweb="menu"] [role="option"] *,[role="option"] *{'+
-            'color:'+C.textPri+' !important;'+
-            '-webkit-text-fill-color:'+C.textPri+' !important;}',
-        /* Hover + selected highlight */
-        '[data-baseweb="menu"] li:hover,[data-baseweb="menu"] [role="option"]:hover,'+
-        '[role="option"]:hover,[data-baseweb="menu"] [aria-selected="true"],'+
-        '[role="option"][aria-selected="true"]{'+
-            'background-color:'+C.cardBgHov+' !important;'+
-            'color:'+C.accent+' !important;'+
-            '-webkit-text-fill-color:'+C.accent+' !important;}',
-        /* Input / search box background stays dark when focused/clicked */
-        '[data-baseweb="base-input"],[data-baseweb="input"],'+
-        '[data-baseweb="base-input"]:focus-within,[data-baseweb="input"]:focus-within,'+
-        '[data-baseweb="base-input"]>div,[data-baseweb="input"]>div{'+
-            'background-color:'+C.inputBg+' !important;}',
-        '[data-baseweb="base-input"] input,[data-baseweb="input"] input,'+
-        '[data-baseweb="base-input"] textarea,[data-baseweb="input"] textarea{'+
-            'background-color:'+C.inputBg+' !important;'+
-            'color:'+C.textPri+' !important;'+
-            '-webkit-text-fill-color:'+C.textPri+' !important;'+
-            'caret-color:'+C.accent+' !important;}',
-        /* Autofill — THE main cause of inputs turning white */
-        'input:-webkit-autofill,input:-webkit-autofill:hover,'+
-        'input:-webkit-autofill:focus,input:-webkit-autofill:active,'+
-        'textarea:-webkit-autofill,textarea:-webkit-autofill:focus{'+
-            '-webkit-box-shadow:0 0 0 100px '+C.inputBg+' inset !important;'+
-            '-webkit-text-fill-color:'+C.textPri+' !important;'+
-            'caret-color:'+C.accent+' !important;}',
-        /* Generic input focus override */
-        'input:focus,input:active{'+
-            'background-color:'+C.inputBg+' !important;'+
-            'color:'+C.textPri+' !important;'+
-            '-webkit-text-fill-color:'+C.textPri+' !important;}',
-        'textarea:focus,textarea:active{'+
-            'background-color:'+C.inputBg+' !important;'+
-            'color:'+C.textPri+' !important;'+
-            '-webkit-text-fill-color:'+C.textPri+' !important;}',
-        /* Textarea border + styling */
-        '[data-testid="stTextArea"] textarea,textarea{'+
-            'background-color:'+C.inputBg+' !important;'+
-            'color:'+C.textPri+' !important;'+
-            '-webkit-text-fill-color:'+C.textPri+' !important;'+
-            'border:1.5px solid '+C.border+' !important;}',
-        /* Number input +/- buttons */
-        '[data-testid="stNumberInput"] button,[data-baseweb="input"] button{'+
-            'background-color:'+C.btnBg+' !important;'+
-            'color:'+C.btnTx+' !important;'+
-            'border-color:'+C.btnBdr+' !important;}',
-        '[data-testid="stNumberInput"] button svg,[data-baseweb="input"] button svg{'+
-            'fill:'+C.btnTx+' !important;color:'+C.btnTx+' !important;}',
-        /* Date picker calendar */
-        '[data-baseweb="calendar"],[data-baseweb="datepicker"]{'+
-            'background-color:'+C.cardBg+' !important;color:'+C.textPri+' !important;}',
-        '[data-baseweb="calendar"] *{'+
-            'color:'+C.textPri+' !important;-webkit-text-fill-color:'+C.textPri+' !important;}',
-        '[data-baseweb="calendar"] [data-selected="true"]{background-color:'+C.accent+' !important;}',
-        '[data-baseweb="calendar"] button:hover{background-color:'+C.cardBgHov+' !important;}',
-        '[data-baseweb="calendar"] [data-outside-month="true"]{opacity:0.4 !important;}',
-    ].join('\n');
-}
-function injectCSS(){
-    var ex=window.parent.document.getElementById(SID);
-    if(ex)ex.remove();
-    var s=window.parent.document.createElement('style');
-    s.id=SID;s.textContent=buildCSS();
-    window.parent.document.head.appendChild(s);
-}
-injectCSS();
-/* Re-inject if Streamlit removes it */
-new MutationObserver(function(){
-    if(!window.parent.document.getElementById(SID)){injectCSS();}
-}).observe(window.parent.document.head,{childList:true});
-
-/* ── 3. MutationObserver: apply inline styles to dropdown portals ── */
-function styleMenu(node){
-    if(!node||typeof node.querySelectorAll!=='function')return;
-    /* Container background */
-    [node].concat(Array.from(node.querySelectorAll(
-        '[data-baseweb="popover"],[data-baseweb="menu"],[role="listbox"]')
-    )).forEach(function(m){
-        if(m&&m.style){m.style.setProperty('background-color',C.cardBg,'important');}
-    });
-    /* Each option item */
-    node.querySelectorAll('[role="option"],li').forEach(function(item){
-        item.style.setProperty('background-color','transparent','important');
-        item.style.setProperty('color',C.textPri,'important');
-        item.style.setProperty('-webkit-text-fill-color',C.textPri,'important');
-        /* Set child text nodes too */
-        item.querySelectorAll('*').forEach(function(ch){
-            ch.style.setProperty('color',C.textPri,'important');
-            ch.style.setProperty('-webkit-text-fill-color',C.textPri,'important');
+    function killGap() {
+        SELECTORS.forEach(function (sel) {
+            var el = window.parent.document.querySelector(sel);
+            if (!el) return;
+            el.style.setProperty('padding-top',  '0', 'important');
+            el.style.setProperty('margin-top',   '0', 'important');
+            if (sel.indexOf('stHeader') > -1 || sel.indexOf('stToolbar') > -1 ||
+                sel.indexOf('stStatus') > -1) {
+                el.style.setProperty('height',     '0', 'important');
+                el.style.setProperty('min-height', '0', 'important');
+                el.style.setProperty('overflow',   'hidden', 'important');
+                el.style.setProperty('display',    'none', 'important');
+            }
         });
-        if(!item._irH){
-            item._irH=1;
-            item.addEventListener('mouseenter',function(){
-                this.style.setProperty('background-color',C.cardBgHov,'important');
-                this.style.setProperty('color',C.accent,'important');
-                this.style.setProperty('-webkit-text-fill-color',C.accent,'important');
-            });
-            item.addEventListener('mouseleave',function(){
-                this.style.setProperty('background-color','transparent','important');
-                this.style.setProperty('color',C.textPri,'important');
-                this.style.setProperty('-webkit-text-fill-color',C.textPri,'important');
-            });
-        }
-    });
-}
-new MutationObserver(function(muts){
-    muts.forEach(function(mut){
-        mut.addedNodes.forEach(function(n){
-            if(n.nodeType!==1)return;
-            styleMenu(n);
-        });
-    });
-}).observe(window.parent.document.body,{childList:true,subtree:true});
-
-/* ── 4. Fix input bg/text on every focus (catches click-to-white) ── */
-window.parent.document.addEventListener('focusin',function(e){
-    var el=e.target;if(!el)return;
-    var t=el.tagName;
-    if(t==='INPUT'||t==='TEXTAREA'){
-        el.style.setProperty('background-color',C.inputBg,'important');
-        el.style.setProperty('color',C.textPri,'important');
-        el.style.setProperty('-webkit-text-fill-color',C.textPri,'important');
+        window.parent.scrollTo(0, 0);
     }
-},true);
-"""
-        + "\n})();\n</script>"
-    )
-    _components.html(_js, height=0)
+
+    killGap();
+    setTimeout(killGap, 100);
+    setTimeout(killGap, 400);
+    setTimeout(killGap, 800);
+
+    var appEl = window.parent.document.querySelector('.stApp');
+    if (appEl) {
+        new MutationObserver(killGap).observe(appEl, {
+            attributes: true,
+            attributeFilter: ['style'],
+            subtree: false
+        });
+    }
+})();
+</script>
+""", height=0)
 
 def inject_theme():
     """Legacy: delegates to inject_global_css()."""
