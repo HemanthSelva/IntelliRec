@@ -1238,6 +1238,10 @@ section[data-testid="stSidebar"] .stButton > button[kind="primary"] {
 """, unsafe_allow_html=True)
 
     # ── JS: gap killer + portal/input inline-style fixer ──────────────────────
+    # st.components.v1.html (iframe) is deprecated but WORKS for JS execution.
+    # st.html with unsafe_allow_javascript=True is sanitized by DOMPurify
+    # which strips <script> tags. So we MUST use the old API until Streamlit
+    # provides a non-DOMPurify JS injection method.
     import streamlit.components.v1 as _components
     _theme_js = theme_val  # "light" or "dark"
     _popup_bg   = p['card_bg']
@@ -1247,6 +1251,7 @@ section[data-testid="stSidebar"] .stButton > button[kind="primary"] {
     _input_text = p['text_primary']
     _input_muted = p['text_muted']
     _accent = p['accent']
+    _accent_soft = p['accent_soft']
     _components.html(f"""
 <script>
 (function () {{
@@ -1259,6 +1264,8 @@ section[data-testid="stSidebar"] .stButton > button[kind="primary"] {
     var INPUT_TEXT  = "{_input_text}";
     var INPUT_MUTED = "{_input_muted}";
     var ACCENT      = "{_accent}";
+    var ACCENT_SOFT = "{_accent_soft}";
+
 
     // ── 0. Tag body with theme class so CSS body:not(.ir-dark) scoping works ─
     if (THEME === 'dark') {{
@@ -1294,151 +1301,268 @@ section[data-testid="stSidebar"] .stButton > button[kind="primary"] {
     if (appEl) new MutationObserver(killGap).observe(appEl,{{attributes:true,attributeFilter:['style'],subtree:false}});
 
 
-    // ── 2. SURGICAL portal/dropdown/calendar/input fixer ─────────────────────
-    // Strategy: Streamlit portals render OUTSIDE stApp as children of document.body.
-    // Their internal Styletron classes apply dark bg AFTER our CSS. So we must
-    // overwrite inline styles aggressively, including on ALL descendants.
+    // ── 2. NUCLEAR portal/dropdown/calendar/radio/input fixer ──────────────
+    // WHY previous CSS !important approach failed:
+    // Streamlit's Styletron generates atomic CSS classes like .css-1abc2de
+    // with background-color:rgb(5,13,26). These classes have higher specificity
+    // than our attribute selectors AND are injected AFTER our <style> tags.
+    // The ONLY fix is JS inline styles via setProperty('...','...','important').
 
-    function isPortalContainer(el) {{
-        if (!el || el.nodeType !== 1) return false;
-        var bw = el.getAttribute('data-baseweb') || '';
-        var role = el.getAttribute('role') || '';
-        return (bw === 'popover' || bw === 'menu' || bw === 'calendar' ||
-                role === 'listbox' || role === 'dialog');
-    }}
+    if (THEME === 'light') {{
 
-    function paintEl(el) {{
-        if (!el || el.nodeType !== 1) return;
-        var bw   = el.getAttribute('data-baseweb') || '';
-        var role = el.getAttribute('role') || '';
-        var tag  = el.tagName ? el.tagName.toLowerCase() : '';
+        function paintLight(el) {{
+            if (!el || el.nodeType !== 1) return;
+            var tag = el.tagName ? el.tagName.toLowerCase() : '';
 
-        // Portal containers — force theme-correct background + text
-        if (bw === 'popover' || bw === 'menu' || role === 'listbox' || bw === 'calendar') {{
-            el.style.setProperty('background-color', POPUP_BG, 'important');
-            el.style.setProperty('background',       POPUP_BG, 'important');
-            el.style.setProperty('color',            POPUP_TEXT, 'important');
-            el.style.setProperty('border-color',     POPUP_BORDER, 'important');
-        }}
+            // Compute the ACTUAL rendered bg (catches Styletron class-based dark bg)
+            var comp = window.getComputedStyle(el);
+            var bg = comp.backgroundColor || '';
 
-        // Calendar cells & day buttons
-        if (bw === 'calendar-month' || bw === 'month-header' || bw === 'calendar-header' ||
-            bw === 'calendar-grid' || el.classList.contains('react-datepicker')) {{
-            el.style.setProperty('background-color', POPUP_BG, 'important');
-            el.style.setProperty('color',            POPUP_TEXT, 'important');
-        }}
+            // Parse rgb to detect if it's dark
+            var isDark = false;
+            var m = bg.match(/rgb\((\d+),\s*(\d+),\s*(\d+)\)/);
+            if (m) {{
+                var r = parseInt(m[1]), g = parseInt(m[2]), b = parseInt(m[3]);
+                isDark = (r + g + b) < 200;  // dark threshold
+            }}
 
-        // List items in dropdown — text color only (bg transparent)
-        if (role === 'option' || (tag === 'li' && el.closest('[role="listbox"]'))) {{
+            // Force-fix dark backgrounds on portal children
+            if (isDark) {{
+                el.style.setProperty('background-color', POPUP_BG, 'important');
+                el.style.setProperty('background', POPUP_BG, 'important');
+            }}
             el.style.setProperty('color', POPUP_TEXT, 'important');
-            el.style.setProperty('background-color', 'transparent', 'important');
         }}
 
-        // Menu ul list
-        if (tag === 'ul' && el.closest('[data-baseweb="menu"]')) {{
-            el.style.setProperty('background-color', POPUP_BG, 'important');
-            el.style.setProperty('background',       POPUP_BG, 'important');
-            el.style.setProperty('color',            POPUP_TEXT, 'important');
-        }}
+        function nukePortal(root) {{
+            if (!root || root.nodeType !== 1) return;
 
-        // Any div/span inside a popover or calendar that has a dark inline bg
-        if ((bw === '' && role === '') && el.closest) {{
-            var parentPortal = el.closest(
-                '[data-baseweb="popover"],[data-baseweb="menu"],[data-baseweb="calendar"],[role="listbox"]'
-            );
-            if (parentPortal) {{
-                var inlineBg = el.style.backgroundColor;
-                // Only override if it looks dark (rgb values all low)
-                if (inlineBg && inlineBg !== 'transparent') {{
-                    el.style.setProperty('background-color', POPUP_BG, 'important');
-                    el.style.setProperty('background',       POPUP_BG, 'important');
-                }}
-                el.style.setProperty('color', POPUP_TEXT, 'important');
+            // Force bg on root
+            root.style.setProperty('background-color', POPUP_BG, 'important');
+            root.style.setProperty('background', POPUP_BG, 'important');
+            root.style.setProperty('color', POPUP_TEXT, 'important');
+            root.style.setProperty('border-color', POPUP_BORDER, 'important');
+
+            // Walk EVERY descendant and force-paint
+            var all = root.querySelectorAll('*');
+            for (var i = 0; i < all.length; i++) {{
+                paintLight(all[i]);
             }}
         }}
 
-        // Calendar day buttons (not selected)
-        if (tag === 'button' && el.closest('[data-baseweb="calendar"]')) {{
-            var isSelected = el.getAttribute('aria-selected') === 'true';
-            if (!isSelected) {{
-                el.style.setProperty('color', POPUP_TEXT, 'important');
-                el.style.setProperty('background-color', 'transparent', 'important');
-            }}
-        }}
-
-        // Inputs / textareas — fix typed-text visibility
-        if (tag === 'input' || tag === 'textarea') {{
-            el.style.setProperty('background-color',        INPUT_BG,   'important');
-            el.style.setProperty('color',                   INPUT_TEXT, 'important');
-            el.style.setProperty('-webkit-text-fill-color', INPUT_TEXT, 'important');
-            el.style.setProperty('caret-color',             INPUT_TEXT, 'important');
-        }}
-    }}
-
-    function deepFixPortal(root) {{
-        if (!root || root.nodeType !== 1) return;
-        paintEl(root);
-        // Deep traverse all children
-        var walker = doc.createTreeWalker(root, 1, null, false);
-        var node;
-        while ((node = walker.nextNode())) {{ paintEl(node); }}
-    }}
-
-    function fixAllPortals(root) {{
-        var sels = [
-            '[data-baseweb="popover"]',
-            '[data-baseweb="menu"]',
-            '[data-baseweb="calendar"]',
-            '[role="listbox"]',
-            '[role="option"]',
-            'input',
-            'textarea'
-        ];
-        sels.forEach(function(s) {{
-            try {{
-                (root || doc).querySelectorAll(s).forEach(function(el) {{
-                    deepFixPortal(el);
-                }});
-            }} catch(e) {{}}
-        }});
-    }}
-
-    // Run immediately and at staggered delays to beat Streamlit's Styletron
-    fixAllPortals();
-    setTimeout(fixAllPortals, 50);
-    setTimeout(fixAllPortals, 150);
-    setTimeout(fixAllPortals, 500);
-    setTimeout(fixAllPortals, 1200);
-
-    // Continuous watcher — re-fires on every new DOM node added
-    new MutationObserver(function(muts) {{
-        muts.forEach(function(m) {{
-            m.addedNodes.forEach(function(n) {{
-                if (n.nodeType !== 1) return;
-                // If the added node is or contains a portal, deep-fix it
-                if (isPortalContainer(n)) {{
-                    // Small delay so Styletron finishes its own styling first
-                    setTimeout(function() {{ deepFixPortal(n); }}, 0);
-                    setTimeout(function() {{ deepFixPortal(n); }}, 80);
-                }} else {{
-                    // Check if it contains a portal as a descendant
-                    var portals = n.querySelectorAll ? n.querySelectorAll(
-                        '[data-baseweb="popover"],[data-baseweb="menu"],' +
-                        '[data-baseweb="calendar"],[role="listbox"]'
-                    ) : [];
-                    portals.forEach(function(p) {{
-                        setTimeout(function() {{ deepFixPortal(p); }}, 0);
-                        setTimeout(function() {{ deepFixPortal(p); }}, 80);
-                    }});
-                    // Also fix inputs
-                    paintEl(n);
-                    if (n.querySelectorAll) {{
-                        n.querySelectorAll('input,textarea').forEach(paintEl);
+        function fixRadios() {{
+            // Radio button circles: Streamlit base=dark makes them black.
+            // [role="radio"] doesn't always exist — target ALL children of 
+            // [data-baseweb="radio"] that have dark backgrounds.
+            doc.querySelectorAll('[data-baseweb="radio"]').forEach(function(radioGroup) {{
+                radioGroup.querySelectorAll('*').forEach(function(el) {{
+                    var comp = window.getComputedStyle(el);
+                    var bg = comp.backgroundColor || '';
+                    var m = bg.match(/rgb\((\d+),\s*(\d+),\s*(\d+)\)/);
+                    if (m) {{
+                        var sum = parseInt(m[1]) + parseInt(m[2]) + parseInt(m[3]);
+                        if (sum < 200) {{
+                            // Dark element inside radio — make it light
+                            el.style.setProperty('background-color', INPUT_BG, 'important');
+                            el.style.setProperty('border-color', POPUP_BORDER, 'important');
+                        }}
                     }}
+                    el.style.setProperty('color', POPUP_TEXT, 'important');
+                }});
+            }});
+            // Also fix by role if it exists
+            doc.querySelectorAll('[role="radio"]').forEach(function(el) {{
+                var isChecked = el.getAttribute('aria-checked') === 'true';
+                if (isChecked) {{
+                    el.style.setProperty('background-color', ACCENT, 'important');
+                    el.style.setProperty('border-color', ACCENT, 'important');
+                }} else {{
+                    el.style.setProperty('background-color', INPUT_BG, 'important');
+                    el.style.setProperty('border-color', POPUP_BORDER, 'important');
                 }}
             }});
-        }});
-    }}).observe(doc.body, {{childList:true, subtree:true}});
+        }}
+
+        function fixTags() {{
+            // Multiselect tag pills
+            doc.querySelectorAll('[data-baseweb="tag"]').forEach(function(el) {{
+                el.style.setProperty('background-color', '#e0e7ff', 'important');
+                el.style.setProperty('background', '#e0e7ff', 'important');
+                el.style.setProperty('color', ACCENT, 'important');
+                el.style.setProperty('border', '1px solid ' + ACCENT, 'important');
+                el.style.setProperty('border-radius', '100px', 'important');
+                el.querySelectorAll('span,svg').forEach(function(c) {{
+                    c.style.setProperty('color', ACCENT, 'important');
+                    if (c.tagName === 'svg' || c.tagName === 'SVG') c.style.setProperty('fill', ACCENT, 'important');
+                }});
+            }});
+        }}
+
+        function fixChatAvatars() {{
+            // Chat message avatar circles — dark from base=dark
+            // Use multiple selector strategies since Streamlit versions differ
+            var avatarSels = [
+                '[data-testid="chatAvatarIcon-user"]',
+                '[data-testid="chatAvatarIcon-assistant"]',
+                '[data-testid="stChatMessageAvatar"]',
+                '[data-testid="stChatMessage"] > div:first-child'
+            ];
+            avatarSels.forEach(function(sel) {{
+                doc.querySelectorAll(sel).forEach(function(el) {{
+                    // Check if the element or any child has a dark bg
+                    el.querySelectorAll('*').forEach(function(c) {{
+                        var comp = window.getComputedStyle(c);
+                        var bg = comp.backgroundColor || '';
+                        var m = bg.match(/rgb\((\d+),\s*(\d+),\s*(\d+)\)/);
+                        if (m && (parseInt(m[1]) + parseInt(m[2]) + parseInt(m[3])) < 200) {{
+                            c.style.setProperty('background-color', ACCENT_SOFT, 'important');
+                            c.style.setProperty('background', ACCENT_SOFT, 'important');
+                        }}
+                    }});
+                    // Also check the element itself
+                    var comp = window.getComputedStyle(el);
+                    var bg = comp.backgroundColor || '';
+                    var m = bg.match(/rgb\((\d+),\s*(\d+),\s*(\d+)\)/);
+                    if (m && (parseInt(m[1]) + parseInt(m[2]) + parseInt(m[3])) < 200) {{
+                        el.style.setProperty('background-color', ACCENT_SOFT, 'important');
+                        el.style.setProperty('background', ACCENT_SOFT, 'important');
+                    }}
+                }});
+            }});
+        }}
+
+        function fixArrowButtons() {{
+            // Arrow buttons and all secondary buttons
+            doc.querySelectorAll('button[data-testid="baseButton-secondary"]').forEach(function(el) {{
+                var comp = window.getComputedStyle(el);
+                var bg = comp.backgroundColor || '';
+                var m = bg.match(/rgb\((\d+),\s*(\d+),\s*(\d+)\)/);
+                if (m && (parseInt(m[1]) + parseInt(m[2]) + parseInt(m[3])) < 200) {{
+                    el.style.setProperty('background-color', '#f3f4f6', 'important');
+                    el.style.setProperty('background', '#f3f4f6', 'important');
+                    el.style.setProperty('color', '#1a1a2e', 'important');
+                    el.style.setProperty('border', '1px solid #e5e7eb', 'important');
+                    el.querySelectorAll('p,span').forEach(function(c) {{
+                        c.style.setProperty('color', '#1a1a2e', 'important');
+                    }});
+                }}
+            }});
+        }}
+
+        function fixSelectboxControls() {{
+            // Selectbox and multiselect outer boxes
+            doc.querySelectorAll('[data-testid="stSelectbox"] [data-baseweb="select"] > div:first-child, [data-testid="stMultiSelect"] [data-baseweb="select"] > div:first-child').forEach(function(el) {{
+                el.style.setProperty('background-color', INPUT_BG, 'important');
+                el.style.setProperty('background', INPUT_BG, 'important');
+                el.style.setProperty('border', '1.5px solid ' + POPUP_BORDER, 'important');
+                el.style.setProperty('border-radius', '12px', 'important');
+            }});
+        }}
+
+        function fixAllLight() {{
+            // 1. Portals — popover/menu/calendar/listbox
+            var portalSelectors = [
+                '[data-baseweb="popover"]',
+                '[data-baseweb="menu"]',
+                '[data-baseweb="calendar"]',
+                '[data-baseweb="datepicker"]',
+                '[role="listbox"]'
+            ];
+            portalSelectors.forEach(function(sel) {{
+                doc.querySelectorAll(sel).forEach(nukePortal);
+            }});
+
+            // 2. Specifically target UL inside menu (the exact element Styletron darkens)
+            doc.querySelectorAll('[data-baseweb="menu"] ul').forEach(function(ul) {{
+                ul.style.setProperty('background-color', POPUP_BG, 'important');
+                ul.style.setProperty('background', POPUP_BG, 'important');
+                ul.querySelectorAll('li').forEach(function(li) {{
+                    li.style.setProperty('color', POPUP_TEXT, 'important');
+                    li.style.setProperty('background-color', 'transparent', 'important');
+                }});
+            }});
+
+            // 3. Dialog containers
+            doc.querySelectorAll('[role="dialog"]').forEach(function(dlg) {{
+                nukePortal(dlg);
+            }});
+
+            // 4. Radio buttons, tags, avatars, arrows, selectboxes
+            fixRadios();
+            fixTags();
+            fixChatAvatars();
+            fixArrowButtons();
+            fixSelectboxControls();
+
+            // 5. UNIVERSAL dark-bg scanner — catches ANYTHING Styletron darkens
+            // Scan the entire document for elements with dark computed backgrounds
+            var mainArea = doc.querySelector('[data-testid="stMain"]');
+            if (mainArea) {{
+                mainArea.querySelectorAll('*').forEach(function(el) {{
+                    var comp = window.getComputedStyle(el);
+                    var bg = comp.backgroundColor || '';
+                    var m = bg.match(/rgb\((\d+),\s*(\d+),\s*(\d+)\)/);
+                    if (m) {{
+                        var sum = parseInt(m[1]) + parseInt(m[2]) + parseInt(m[3]);
+                        // Only fix truly dark elements (not normal dark text)
+                        if (sum < 150) {{
+                            var tag = el.tagName.toLowerCase();
+                            // Don't nuke text color on elements, only background
+                            if (tag !== 'svg' && tag !== 'path' && tag !== 'circle') {{
+                                el.style.setProperty('background-color', POPUP_BG, 'important');
+                                el.style.setProperty('background', POPUP_BG, 'important');
+                            }}
+                        }}
+                    }}
+                }});
+            }}
+        }}
+
+        // Run immediately + staggered to beat Styletron timing
+        fixAllLight();
+        setTimeout(fixAllLight, 50);
+        setTimeout(fixAllLight, 150);
+        setTimeout(fixAllLight, 400);
+        setTimeout(fixAllLight, 800);
+        setTimeout(fixAllLight, 1500);
+
+        // Continuous observer — re-fires for every new node
+        var _fixTimer = null;
+        new MutationObserver(function(muts) {{
+            var needsFix = false;
+            for (var i = 0; i < muts.length; i++) {{
+                var added = muts[i].addedNodes;
+                for (var j = 0; j < added.length; j++) {{
+                    if (added[j].nodeType === 1) {{ needsFix = true; break; }}
+                }}
+                if (needsFix) break;
+            }}
+            if (needsFix) {{
+                // Debounce to avoid thrashing
+                if (_fixTimer) clearTimeout(_fixTimer);
+                _fixTimer = setTimeout(function() {{
+                    fixAllLight();
+                    setTimeout(fixAllLight, 80);
+                    setTimeout(fixAllLight, 300);
+                }}, 20);
+            }}
+        }}).observe(doc.body, {{childList:true, subtree:true}});
+
+        // Attribute observer (debounced to prevent infinite loops from our own style changes)
+        var _attrTimer = null;
+        new MutationObserver(function() {{
+            if (_attrTimer) clearTimeout(_attrTimer);
+            _attrTimer = setTimeout(function() {{
+                fixRadios();
+                fixTags();
+                fixArrowButtons();
+            }}, 50);
+        }}).observe(doc.body, {{attributes:true, attributeFilter:['class'], subtree:true}});
+
+    }} else {{
+        // DARK MODE — no changes needed, config.toml base=dark is correct
+    }}
+
 }})();
 </script>
 """, height=0)
