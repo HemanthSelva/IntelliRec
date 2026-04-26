@@ -1044,24 +1044,230 @@ section[data-testid="stSidebar"] .stButton > button[kind="primary"] {
 </style>
 """, unsafe_allow_html=True)
 
+    # ─── SURGICAL COMPONENT FIXES — injected separately so we avoid f-string escaping ───
+    # Fixes ALL remaining light-mode regressions caused by config.toml base=dark.
+    # Uses palette values directly — auto-corrects for both light and dark.
+    _CARD_BG       = p['card_bg']
+    _INPUT_BG      = p['input_bg']
+    _BORDER        = p['border']
+    _BTN_BG        = p['btn_bg']
+    _BTN_TEXT      = p['btn_text']
+    _BTN_BORDER    = p['btn_border']
+    _TEXT_PRIMARY  = p['text_primary']
+    _ACCENT        = p['accent']
+    _ACCENT_SOFT   = p['accent_soft']
+    _SHADOW_LG     = p['glass_shadow_lg']
+    _PAGE_BG       = p['page_bg']
+
+    st.markdown(f"""
+<style>
+/* ── Radio button indicator circles (dark black in light mode from base=dark) */
+[data-baseweb="radio"] [role="radio"] {{
+    border-color: {_BORDER} !important;
+    background-color: {_INPUT_BG} !important;
+    border-width: 2px !important;
+}}
+[data-baseweb="radio"] [role="radio"][aria-checked="true"] {{
+    border-color: {_ACCENT} !important;
+    background-color: {_ACCENT} !important;
+}}
+[data-baseweb="radio"] span, [data-baseweb="radio"] label span {{
+    color: {_TEXT_PRIMARY} !important;
+}}
+.stRadio [data-baseweb="radio"] {{ background: transparent !important; }}
+[data-testid="stRadio"] > div {{ background: transparent !important; }}
+
+/* ── Multiselect tag pills ─────────────────────────────────────────── */
+[data-baseweb="tag"] {{
+    background-color: {_ACCENT_SOFT} !important;
+    background:       {_ACCENT_SOFT} !important;
+    color:            {_ACCENT} !important;
+    border:           1px solid {_ACCENT} !important;
+    border-radius:    100px !important;
+}}
+[data-baseweb="tag"] span, [data-baseweb="tag"] svg {{
+    color: {_ACCENT} !important;
+    fill:  {_ACCENT} !important;
+}}
+
+/* ── Selectbox / multiselect outer control (visible box, not portal) ── */
+[data-testid="stSelectbox"]  [data-baseweb="select"] > div:first-child,
+[data-testid="stMultiSelect"] [data-baseweb="select"] > div:first-child {{
+    background-color: {_INPUT_BG} !important;
+    background:       {_INPUT_BG} !important;
+    border:           1.5px solid {_BORDER} !important;
+    border-radius:    12px !important;
+}}
+[data-testid="stSelectbox"] span,
+[data-testid="stSelectbox"] [data-testid="stSelectboxValue"],
+[data-testid="stMultiSelect"] span {{
+    color: {_TEXT_PRIMARY} !important;
+    -webkit-text-fill-color: {_TEXT_PRIMARY} !important;
+}}
+[data-testid="stSelectbox"] svg, [data-testid="stMultiSelect"] > label + div svg {{
+    fill: {_TEXT_PRIMARY} !important;
+}}
+
+/* ── Dropdown portal — portal renders as direct child of <body> ──────── */
+/* Must use high-specificity to beat Streamlit's Styletron inline styles  */
+[data-baseweb="popover"],
+[data-baseweb="popover"] > div,
+[data-baseweb="popover"] > div > div,
+[data-baseweb="popover"] [data-baseweb="menu"],
+[data-baseweb="menu"] {{
+    background:       {_CARD_BG} !important;
+    background-color: {_CARD_BG} !important;
+    border:           1px solid {_BORDER} !important;
+    border-radius:    12px !important;
+    box-shadow:       {_SHADOW_LG} !important;
+}}
+[data-baseweb="menu"] ul,
+[data-baseweb="menu"] > ul {{
+    background:       {_CARD_BG} !important;
+    background-color: {_CARD_BG} !important;
+    padding: 4px !important;
+}}
+[role="listbox"] {{
+    background:       {_CARD_BG} !important;
+    background-color: {_CARD_BG} !important;
+    border:           1px solid {_BORDER} !important;
+    border-radius:    12px !important;
+}}
+[data-baseweb="menu"] li,
+[data-baseweb="menu"] [role="option"],
+[role="listbox"] li,
+[role="option"] {{
+    background:       transparent !important;
+    background-color: transparent !important;
+    color:            {_TEXT_PRIMARY} !important;
+    border-radius:    8px !important;
+}}
+[data-baseweb="menu"] li:hover,
+[data-baseweb="menu"] [aria-selected="true"],
+[data-baseweb="menu"] [data-highlighted="true"],
+[role="option"]:hover,
+[role="option"][aria-selected="true"] {{
+    background:       {_ACCENT_SOFT} !important;
+    background-color: {_ACCENT_SOFT} !important;
+    color:            {_ACCENT} !important;
+}}
+[data-baseweb="menu"] [role="option"] span,
+[data-baseweb="menu"] [role="option"] div {{
+    color: inherit !important;
+}}
+
+/* ── Calendar / date picker portal ──────────────────────────────────── */
+[data-baseweb="calendar"],
+[data-baseweb="calendar"] > div,
+[data-baseweb="datepicker"],
+[data-baseweb="datepicker"] > div {{
+    background:       {_CARD_BG} !important;
+    background-color: {_CARD_BG} !important;
+    color:            {_TEXT_PRIMARY} !important;
+    border:           1px solid {_BORDER} !important;
+    border-radius:    16px !important;
+    box-shadow:       {_SHADOW_LG} !important;
+}}
+[data-baseweb="calendar"] div {{
+    color:            {_TEXT_PRIMARY} !important;
+    background-color: transparent !important;
+}}
+[data-baseweb="calendar"] button {{
+    color:            {_TEXT_PRIMARY} !important;
+    background-color: transparent !important;
+}}
+[data-baseweb="calendar"] button[aria-selected="true"] {{
+    background-color: {_ACCENT} !important;
+    background:       {_ACCENT} !important;
+    color:            #ffffff !important;
+    border-radius:    50% !important;
+}}
+[data-baseweb="calendar"] button:not([aria-selected="true"]):hover {{
+    background-color: {_ACCENT_SOFT} !important;
+    color:            {_ACCENT} !important;
+    border-radius:    50% !important;
+}}
+[data-baseweb="calendar"] span {{ color: {_TEXT_PRIMARY} !important; }}
+
+/* ── Arrow buttons (▲▼) — small icon secondary buttons ──────────────── */
+/* These inherit dark bg from config.toml base=dark in light mode        */
+[data-testid="stMain"] button[data-testid="baseButton-secondary"] {{
+    background-color: {_BTN_BG} !important;
+    background:       {_BTN_BG} !important;
+    color:            {_BTN_TEXT} !important;
+    border:           1.5px solid {_BTN_BORDER} !important;
+}}
+[data-testid="stMain"] button[data-testid="baseButton-secondary"] p,
+[data-testid="stMain"] button[data-testid="baseButton-secondary"] span {{
+    color: {_BTN_TEXT} !important;
+}}
+[data-testid="stMain"] button[data-testid="baseButton-secondary"]:hover {{
+    background-color: {_ACCENT_SOFT} !important;
+    border-color:     {_ACCENT} !important;
+    color:            {_ACCENT} !important;
+}}
+
+/* ── Chat message avatar background circle ───────────────────────────── */
+/* The emoji avatar circle is dark from config base=dark                  */
+[data-testid="chatAvatarIcon-user"],
+[data-testid="chatAvatarIcon-assistant"],
+[data-testid="chatAvatarIcon-user"] > div,
+[data-testid="chatAvatarIcon-assistant"] > div {{
+    background-color: {_ACCENT_SOFT} !important;
+    background:       {_ACCENT_SOFT} !important;
+    border-color:     {_BORDER} !important;
+}}
+[data-testid="chatAvatarIcon-user"] svg,
+[data-testid="chatAvatarIcon-assistant"] svg {{
+    fill: {_ACCENT} !important;
+}}
+[data-testid="stChatMessage"] {{
+    background: transparent !important;
+}}
+
+/* ── Notification/toast text ─────────────────────────────────────────── */
+[data-testid="stToast"] {{
+    background-color: {_CARD_BG} !important;
+    color:            {_TEXT_PRIMARY} !important;
+    border:           1px solid {_BORDER} !important;
+}}
+[data-testid="stToast"] p, [data-testid="stToast"] span {{
+    color: {_TEXT_PRIMARY} !important;
+}}
+</style>
+""", unsafe_allow_html=True)
+
     # ── JS: gap killer + portal/input inline-style fixer ──────────────────────
     import streamlit.components.v1 as _components
     _theme_js = theme_val  # "light" or "dark"
     _popup_bg   = p['card_bg']
     _popup_text = p['text_primary']
+    _popup_border = p['border']
     _input_bg   = p['input_bg']
     _input_text = p['text_primary']
     _input_muted = p['text_muted']
+    _accent = p['accent']
     _components.html(f"""
 <script>
 (function () {{
     var doc = window.parent.document;
-    var THEME      = "{_theme_js}";
-    var POPUP_BG   = "{_popup_bg}";
-    var POPUP_TEXT = "{_popup_text}";
-    var INPUT_BG   = "{_input_bg}";
-    var INPUT_TEXT = "{_input_text}";
+    var THEME       = "{_theme_js}";
+    var POPUP_BG    = "{_popup_bg}";
+    var POPUP_TEXT  = "{_popup_text}";
+    var POPUP_BORDER= "{_popup_border}";
+    var INPUT_BG    = "{_input_bg}";
+    var INPUT_TEXT  = "{_input_text}";
     var INPUT_MUTED = "{_input_muted}";
+    var ACCENT      = "{_accent}";
+
+    // ── 0. Tag body with theme class so CSS body:not(.ir-dark) scoping works ─
+    if (THEME === 'dark') {{
+        doc.body.classList.add('ir-dark');
+        doc.body.setAttribute('data-theme', 'dark');
+    }} else {{
+        doc.body.classList.remove('ir-dark');
+        doc.body.setAttribute('data-theme', 'light');
+    }}
 
     // ── 1. Header-gap killer ──────────────────────────────────────────────────
     var GAP_SEL = [
@@ -1087,59 +1293,156 @@ section[data-testid="stSidebar"] .stButton > button[kind="primary"] {
     var appEl = doc.querySelector('.stApp');
     if (appEl) new MutationObserver(killGap).observe(appEl,{{attributes:true,attributeFilter:['style'],subtree:false}});
 
-    // ── 2. Portal dropdown + input inline-style fixer ────────────────────────
-    // Styletron class CSS is injected AFTER our <style> tags, so !important CSS
-    // can be overridden by later Styletron rules. Inline styles bypass this.
-    function fixNode(el) {{
+
+    // ── 2. SURGICAL portal/dropdown/calendar/input fixer ─────────────────────
+    // Strategy: Streamlit portals render OUTSIDE stApp as children of document.body.
+    // Their internal Styletron classes apply dark bg AFTER our CSS. So we must
+    // overwrite inline styles aggressively, including on ALL descendants.
+
+    function isPortalContainer(el) {{
+        if (!el || el.nodeType !== 1) return false;
+        var bw = el.getAttribute('data-baseweb') || '';
+        var role = el.getAttribute('role') || '';
+        return (bw === 'popover' || bw === 'menu' || bw === 'calendar' ||
+                role === 'listbox' || role === 'dialog');
+    }}
+
+    function paintEl(el) {{
         if (!el || el.nodeType !== 1) return;
         var bw   = el.getAttribute('data-baseweb') || '';
         var role = el.getAttribute('role') || '';
         var tag  = el.tagName ? el.tagName.toLowerCase() : '';
 
-        // Portal containers — force theme-correct background
-        if (bw === 'popover' || bw === 'menu' || role === 'listbox') {{
+        // Portal containers — force theme-correct background + text
+        if (bw === 'popover' || bw === 'menu' || role === 'listbox' || bw === 'calendar') {{
+            el.style.setProperty('background-color', POPUP_BG, 'important');
+            el.style.setProperty('background',       POPUP_BG, 'important');
+            el.style.setProperty('color',            POPUP_TEXT, 'important');
+            el.style.setProperty('border-color',     POPUP_BORDER, 'important');
+        }}
+
+        // Calendar cells & day buttons
+        if (bw === 'calendar-month' || bw === 'month-header' || bw === 'calendar-header' ||
+            bw === 'calendar-grid' || el.classList.contains('react-datepicker')) {{
+            el.style.setProperty('background-color', POPUP_BG, 'important');
+            el.style.setProperty('color',            POPUP_TEXT, 'important');
+        }}
+
+        // List items in dropdown — text color only (bg transparent)
+        if (role === 'option' || (tag === 'li' && el.closest('[role="listbox"]'))) {{
+            el.style.setProperty('color', POPUP_TEXT, 'important');
+            el.style.setProperty('background-color', 'transparent', 'important');
+        }}
+
+        // Menu ul list
+        if (tag === 'ul' && el.closest('[data-baseweb="menu"]')) {{
             el.style.setProperty('background-color', POPUP_BG, 'important');
             el.style.setProperty('background',       POPUP_BG, 'important');
             el.style.setProperty('color',            POPUP_TEXT, 'important');
         }}
-        // List items — transparent bg so container shows; only fix text
-        if (role === 'option' || (tag === 'li' && el.closest('[role="listbox"]'))) {{
-            el.style.setProperty('color', POPUP_TEXT, 'important');
+
+        // Any div/span inside a popover or calendar that has a dark inline bg
+        if ((bw === '' && role === '') && el.closest) {{
+            var parentPortal = el.closest(
+                '[data-baseweb="popover"],[data-baseweb="menu"],[data-baseweb="calendar"],[role="listbox"]'
+            );
+            if (parentPortal) {{
+                var inlineBg = el.style.backgroundColor;
+                // Only override if it looks dark (rgb values all low)
+                if (inlineBg && inlineBg !== 'transparent') {{
+                    el.style.setProperty('background-color', POPUP_BG, 'important');
+                    el.style.setProperty('background',       POPUP_BG, 'important');
+                }}
+                el.style.setProperty('color', POPUP_TEXT, 'important');
+            }}
         }}
+
+        // Calendar day buttons (not selected)
+        if (tag === 'button' && el.closest('[data-baseweb="calendar"]')) {{
+            var isSelected = el.getAttribute('aria-selected') === 'true';
+            if (!isSelected) {{
+                el.style.setProperty('color', POPUP_TEXT, 'important');
+                el.style.setProperty('background-color', 'transparent', 'important');
+            }}
+        }}
+
         // Inputs / textareas — fix typed-text visibility
         if (tag === 'input' || tag === 'textarea') {{
-            el.style.setProperty('background-color',       INPUT_BG,   'important');
-            el.style.setProperty('color',                  INPUT_TEXT, 'important');
-            el.style.setProperty('-webkit-text-fill-color',INPUT_TEXT, 'important');
-            el.style.setProperty('caret-color',            INPUT_TEXT, 'important');
+            el.style.setProperty('background-color',        INPUT_BG,   'important');
+            el.style.setProperty('color',                   INPUT_TEXT, 'important');
+            el.style.setProperty('-webkit-text-fill-color', INPUT_TEXT, 'important');
+            el.style.setProperty('caret-color',             INPUT_TEXT, 'important');
         }}
     }}
 
-    function fixAll(root) {{
+    function deepFixPortal(root) {{
+        if (!root || root.nodeType !== 1) return;
+        paintEl(root);
+        // Deep traverse all children
+        var walker = doc.createTreeWalker(root, 1, null, false);
+        var node;
+        while ((node = walker.nextNode())) {{ paintEl(node); }}
+    }}
+
+    function fixAllPortals(root) {{
         var sels = [
-            '[data-baseweb="popover"]','[data-baseweb="menu"]',
-            '[role="listbox"]','[role="option"]',
-            'input','textarea'
+            '[data-baseweb="popover"]',
+            '[data-baseweb="menu"]',
+            '[data-baseweb="calendar"]',
+            '[role="listbox"]',
+            '[role="option"]',
+            'input',
+            'textarea'
         ];
         sels.forEach(function(s) {{
-            try {{ (root || doc).querySelectorAll(s).forEach(fixNode); }} catch(e) {{}}
+            try {{
+                (root || doc).querySelectorAll(s).forEach(function(el) {{
+                    deepFixPortal(el);
+                }});
+            }} catch(e) {{}}
         }});
     }}
 
-    fixAll(); setTimeout(fixAll, 150); setTimeout(fixAll, 500);
+    // Run immediately and at staggered delays to beat Streamlit's Styletron
+    fixAllPortals();
+    setTimeout(fixAllPortals, 50);
+    setTimeout(fixAllPortals, 150);
+    setTimeout(fixAllPortals, 500);
+    setTimeout(fixAllPortals, 1200);
 
+    // Continuous watcher — re-fires on every new DOM node added
     new MutationObserver(function(muts) {{
         muts.forEach(function(m) {{
             m.addedNodes.forEach(function(n) {{
                 if (n.nodeType !== 1) return;
-                fixNode(n);
-                fixAll(n);
+                // If the added node is or contains a portal, deep-fix it
+                if (isPortalContainer(n)) {{
+                    // Small delay so Styletron finishes its own styling first
+                    setTimeout(function() {{ deepFixPortal(n); }}, 0);
+                    setTimeout(function() {{ deepFixPortal(n); }}, 80);
+                }} else {{
+                    // Check if it contains a portal as a descendant
+                    var portals = n.querySelectorAll ? n.querySelectorAll(
+                        '[data-baseweb="popover"],[data-baseweb="menu"],' +
+                        '[data-baseweb="calendar"],[role="listbox"]'
+                    ) : [];
+                    portals.forEach(function(p) {{
+                        setTimeout(function() {{ deepFixPortal(p); }}, 0);
+                        setTimeout(function() {{ deepFixPortal(p); }}, 80);
+                    }});
+                    // Also fix inputs
+                    paintEl(n);
+                    if (n.querySelectorAll) {{
+                        n.querySelectorAll('input,textarea').forEach(paintEl);
+                    }}
+                }}
             }});
         }});
     }}).observe(doc.body, {{childList:true, subtree:true}});
 }})();
 </script>
 """, height=0)
+
 
 def inject_theme():
     """Legacy: delegates to inject_global_css()."""

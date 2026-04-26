@@ -289,21 +289,38 @@ def _show_product_detail_dialog(product: dict):
     _theme = st.session_state.get('theme', 'light')
     _p = get_palette(_theme)
 
-    # Inject dark-mode background into the dialog container
-    if _theme == 'dark':
-        st.markdown(
-            f"""<style>
-            [data-testid="stDialog"] > div > div {{
-                background-color: {_p['card_bg']} !important;
-                color: {_p['text_primary']} !important;
-            }}
-            [data-testid="stDialog"] p, [data-testid="stDialog"] span,
-            [data-testid="stDialog"] label, [data-testid="stDialog"] div {{
-                color: {_p['text_primary']} !important;
-            }}
-            </style>""",
-            unsafe_allow_html=True
-        )
+    # Always inject theme-aware dialog CSS (both light AND dark modes)
+    # Without this, Streamlit renders the dialog with its own dark background in light mode
+    st.markdown(
+        f"""<style>
+        [data-testid="stDialog"] > div,
+        [data-testid="stDialog"] > div > div,
+        [data-testid="stDialog"] [data-testid="stVerticalBlock"] {{
+            background-color: {_p['card_bg']} !important;
+            background:       {_p['card_bg']} !important;
+        }}
+        [data-testid="stDialog"] p,
+        [data-testid="stDialog"] span:not(.material-icons),
+        [data-testid="stDialog"] label {{
+            color: {_p['text_primary']} !important;
+        }}
+        [data-testid="stDialog"] h1,
+        [data-testid="stDialog"] h2,
+        [data-testid="stDialog"] h3 {{
+            color: {_p['text_primary']} !important;
+        }}
+        [data-testid="stDialog"] button[kind="secondary"] {{
+            background: {_p['secondary_btn_bg']} !important;
+            color:      {_p['secondary_btn_text']} !important;
+            border:     1px solid {_p['border']} !important;
+        }}
+        [data-testid="stDialog"] button[kind="secondary"] p,
+        [data-testid="stDialog"] button[kind="secondary"] span {{
+            color: {_p['secondary_btn_text']} !important;
+        }}
+        </style>""",
+        unsafe_allow_html=True
+    )
 
     cat   = get_category_info(product.get('category', ''))
     sent  = get_sentiment_style(product.get('sentiment_label', ''))
@@ -419,7 +436,28 @@ def _show_product_detail_dialog(product: dict):
 
 
 def maybe_show_product_dialog():
-    """Call at the top of any page to trigger the product detail modal when set."""
+    """Call at the top of any page to trigger the product detail modal when set.
+
+    ROOT-CAUSE FIX for 'dialog appears on every page after navigation':
+    Uses a one-shot trigger flag '_view_product_triggered'.
+    - Details button sets both 'view_product' AND '_view_product_triggered = True'
+    - maybe_show_product_dialog() only shows the dialog if the flag is True,
+      then immediately clears the flag so future page re-runs/navigations
+      cannot re-trigger the dialog.
+    """
     prod = st.session_state.get("view_product")
-    if prod:
-        _show_product_detail_dialog(prod)
+    if not prod:
+        return
+
+    # One-shot check: only show if a Details button was just clicked
+    triggered = st.session_state.get("_view_product_triggered", False)
+    if not triggered:
+        # Stale state from navigation — clear silently and do nothing
+        st.session_state.pop("view_product", None)
+        return
+
+    # Consume the flag immediately so it cannot re-fire on navigation or reruns
+    st.session_state["_view_product_triggered"] = False
+
+    # Show the dialog
+    _show_product_detail_dialog(prod)

@@ -1155,3 +1155,187 @@ div[data-testid="column"] .ir-pill-wrapper div.stButton > button {
 }
 
 
+/* ═══════════════════════════════════════════════════════════════════════════
+   LIGHT MODE — SURGICAL OVERRIDES
+   Fixes for portal dropdowns, arrow buttons, radio indicators, multiselect
+   tags, filter panels, and calendar appearing dark in light mode.
+   ALL SELECTORS SCOPED TO PREVENT DARK MODE REGRESSIONS.
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+/* ── Arrow (▲▼) buttons: ensure they have light bg in light mode ─────────── */
+/* These narrow-column buttons sometimes inherit dark baseweb base styles */
+body:not(.ir-dark) div.stButton > button[kind="secondary"],
+body:not(.ir-dark) div.stButton > button[data-testid="baseButton-secondary"] {
+  background-color: #f3f4f6 !important;
+  color: #1a1a2e !important;
+  border: 1px solid rgba(108,99,255,0.15) !important;
+}
+body:not(.ir-dark) div.stButton > button[kind="secondary"] p,
+body:not(.ir-dark) div.stButton > button[data-testid="baseButton-secondary"] p,
+body:not(.ir-dark) div.stButton > button[kind="secondary"] span,
+body:not(.ir-dark) div.stButton > button[data-testid="baseButton-secondary"] span {
+  color: #1a1a2e !important;
+}
+body:not(.ir-dark) div.stButton > button[kind="secondary"]:hover {
+  background-color: #ede9fe !important;
+  color: #6C63FF !important;
+  border-color: #6C63FF !important;
+}
+
+/* ── Radio button circle indicators: fix dark circles in light mode ─────── */
+body:not(.ir-dark) [data-baseweb="radio"] [role="radio"] {
+  border-color: #d1d5db !important;
+  background-color: #ffffff !important;
+}
+body:not(.ir-dark) [data-baseweb="radio"] [role="radio"][aria-checked="true"] {
+  border-color: #6C63FF !important;
+  background-color: #6C63FF !important;
+}
+body:not(.ir-dark) [data-baseweb="radio"] span {
+  color: var(--text-primary) !important;
+}
+
+/* ── Multiselect tag pills: ensure text is visible in light mode ─────────── */
+body:not(.ir-dark) [data-baseweb="tag"] {
+  background-color: rgba(108,99,255,0.10) !important;
+  color: #4F46E5 !important;
+  border-color: rgba(108,99,255,0.25) !important;
+}
+body:not(.ir-dark) [data-baseweb="tag"] span {
+  color: #4F46E5 !important;
+}
+
+/* ── Select box input field text visibility in light mode ────────────────── */
+body:not(.ir-dark) [data-baseweb="select"] [data-testid="stSelectboxValue"],
+body:not(.ir-dark) [data-baseweb="select"] span,
+body:not(.ir-dark) [data-baseweb="select"] input {
+  color: var(--text-primary) !important;
+  -webkit-text-fill-color: var(--text-primary) !important;
+}
+body:not(.ir-dark) [data-baseweb="select"] > div {
+  background-color: var(--input-bg) !important;
+  border-color: var(--input-border) !important;
+}
+
+/* ── Portal dropdowns: CSS fallback (supplements the JS fixer) ───────────── */
+body:not(.ir-dark) [data-baseweb="popover"],
+body:not(.ir-dark) [data-baseweb="popover"] > div,
+body:not(.ir-dark) [data-baseweb="menu"],
+body:not(.ir-dark) [data-baseweb="menu"] > ul {
+  background-color: #ffffff !important;
+  background:       #ffffff !important;
+  color:            #0F0F1A !important;
+  border:           1px solid rgba(108,99,255,0.15) !important;
+  box-shadow:       0 8px 32px rgba(108,99,255,0.12) !important;
+}
+body:not(.ir-dark) [role="listbox"] {
+  background-color: #ffffff !important;
+  background:       #ffffff !important;
+  color:            #0F0F1A !important;
+}
+body:not(.ir-dark) [role="option"] {
+  color: #0F0F1A !important;
+  background-color: transparent !important;
+}
+body:not(.ir-dark) [role="option"]:hover {
+  background-color: rgba(108,99,255,0.06) !important;
+}
+
+/* ── Calendar/date picker in light mode ──────────────────────────────────── */
+body:not(.ir-dark) [data-baseweb="calendar"],
+body:not(.ir-dark) [data-baseweb="calendar"] > div,
+body:not(.ir-dark) [data-baseweb="datepicker"] {
+  background-color: #ffffff !important;
+  background:       #ffffff !important;
+  color:            #0F0F1A !important;
+  border:           1px solid rgba(108,99,255,0.15) !important;
+  border-radius:    16px !important;
+  box-shadow:       0 8px 32px rgba(108,99,255,0.12) !important;
+}
+body:not(.ir-dark) [data-baseweb="calendar"] *,
+body:not(.ir-dark) [data-baseweb="calendar"] button {
+  color: #0F0F1A !important;
+}
+body:not(.ir-dark) [data-baseweb="calendar"] button[aria-selected="true"] {
+  background-color: #6C63FF !important;
+  color: #ffffff !important;
+}
+body:not(.ir-dark) [data-baseweb="calendar"] button:not([aria-selected="true"]):hover {
+  background-color: rgba(108,99,255,0.08) !important;
+}
+
+/* ── Streamlit dialog/modal: always light in light mode ──────────────────── */
+body:not(.ir-dark) [data-testid="stDialog"] > div,
+body:not(.ir-dark) [data-testid="stDialog"] > div > div,
+body:not(.ir-dark) [data-testid="stModal"] > div {
+  background-color: #ffffff !important;
+  background:       #ffffff !important;
+}
+body:not(.ir-dark) [data-testid="stDialog"] p,
+body:not(.ir-dark) [data-testid="stDialog"] span:not(.material-icons),
+body:not(.ir-dark) [data-testid="stDialog"] label,
+body:not(.ir-dark) [data-testid="stDialog"] h1,
+body:not(.ir-dark) [data-testid="stDialog"] h2,
+body:not(.ir-dark) [data-testid="stDialog"] h3 {
+  color: #0F0F1A !important;
+}
+
+/* ── Toasts in light mode: white bg with dark text ───────────────────────── */
+body:not(.ir-dark) [data-testid="stToast"] {
+  background-color: #ffffff !important;
+  color: #0F0F1A !important;
+  border: 1px solid rgba(108,99,255,0.15) !important;
+  box-shadow: 0 4px 16px rgba(0,0,0,0.08) !important;
+}
+body:not(.ir-dark) [data-testid="stToast"] p,
+body:not(.ir-dark) [data-testid="stToast"] span {
+  color: #0F0F1A !important;
+}
+
+/* ── DARK MODE — Portal/Calendar CSS safety net ──────────────────────────── */
+body.ir-dark [data-baseweb="popover"],
+body.ir-dark [data-baseweb="popover"] > div,
+body.ir-dark [data-baseweb="menu"],
+body.ir-dark [data-baseweb="menu"] > ul,
+body.ir-dark [role="listbox"] {
+  background-color: #0d1e35 !important;
+  background:       #0d1e35 !important;
+  color:            #e2eeff !important;
+  border:           1px solid rgba(0,180,255,0.14) !important;
+}
+body.ir-dark [role="option"] {
+  color: #e2eeff !important;
+}
+body.ir-dark [role="option"]:hover {
+  background-color: rgba(0,180,255,0.08) !important;
+}
+body.ir-dark [data-baseweb="calendar"],
+body.ir-dark [data-baseweb="calendar"] > div {
+  background-color: #0d1e35 !important;
+  background:       #0d1e35 !important;
+  color:            #e2eeff !important;
+  border:           1px solid rgba(0,180,255,0.18) !important;
+}
+body.ir-dark [data-baseweb="calendar"] * {
+  color: #e2eeff !important;
+}
+body.ir-dark [data-baseweb="calendar"] button[aria-selected="true"] {
+  background-color: #00b4ff !important;
+  color: #000d1a !important;
+}
+body.ir-dark [data-baseweb="tag"] {
+  background-color: rgba(0,180,255,0.12) !important;
+  color: #00d4ff !important;
+  border-color: rgba(0,180,255,0.25) !important;
+}
+body.ir-dark [data-baseweb="tag"] span {
+  color: #00d4ff !important;
+}
+body.ir-dark [data-baseweb="radio"] [role="radio"] {
+  border-color: rgba(0,180,255,0.4) !important;
+  background-color: #0a1628 !important;
+}
+body.ir-dark [data-baseweb="radio"] [role="radio"][aria-checked="true"] {
+  border-color: #00b4ff !important;
+  background-color: #00b4ff !important;
+}

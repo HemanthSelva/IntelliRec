@@ -401,6 +401,7 @@ for i, row in top_list.iterrows():
         _row_dict = row.to_dict() if hasattr(row, 'to_dict') else dict(row)
         if st.button("Details", key=f"tr_det_{i}", type="secondary", use_container_width=True):
             st.session_state["view_product"] = _row_dict
+            st.session_state["_view_product_triggered"] = True
             st.rerun()
 
     st.markdown(f'<hr style="margin:6px 0;border:none;border-top:1px solid {p["border"]}">',

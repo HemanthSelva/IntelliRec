@@ -344,6 +344,7 @@ else:
             with bc2:
                 if st.button("Details", key=f"ex_det_{prod['asin']}_{i}", type="secondary", use_container_width=True):
                     st.session_state["view_product"] = prod
+                    st.session_state["_view_product_triggered"] = True
                     st.rerun()
             with bc3:
                 if st.button("Similar", key=f"ex_sim_{prod['asin']}_{i}", type="secondary", use_container_width=True):

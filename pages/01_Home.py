@@ -395,6 +395,7 @@ def render_section(title: str, icon_svg: str, prods: list, section_key: str):
             with bc2:
                 if st.button("Details", key=f"{section_key}_det_{prod['asin']}", type="secondary", use_container_width=True):
                     st.session_state["view_product"] = prod
+                    st.session_state["_view_product_triggered"] = True
                     st.rerun()
             with bc3:
                 if st.button("Similar", key=f"{section_key}_sim_{prod['asin']}", type="secondary", use_container_width=True):
