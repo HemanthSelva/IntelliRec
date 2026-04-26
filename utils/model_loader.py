@@ -369,7 +369,7 @@ def get_similar_products(product_id: str, n: int = 12) -> list:
     source_category = str(_src_rows.iloc[0].get("category", "")).strip().lower() if not _src_rows.empty else ""
 
     # Fetch a larger pool so same-category products have a chance to surface
-    top_indices = sim_scores.argsort()[::-1][1: n * 4 + 1]
+    top_indices = sim_scores.argsort()[::-1][1: n * 8 + 1]
 
     same_cat, other_cat = [], []
     for i in top_indices:
@@ -387,7 +387,14 @@ def get_similar_products(product_id: str, n: int = 12) -> list:
         else:
             other_cat.append(card)
 
-    return (same_cat + other_cat)[:n]
+    # Hard-filter: prefer same-category products; only fall back to other categories
+    # when there are not enough same-category results
+    if len(same_cat) >= n:
+        return same_cat[:n]
+    if same_cat:
+        return same_cat  # return all available same-category results
+    # No same-category matches found — fall back gracefully
+    return other_cat[:n]
 
 
 def _load_fallback_recs(n: int = 12, categories: list = None) -> list:

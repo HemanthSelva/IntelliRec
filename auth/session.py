@@ -170,9 +170,20 @@ def login_user(email: str, password: str):
 
 
 def login_with_google():
+    # MANUAL SETUP REQUIRED to fix 403 errors:
+    # 1. Google Cloud Console → APIs & Services → Credentials → OAuth 2.0 Client ID
+    #    Add BOTH of these to "Authorized redirect URIs":
+    #      http://localhost:8501/
+    #      http://localhost:8501
+    #    (Supabase uses the callback URL — also add your Supabase project's OAuth callback)
+    # 2. OAuth consent screen → Test users → add your Gmail address exactly
+    # 3. Supabase Dashboard → Authentication → Providers → Google:
+    #    Site URL: http://localhost:8501
+    #    Redirect URLs: http://localhost:8501/**
     try:
         from config import STREAMLIT_URL
-        redirect_url = STREAMLIT_URL or "http://localhost:8501"
+        base_url = (STREAMLIT_URL or "http://localhost:8501").rstrip("/")
+        redirect_url = base_url + "/"
         response = supabase.auth.sign_in_with_oauth({
             "provider": "google",
             "options": {
