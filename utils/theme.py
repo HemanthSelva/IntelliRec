@@ -1156,45 +1156,94 @@ section[data-testid="stSidebar"] .stButton > button[kind="primary"] {
     color: inherit !important;
 }}
 
-/* ── Calendar / date picker portal ──────────────────────────────────── */
-[data-baseweb="calendar"][data-baseweb="calendar"],
-[data-baseweb="calendar"][data-baseweb="calendar"] > div,
-[data-baseweb="datepicker"][data-baseweb="datepicker"],
-[data-baseweb="datepicker"][data-baseweb="datepicker"] > div {{
-    background:       {_CARD_BG} !important;
-    background-color: {_CARD_BG} !important;
-    color:            {_TEXT_PRIMARY} !important;
-    border:           1px solid {_BORDER} !important;
+/* ── Calendar / date picker portal (tripled specificity beats Styletron) ── */
+/* Light mode root */
+body:not(.ir-dark) [data-baseweb="calendar"][data-baseweb="calendar"][data-baseweb="calendar"],
+body:not(.ir-dark) [data-baseweb="calendar"][data-baseweb="calendar"][data-baseweb="calendar"] > div,
+body:not(.ir-dark) [data-baseweb="datepicker"][data-baseweb="datepicker"][data-baseweb="datepicker"],
+body:not(.ir-dark) [data-baseweb="datepicker"][data-baseweb="datepicker"][data-baseweb="datepicker"] > div {{
+    background:       #ffffff !important;
+    background-color: #ffffff !important;
+    color:            #0f0f1a !important;
+    border:           1px solid rgba(99,102,241,0.15) !important;
     border-radius:    16px !important;
-    box-shadow:       {_SHADOW_LG} !important;
+    box-shadow:       0 8px 40px rgba(0,0,0,0.12) !important;
 }}
-[data-baseweb="calendar"][data-baseweb="calendar"] div {{
-    color:            {_TEXT_PRIMARY} !important;
+/* Nuclear sweep — clear all dark bg from cells + pseudo-elements */
+body:not(.ir-dark) [data-baseweb="calendar"][data-baseweb="calendar"][data-baseweb="calendar"] *,
+body:not(.ir-dark) [data-baseweb="datepicker"][data-baseweb="datepicker"][data-baseweb="datepicker"] * {{
     background-color: transparent !important;
+    background:       transparent !important;
+    color:            #0f0f1a !important;
 }}
-[data-baseweb="calendar"][data-baseweb="calendar"] button {{
-    color:            {_TEXT_PRIMARY} !important;
+body:not(.ir-dark) [data-baseweb="calendar"][data-baseweb="calendar"][data-baseweb="calendar"] *::before,
+body:not(.ir-dark) [data-baseweb="calendar"][data-baseweb="calendar"][data-baseweb="calendar"] *::after,
+body:not(.ir-dark) [data-baseweb="datepicker"][data-baseweb="datepicker"][data-baseweb="datepicker"] *::before,
+body:not(.ir-dark) [data-baseweb="datepicker"][data-baseweb="datepicker"][data-baseweb="datepicker"] *::after {{
     background-color: transparent !important;
+    background:       transparent !important;
 }}
-[data-baseweb="calendar"][data-baseweb="calendar"] button[aria-selected="true"][aria-selected="true"] {{
-    background-color: {_ACCENT} !important;
-    background:       {_ACCENT} !important;
+/* Restore selected date to accent */
+body:not(.ir-dark) [data-baseweb="calendar"][data-baseweb="calendar"][data-baseweb="calendar"] button[aria-selected="true"],
+body:not(.ir-dark) [data-baseweb="datepicker"][data-baseweb="datepicker"][data-baseweb="datepicker"] button[aria-selected="true"] {{
+    background-color: #6366f1 !important;
+    background:       #6366f1 !important;
     color:            #ffffff !important;
     border-radius:    50% !important;
 }}
-/* Calendar hover: tripled specificity to beat Styletron class:hover */
-[data-baseweb="calendar"][data-baseweb="calendar"][data-baseweb="calendar"] button:not([aria-selected="true"]):hover {{
-    background-color: {_ACCENT_SOFT} !important;
-    background:       {_ACCENT_SOFT} !important;
-    color:            {_ACCENT} !important;
+/* Today: subtle ring */
+body:not(.ir-dark) [data-baseweb="calendar"][data-baseweb="calendar"][data-baseweb="calendar"] button[aria-current="date"]:not([aria-selected="true"]) {{
+    outline: 2px solid #6366f1 !important;
+    outline-offset: -2px !important;
+    border-radius: 50% !important;
+}}
+/* Hover */
+body:not(.ir-dark) [data-baseweb="calendar"][data-baseweb="calendar"][data-baseweb="calendar"] button:not([aria-selected="true"]):hover {{
+    background-color: rgba(99,102,241,0.10) !important;
+    background:       rgba(99,102,241,0.10) !important;
     border-radius:    50% !important;
 }}
-[data-baseweb="calendar"][data-baseweb="calendar"][data-baseweb="calendar"] button[aria-selected="true"]:hover {{
-    background-color: {_ACCENT} !important;
-    color:            #ffffff !important;
+/* Dark mode root */
+body.ir-dark [data-baseweb="calendar"][data-baseweb="calendar"][data-baseweb="calendar"],
+body.ir-dark [data-baseweb="calendar"][data-baseweb="calendar"][data-baseweb="calendar"] > div,
+body.ir-dark [data-baseweb="datepicker"][data-baseweb="datepicker"][data-baseweb="datepicker"],
+body.ir-dark [data-baseweb="datepicker"][data-baseweb="datepicker"][data-baseweb="datepicker"] > div {{
+    background:       #0d1e35 !important;
+    background-color: #0d1e35 !important;
+    color:            #e2eeff !important;
+    border:           1px solid rgba(0,180,255,0.18) !important;
+    border-radius:    16px !important;
+    box-shadow:       0 8px 40px rgba(0,0,0,0.65) !important;
 }}
-[data-baseweb="calendar"][data-baseweb="calendar"] span {{
-    color: {_TEXT_PRIMARY} !important;
+body.ir-dark [data-baseweb="calendar"][data-baseweb="calendar"][data-baseweb="calendar"] *,
+body.ir-dark [data-baseweb="datepicker"][data-baseweb="datepicker"][data-baseweb="datepicker"] * {{
+    color:            #e2eeff !important;
+    background-color: transparent !important;
+    background:       transparent !important;
+}}
+body.ir-dark [data-baseweb="calendar"][data-baseweb="calendar"][data-baseweb="calendar"] *::before,
+body.ir-dark [data-baseweb="calendar"][data-baseweb="calendar"][data-baseweb="calendar"] *::after,
+body.ir-dark [data-baseweb="datepicker"][data-baseweb="datepicker"][data-baseweb="datepicker"] *::before,
+body.ir-dark [data-baseweb="datepicker"][data-baseweb="datepicker"][data-baseweb="datepicker"] *::after {{
+    background-color: transparent !important;
+    background:       transparent !important;
+}}
+body.ir-dark [data-baseweb="calendar"][data-baseweb="calendar"][data-baseweb="calendar"] button[aria-selected="true"],
+body.ir-dark [data-baseweb="datepicker"][data-baseweb="datepicker"][data-baseweb="datepicker"] button[aria-selected="true"] {{
+    background-color: #00b4ff !important;
+    background:       #00b4ff !important;
+    color:            #000d1a !important;
+    border-radius:    50% !important;
+}}
+body.ir-dark [data-baseweb="calendar"][data-baseweb="calendar"][data-baseweb="calendar"] button[aria-current="date"]:not([aria-selected="true"]) {{
+    outline: 2px solid #00b4ff !important;
+    outline-offset: -2px !important;
+    border-radius: 50% !important;
+}}
+body.ir-dark [data-baseweb="calendar"][data-baseweb="calendar"][data-baseweb="calendar"] button:not([aria-selected="true"]):hover {{
+    background-color: rgba(0,180,255,0.12) !important;
+    background:       rgba(0,180,255,0.12) !important;
+    border-radius:    50% !important;
 }}
 
 /* ── Arrow/feedback buttons (▲▼) — correct selectors for Streamlit 1.56 */
@@ -1467,13 +1516,44 @@ div[data-testid="stButton"] button:hover {{
             }});
         }}
 
+        function fixCalendar() {{
+            if (!isStillLight()) return;
+            doc.querySelectorAll('[data-baseweb="calendar"],[data-baseweb="datepicker"]').forEach(function(cal) {{
+                cal.style.setProperty('background-color', POPUP_BG, 'important');
+                cal.style.setProperty('background', POPUP_BG, 'important');
+                cal.querySelectorAll('div').forEach(function(el) {{
+                    var bg = window.getComputedStyle(el).backgroundColor;
+                    var m = bg.match(/rgb\((\d+),\s*(\d+),\s*(\d+)\)/);
+                    if (m && parseInt(m[1])+parseInt(m[2])+parseInt(m[3]) < 200) {{
+                        el.style.setProperty('background-color', 'transparent', 'important');
+                        el.style.setProperty('background', 'transparent', 'important');
+                    }}
+                    el.style.setProperty('color', POPUP_TEXT, 'important');
+                }});
+                cal.querySelectorAll('button').forEach(function(btn) {{
+                    if (btn.getAttribute('aria-selected') === 'true') {{
+                        btn.style.setProperty('background-color', ACCENT, 'important');
+                        btn.style.setProperty('background', ACCENT, 'important');
+                        btn.style.setProperty('color', '#ffffff', 'important');
+                        btn.style.setProperty('border-radius', '50%', 'important');
+                    }} else {{
+                        var bg = window.getComputedStyle(btn).backgroundColor;
+                        var m = bg.match(/rgb\((\d+),\s*(\d+),\s*(\d+)\)/);
+                        if (m && parseInt(m[1])+parseInt(m[2])+parseInt(m[3]) < 200) {{
+                            btn.style.setProperty('background-color', 'transparent', 'important');
+                            btn.style.setProperty('background', 'transparent', 'important');
+                        }}
+                        btn.style.setProperty('color', POPUP_TEXT, 'important');
+                    }}
+                }});
+            }});
+        }}
+
         function fixAllLight() {{
             if (!isStillLight()) return;  // GUARD: abort if theme changed
 
-            // 1. Portals only (popover/menu/calendar/listbox)
-            ['[data-baseweb="popover"]','[data-baseweb="menu"]',
-             '[data-baseweb="calendar"]','[data-baseweb="datepicker"]',
-             '[role="listbox"]'].forEach(function(sel) {{
+            // 1. Portals only (popover/menu/listbox)
+            ['[data-baseweb="popover"]','[data-baseweb="menu"]','[role="listbox"]'].forEach(function(sel) {{
                 doc.querySelectorAll(sel).forEach(nukePortal);
             }});
 
@@ -1495,6 +1575,7 @@ div[data-testid="stButton"] button:hover {{
             fixChatAvatars();
             fixArrowButtons();
             fixSelectboxControls();
+            fixCalendar();
             // NOTE: No universal dark-bg scanner — it was destroying dark mode
         }}
 

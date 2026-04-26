@@ -70,7 +70,11 @@ footer,#MainMenu,
 [data-baseweb="input"]:focus-within input:-webkit-autofill{
   -webkit-box-shadow:0 0 0 30px #fff inset!important}
 [data-baseweb="input"] div[aria-label="Toggle password visibility"],
-[data-baseweb="input"] div[aria-label="unmask"]{color:#6B7280!important}
+[data-baseweb="input"] div[aria-label="unmask"]{color:#374151!important}
+[data-baseweb="input"] div[aria-label="Toggle password visibility"] svg,
+[data-baseweb="input"] div[aria-label="unmask"] svg,
+[data-baseweb="input"] div[aria-label="Toggle password visibility"] svg path,
+[data-baseweb="input"] div[aria-label="unmask"] svg path{fill:#374151!important;color:#374151!important}
 [data-testid="stTextInput"] label p{
   font-weight:500!important;font-size:13px!important;
   color:#374151!important;margin-bottom:5px!important}
@@ -319,6 +323,18 @@ def render_login():
         st.session_state['show_forgot_password'] = True
         st.rerun()
 
+    # ── Handle email verification redirect (?confirmed=1) ──────────────────────
+    if st.query_params.get('confirmed') == '1':
+        st.query_params.clear()
+        st.session_state['show_email_confirmed'] = True
+        st.rerun()
+
+    # ── Handle "Sign up to continue" link (?signup=1) ──────────────────────────
+    if st.query_params.get('signup') == '1':
+        st.query_params.clear()
+        st.session_state['show_signup'] = True
+        st.rerun()
+
     if 'show_forgot_password' not in st.session_state:
         st.session_state['show_forgot_password'] = False
     if 'show_password_update' not in st.session_state:
@@ -474,6 +490,12 @@ def render_login():
                         elif msg == "EMAIL_NOT_CONFIRMED":
                             st.session_state["_li_unconfirmed_email"] = email
                             st.rerun()
+                        elif msg == "NO_ACCOUNT":
+                            st.markdown(
+                                _err('No account found with this email. '
+                                     '<a href="?signup=1" style="color:#6366f1;font-weight:700;'
+                                     'text-decoration:none;">Sign up to continue →</a>'),
+                                unsafe_allow_html=True)
                         else:
                             st.markdown(_err(f"Sign-in failed: {msg}"), unsafe_allow_html=True)
 

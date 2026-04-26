@@ -126,8 +126,7 @@ def _avatar_html(initials: str, size: int = 80) -> str:
     return (f'<div style="width:{size}px;height:{size}px;border-radius:50%;'
             f'background:linear-gradient(135deg,#6366f1,#06B6D4);'
             f'display:flex;align-items:center;justify-content:center;'
-            f'color:white;font-size:{int(size*0.35)}px;font-weight:700;'
-            f'border:3px solid rgba(255,255,255,0.4);">'
+            f'color:white;font-size:{int(size*0.35)}px;font-weight:700;">'
             f'<span style="margin:0;line-height:1">{initials}</span></div>')
 
 
@@ -156,7 +155,7 @@ cat_count      = len(cat_list)
 # ═══════════════════════════════════════════════════════════════════════════════
 #  HERO SECTION
 # ═══════════════════════════════════════════════════════════════════════════════
-_cover_grad = "linear-gradient(135deg, #6366f1 0%, #8b5cf6 30%, #06b6d4 60%, #10b981 100%)"
+_cover_grad = "linear-gradient(135deg, #1e1b4b 0%, #312e81 45%, #1e3a5f 100%)"
 
 # Profile card — rectangle, avatar fully inside, resume-style layout
 _avatar_inner = _avatar_html(initials, 80)
@@ -175,11 +174,16 @@ with info_col:
     position:relative;
     overflow:hidden;
 ">
-  <!-- decorative blobs stay inside the rectangle -->
-  <div style="position:absolute;top:-30px;right:-30px;width:140px;height:140px;
-              border-radius:50%;background:rgba(255,255,255,0.07);pointer-events:none;"></div>
-  <div style="position:absolute;bottom:-40px;right:80px;width:120px;height:120px;
-              border-radius:50%;background:rgba(255,255,255,0.04);pointer-events:none;"></div>
+  <!-- top accent line -->
+  <div style="position:absolute;top:0;left:0;right:0;height:3px;
+              background:linear-gradient(90deg,#6366f1,#06b6d4,#6366f1);
+              border-radius:16px 16px 0 0;opacity:0.9;pointer-events:none;"></div>
+  <!-- subtle glow blob -->
+  <div style="position:absolute;top:-20px;right:-20px;width:120px;height:120px;
+              border-radius:50%;background:rgba(99,102,241,0.15);pointer-events:none;"></div>
+  <!-- shopping cart decoration -->
+  <div style="position:absolute;right:18px;bottom:6px;opacity:0.1;font-size:68px;
+              line-height:1;pointer-events:none;user-select:none;">🛒</div>
   <!-- Avatar — fully inside the rectangle -->
   <div style="flex-shrink:0;width:80px;height:80px;border-radius:50%;overflow:hidden;
               border:3px solid rgba(255,255,255,0.5);

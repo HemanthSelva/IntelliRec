@@ -76,6 +76,7 @@ def signup_user(email: str, password: str, full_name: str):
                     'id': response.user.id,
                     'full_name': full_name,
                     'username': username,
+                    'email': email,
                     'preferred_categories': [],
                     'avatar_color': '#6C63FF'
                 }).execute()
@@ -163,6 +164,12 @@ def login_user(email: str, password: str):
         if "email not confirmed" in error or "not confirmed" in error:
             return False, "EMAIL_NOT_CONFIRMED"
         if "invalid login" in error or "invalid credentials" in error:
+            try:
+                chk = supabase.table('profiles').select('id').eq('email', email).execute()
+                if not chk.data:
+                    return False, "NO_ACCOUNT"
+            except Exception:
+                pass
             return False, "Incorrect email or password. Please try again."
         if "too many requests" in error:
             return False, "Too many attempts. Please wait a few minutes and try again."
