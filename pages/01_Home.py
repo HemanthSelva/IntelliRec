@@ -399,6 +399,7 @@ def render_section(title: str, icon_svg: str, prods: list, section_key: str):
             with bc3:
                 if st.button("Similar", key=f"{section_key}_sim_{prod['asin']}", type="secondary", use_container_width=True):
                     st.session_state["similar_product"] = prod["asin"]
+                    st.session_state["similar_seed_category"] = prod.get("category", prod.get("main_category", ""))
                     st.switch_page("pages/02_For_You.py")
 
     st.markdown('<div style="height:28px"></div>', unsafe_allow_html=True)

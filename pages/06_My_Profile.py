@@ -112,6 +112,8 @@ words        = [w for w in full_name.split() if w]
 initials     = "".join([w[0] for w in words[:2]]).upper() or "U"
 is_guest     = user_id == "guest"
 user_bio     = (st.session_state.get('user_bio') or '').strip()
+user_tag     = "Guest" if is_guest else (user.get("role", "Member") if isinstance(user, dict) else "Member")
+tag_color    = "#F59E0B" if is_guest else "#6366f1"
 
 
 def _avatar_html(initials: str, size: int = 80) -> str:
@@ -154,9 +156,7 @@ cat_count      = len(cat_list)
 # ═══════════════════════════════════════════════════════════════════════════════
 #  HERO SECTION
 # ═══════════════════════════════════════════════════════════════════════════════
-_cover_bg = "linear-gradient(135deg, #6366f1 0%, #8b5cf6 40%, #06b6d4 100%)"
-if theme == 'dark':
-    _cover_bg = "linear-gradient(135deg, #0a1a40 0%, #0d2255 50%, #041e3a 100%)"
+_cover_bg = "linear-gradient(135deg, #6366f1 0%, #8b5cf6 30%, #06b6d4 60%, #10b981 100%)"
 
 # Cover banner with avatar positioned inside (absolutely) — single block, reliable layout
 _bio_html = (f'<p style="font-size:13px;color:{p["text_muted"]};margin:6px 0 0;'
@@ -194,12 +194,16 @@ with info_col:
     @{username} &nbsp;·&nbsp; {user_email or "guest@intellirec.com"}
   </p>
   <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
+    <span style="background:{tag_color}22;color:{tag_color};padding:3px 10px;
+                 border-radius:100px;font-size:11px;font-weight:700;
+                 border:1px solid {tag_color}44;">
+      {user_tag}
+    </span>
     <span style="background:{p['accent_soft']};color:{p['accent']};padding:3px 12px;
                  border-radius:100px;font-size:11px;font-weight:700;
                  border:1px solid rgba(99,102,241,0.2);">
       {'Guest' if is_guest else '✦ Member'} since {member_since}
     </span>
-    {'<span style="background:rgba(245,158,11,0.15);color:#F59E0B;padding:3px 12px;border-radius:100px;font-size:11px;font-weight:700;">Guest Mode</span>' if is_guest else ''}
   </div>
   {_bio_html}
 </div>""", unsafe_allow_html=True)

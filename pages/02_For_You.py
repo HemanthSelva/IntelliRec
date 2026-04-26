@@ -230,6 +230,7 @@ if _sim_pid:
                     with bc2:
                         if st.button("Similar", key=f"sim_sim_{_sr_pid}_{_si}", type="secondary", use_container_width=True):
                             st.session_state['similar_product'] = _sr_pid
+                            st.session_state["similar_seed_category"] = _sr.get("category", _sr.get("main_category", ""))
                             st.rerun()
         else:
             st.info("No similar products found for this item.")

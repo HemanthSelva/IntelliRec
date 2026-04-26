@@ -623,9 +623,12 @@ section[data-testid="stSidebar"] hr{{margin:6px 16px !important;border:none !imp
     border-radius: 12px !important;
 }}
 [data-baseweb="input"],
-[data-baseweb="base-input"] {{
+[data-baseweb="base-input"],
+[data-baseweb="input"] > div,
+[data-baseweb="base-input"] > div {{
     background-color: {p['input_bg']} !important;
     border-radius: 12px !important;
+    color: {p['text_primary']} !important;
 }}
 [data-baseweb="input"] input,
 [data-baseweb="base-input"] input {{
@@ -647,6 +650,34 @@ textarea {{
     color:{p['text_primary']} !important;
     background-color:{p['input_bg']} !important;
     caret-color:{p['accent']} !important;
+    border: 1.5px solid {p['border']} !important;
+    border-radius: 12px !important;
+}}
+[data-testid="stTextArea"] textarea::placeholder,
+textarea::placeholder {{
+    color: {p['text_muted']} !important;
+    -webkit-text-fill-color: {p['text_muted']} !important;
+    opacity: 1 !important;
+}}
+/* Number input buttons */
+[data-testid="stNumberInput"] button,
+[data-baseweb="input"] button {{
+    background-color: {p['btn_bg']} !important;
+    color: {p['btn_text']} !important;
+    border-color: {p['btn_border']} !important;
+}}
+[data-testid="stNumberInput"] button svg,
+[data-baseweb="input"] button svg {{
+    fill: {p['btn_text']} !important;
+    color: {p['btn_text']} !important;
+}}
+/* Slider */
+[data-testid="stSlider"] [data-baseweb="slider"] {{
+    color: {p['accent']} !important;
+}}
+[data-testid="stSlider"] [role="slider"] {{
+    background-color: {p['accent']} !important;
+    border-color: {p['accent']} !important;
 }}
 
 /* ============================================================
@@ -692,7 +723,8 @@ textarea {{
    DROPDOWN MENU PORTAL (global portal — outside .stApp DOM)
 ============================================================ */
 [data-baseweb="popover"] > div,
-[data-baseweb="popover"] [data-baseweb="menu"] {{
+[data-baseweb="popover"] [data-baseweb="menu"],
+[role="listbox"] {{
     background:{p['card_bg']} !important;
     border:1px solid {p['border']} !important;
     border-radius:12px !important;
@@ -705,20 +737,33 @@ textarea {{
     padding:4px !important;
 }}
 [data-baseweb="menu"] li,
-[data-baseweb="menu"] [role="option"] {{
+[data-baseweb="menu"] [role="option"],
+[role="listbox"] li,
+[role="option"] {{
     background:transparent !important;
     color:{p['text_primary']} !important;
     border-radius:8px !important;
 }}
 [data-baseweb="menu"] li:hover,
 [data-baseweb="menu"] [aria-selected="true"],
-[data-baseweb="menu"] [data-highlighted="true"] {{
+[data-baseweb="menu"] [data-highlighted="true"],
+[role="option"]:hover,
+[role="option"][aria-selected="true"] {{
     background:{p['glass_bg']} !important;
     color:{p['accent']} !important;
 }}
 [data-baseweb="menu"] [role="option"] span,
 [data-baseweb="menu"] [role="option"] div {{
     color:inherit !important;
+}}
+/* Multiselect tag pills */
+[data-baseweb="tag"] {{
+    background-color: {p['accent_soft']} !important;
+    color: {p['accent']} !important;
+    border: 1px solid {p['accent']} !important;
+}}
+[data-baseweb="tag"] span {{
+    color: {p['accent']} !important;
 }}
 
 /* ============================================================

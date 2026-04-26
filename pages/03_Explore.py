@@ -348,6 +348,7 @@ else:
             with bc3:
                 if st.button("Similar", key=f"ex_sim_{prod['asin']}_{i}", type="secondary", use_container_width=True):
                     st.session_state['similar_product'] = prod['asin']
+                    st.session_state["similar_seed_category"] = prod.get("category", prod.get("main_category", ""))
                     st.switch_page("pages/02_For_You.py")
 
     # Load more
