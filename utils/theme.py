@@ -1234,6 +1234,19 @@ section[data-testid="stSidebar"] .stButton > button[kind="primary"] {
 [data-testid="stToast"] p, [data-testid="stToast"] span {{
     color: {_TEXT_PRIMARY} !important;
 }}
+/* ── Calendar date hover fix ─────────────────────────────────────────── */
+[data-baseweb="calendar"] button:hover {{
+    background-color: {_ACCENT_SOFT} !important;
+    color: {_TEXT_PRIMARY} !important;
+}}
+[data-baseweb="calendar"] button[aria-selected="true"] {{
+    background-color: {_ACCENT} !important;
+    color: #ffffff !important;
+}}
+[data-baseweb="calendar"] button[aria-selected="true"]:hover {{
+    background-color: {_ACCENT} !important;
+    color: #ffffff !important;
+}}
 </style>
 """, unsafe_allow_html=True)
 
@@ -1301,145 +1314,115 @@ section[data-testid="stSidebar"] .stButton > button[kind="primary"] {
     if (appEl) new MutationObserver(killGap).observe(appEl,{{attributes:true,attributeFilter:['style'],subtree:false}});
 
 
-    // ── 2. NUCLEAR portal/dropdown/calendar/radio/input fixer ──────────────
-    // WHY previous CSS !important approach failed:
-    // Streamlit's Styletron generates atomic CSS classes like .css-1abc2de
-    // with background-color:rgb(5,13,26). These classes have higher specificity
-    // than our attribute selectors AND are injected AFTER our <style> tags.
-    // The ONLY fix is JS inline styles via setProperty('...','...','important').
+    // ── 2. Portal/component fixer with LIFECYCLE MANAGEMENT ─────────────────
+    // CRITICAL: Disconnect ALL previous observers before creating new ones.
+    // Without this, switching light→dark leaves stale observers that keep
+    // forcing white backgrounds on dark-mode elements.
+
+    // ── 2a. Disconnect any previous observers stored on the parent document ──
+    if (doc._irObservers) {{
+        doc._irObservers.forEach(function(obs) {{ try {{ obs.disconnect(); }} catch(e) {{}} }});
+    }}
+    doc._irObservers = [];
+    // Clear any stale timers from previous theme injection
+    if (doc._irTimers) {{
+        doc._irTimers.forEach(function(t) {{ clearTimeout(t); }});
+    }}
+    doc._irTimers = [];
+    // Store current theme on doc so observers can live-check it
+    doc._irTheme = THEME;
+
+    // Helper: is the current live theme still light?
+    function isStillLight() {{
+        return doc._irTheme === 'light';
+    }}
 
     if (THEME === 'light') {{
 
-        function paintLight(el) {{
-            if (!el || el.nodeType !== 1) return;
-            var tag = el.tagName ? el.tagName.toLowerCase() : '';
-
-            // Compute the ACTUAL rendered bg (catches Styletron class-based dark bg)
+        function paintPortalChild(el) {{
+            if (!el || el.nodeType !== 1 || !isStillLight()) return;
             var comp = window.getComputedStyle(el);
             var bg = comp.backgroundColor || '';
-
-            // Parse rgb to detect if it's dark
-            var isDark = false;
             var m = bg.match(/rgb\((\d+),\s*(\d+),\s*(\d+)\)/);
             if (m) {{
-                var r = parseInt(m[1]), g = parseInt(m[2]), b = parseInt(m[3]);
-                isDark = (r + g + b) < 200;  // dark threshold
-            }}
-
-            // Force-fix dark backgrounds on portal children
-            if (isDark) {{
-                el.style.setProperty('background-color', POPUP_BG, 'important');
-                el.style.setProperty('background', POPUP_BG, 'important');
+                var sum = parseInt(m[1]) + parseInt(m[2]) + parseInt(m[3]);
+                if (sum < 200) {{
+                    el.style.setProperty('background-color', POPUP_BG, 'important');
+                    el.style.setProperty('background', POPUP_BG, 'important');
+                }}
             }}
             el.style.setProperty('color', POPUP_TEXT, 'important');
         }}
 
         function nukePortal(root) {{
-            if (!root || root.nodeType !== 1) return;
-
-            // Force bg on root
+            if (!root || root.nodeType !== 1 || !isStillLight()) return;
             root.style.setProperty('background-color', POPUP_BG, 'important');
             root.style.setProperty('background', POPUP_BG, 'important');
             root.style.setProperty('color', POPUP_TEXT, 'important');
             root.style.setProperty('border-color', POPUP_BORDER, 'important');
-
-            // Walk EVERY descendant and force-paint
             var all = root.querySelectorAll('*');
-            for (var i = 0; i < all.length; i++) {{
-                paintLight(all[i]);
-            }}
+            for (var i = 0; i < all.length; i++) {{ paintPortalChild(all[i]); }}
         }}
 
         function fixRadios() {{
-            // Radio button circles: Streamlit base=dark makes them black.
-            // [role="radio"] doesn't always exist — target ALL children of 
-            // [data-baseweb="radio"] that have dark backgrounds.
-            doc.querySelectorAll('[data-baseweb="radio"]').forEach(function(radioGroup) {{
-                radioGroup.querySelectorAll('*').forEach(function(el) {{
+            if (!isStillLight()) return;
+            doc.querySelectorAll('[data-baseweb="radio"]').forEach(function(rg) {{
+                rg.querySelectorAll('*').forEach(function(el) {{
                     var comp = window.getComputedStyle(el);
                     var bg = comp.backgroundColor || '';
                     var m = bg.match(/rgb\((\d+),\s*(\d+),\s*(\d+)\)/);
-                    if (m) {{
-                        var sum = parseInt(m[1]) + parseInt(m[2]) + parseInt(m[3]);
-                        if (sum < 200) {{
-                            // Dark element inside radio — make it light
-                            el.style.setProperty('background-color', INPUT_BG, 'important');
-                            el.style.setProperty('border-color', POPUP_BORDER, 'important');
-                        }}
+                    if (m && (parseInt(m[1])+parseInt(m[2])+parseInt(m[3])) < 200) {{
+                        el.style.setProperty('background-color', INPUT_BG, 'important');
+                        el.style.setProperty('border-color', POPUP_BORDER, 'important');
                     }}
                     el.style.setProperty('color', POPUP_TEXT, 'important');
                 }});
             }});
-            // Also fix by role if it exists
             doc.querySelectorAll('[role="radio"]').forEach(function(el) {{
-                var isChecked = el.getAttribute('aria-checked') === 'true';
-                if (isChecked) {{
-                    el.style.setProperty('background-color', ACCENT, 'important');
-                    el.style.setProperty('border-color', ACCENT, 'important');
-                }} else {{
-                    el.style.setProperty('background-color', INPUT_BG, 'important');
-                    el.style.setProperty('border-color', POPUP_BORDER, 'important');
-                }}
+                var chk = el.getAttribute('aria-checked') === 'true';
+                el.style.setProperty('background-color', chk ? ACCENT : INPUT_BG, 'important');
+                el.style.setProperty('border-color', chk ? ACCENT : POPUP_BORDER, 'important');
             }});
         }}
 
         function fixTags() {{
-            // Multiselect tag pills
+            if (!isStillLight()) return;
             doc.querySelectorAll('[data-baseweb="tag"]').forEach(function(el) {{
-                el.style.setProperty('background-color', '#e0e7ff', 'important');
-                el.style.setProperty('background', '#e0e7ff', 'important');
+                el.style.setProperty('background-color', ACCENT_SOFT, 'important');
+                el.style.setProperty('background', ACCENT_SOFT, 'important');
                 el.style.setProperty('color', ACCENT, 'important');
                 el.style.setProperty('border', '1px solid ' + ACCENT, 'important');
                 el.style.setProperty('border-radius', '100px', 'important');
                 el.querySelectorAll('span,svg').forEach(function(c) {{
                     c.style.setProperty('color', ACCENT, 'important');
-                    if (c.tagName === 'svg' || c.tagName === 'SVG') c.style.setProperty('fill', ACCENT, 'important');
                 }});
             }});
         }}
 
         function fixChatAvatars() {{
-            // Chat message avatar circles — dark from base=dark
-            // Use multiple selector strategies since Streamlit versions differ
-            var avatarSels = [
-                '[data-testid="chatAvatarIcon-user"]',
-                '[data-testid="chatAvatarIcon-assistant"]',
-                '[data-testid="stChatMessageAvatar"]',
-                '[data-testid="stChatMessage"] > div:first-child'
-            ];
-            avatarSels.forEach(function(sel) {{
-                doc.querySelectorAll(sel).forEach(function(el) {{
-                    // Check if the element or any child has a dark bg
-                    el.querySelectorAll('*').forEach(function(c) {{
-                        var comp = window.getComputedStyle(c);
-                        var bg = comp.backgroundColor || '';
-                        var m = bg.match(/rgb\((\d+),\s*(\d+),\s*(\d+)\)/);
-                        if (m && (parseInt(m[1]) + parseInt(m[2]) + parseInt(m[3])) < 200) {{
-                            c.style.setProperty('background-color', ACCENT_SOFT, 'important');
-                            c.style.setProperty('background', ACCENT_SOFT, 'important');
-                        }}
-                    }});
-                    // Also check the element itself
-                    var comp = window.getComputedStyle(el);
-                    var bg = comp.backgroundColor || '';
+            if (!isStillLight()) return;
+            var sels = '[data-testid="chatAvatarIcon-user"],[data-testid="chatAvatarIcon-assistant"],[data-testid="stChatMessageAvatar"]';
+            doc.querySelectorAll(sels).forEach(function(el) {{
+                function fixChild(c) {{
+                    var bg = window.getComputedStyle(c).backgroundColor || '';
                     var m = bg.match(/rgb\((\d+),\s*(\d+),\s*(\d+)\)/);
-                    if (m && (parseInt(m[1]) + parseInt(m[2]) + parseInt(m[3])) < 200) {{
-                        el.style.setProperty('background-color', ACCENT_SOFT, 'important');
-                        el.style.setProperty('background', ACCENT_SOFT, 'important');
+                    if (m && (parseInt(m[1])+parseInt(m[2])+parseInt(m[3])) < 200) {{
+                        c.style.setProperty('background-color', ACCENT_SOFT, 'important');
+                        c.style.setProperty('background', ACCENT_SOFT, 'important');
                     }}
-                }});
+                }}
+                fixChild(el);
+                el.querySelectorAll('*').forEach(fixChild);
             }});
         }}
 
         function fixArrowButtons() {{
-            // Arrow buttons and all secondary buttons
+            if (!isStillLight()) return;
             doc.querySelectorAll('button[data-testid="baseButton-secondary"]').forEach(function(el) {{
-                var comp = window.getComputedStyle(el);
-                var bg = comp.backgroundColor || '';
+                var bg = window.getComputedStyle(el).backgroundColor || '';
                 var m = bg.match(/rgb\((\d+),\s*(\d+),\s*(\d+)\)/);
-                if (m && (parseInt(m[1]) + parseInt(m[2]) + parseInt(m[3])) < 200) {{
+                if (m && (parseInt(m[1])+parseInt(m[2])+parseInt(m[3])) < 200) {{
                     el.style.setProperty('background-color', '#f3f4f6', 'important');
-                    el.style.setProperty('background', '#f3f4f6', 'important');
                     el.style.setProperty('color', '#1a1a2e', 'important');
                     el.style.setProperty('border', '1px solid #e5e7eb', 'important');
                     el.querySelectorAll('p,span').forEach(function(c) {{
@@ -1450,32 +1433,27 @@ section[data-testid="stSidebar"] .stButton > button[kind="primary"] {
         }}
 
         function fixSelectboxControls() {{
-            // Selectbox and multiselect outer boxes
+            if (!isStillLight()) return;
             doc.querySelectorAll('[data-testid="stSelectbox"] [data-baseweb="select"] > div:first-child, [data-testid="stMultiSelect"] [data-baseweb="select"] > div:first-child').forEach(function(el) {{
                 el.style.setProperty('background-color', INPUT_BG, 'important');
-                el.style.setProperty('background', INPUT_BG, 'important');
                 el.style.setProperty('border', '1.5px solid ' + POPUP_BORDER, 'important');
                 el.style.setProperty('border-radius', '12px', 'important');
             }});
         }}
 
         function fixAllLight() {{
-            // 1. Portals — popover/menu/calendar/listbox
-            var portalSelectors = [
-                '[data-baseweb="popover"]',
-                '[data-baseweb="menu"]',
-                '[data-baseweb="calendar"]',
-                '[data-baseweb="datepicker"]',
-                '[role="listbox"]'
-            ];
-            portalSelectors.forEach(function(sel) {{
+            if (!isStillLight()) return;  // GUARD: abort if theme changed
+
+            // 1. Portals only (popover/menu/calendar/listbox)
+            ['[data-baseweb="popover"]','[data-baseweb="menu"]',
+             '[data-baseweb="calendar"]','[data-baseweb="datepicker"]',
+             '[role="listbox"]'].forEach(function(sel) {{
                 doc.querySelectorAll(sel).forEach(nukePortal);
             }});
 
-            // 2. Specifically target UL inside menu (the exact element Styletron darkens)
+            // 2. UL inside menu
             doc.querySelectorAll('[data-baseweb="menu"] ul').forEach(function(ul) {{
                 ul.style.setProperty('background-color', POPUP_BG, 'important');
-                ul.style.setProperty('background', POPUP_BG, 'important');
                 ul.querySelectorAll('li').forEach(function(li) {{
                     li.style.setProperty('color', POPUP_TEXT, 'important');
                     li.style.setProperty('background-color', 'transparent', 'important');
@@ -1483,84 +1461,66 @@ section[data-testid="stSidebar"] .stButton > button[kind="primary"] {
             }});
 
             // 3. Dialog containers
-            doc.querySelectorAll('[role="dialog"]').forEach(function(dlg) {{
-                nukePortal(dlg);
-            }});
+            doc.querySelectorAll('[role="dialog"]').forEach(nukePortal);
 
-            // 4. Radio buttons, tags, avatars, arrows, selectboxes
+            // 4. Specific component fixes
             fixRadios();
             fixTags();
             fixChatAvatars();
             fixArrowButtons();
             fixSelectboxControls();
-
-            // 5. UNIVERSAL dark-bg scanner — catches ANYTHING Styletron darkens
-            // Scan the entire document for elements with dark computed backgrounds
-            var mainArea = doc.querySelector('[data-testid="stMain"]');
-            if (mainArea) {{
-                mainArea.querySelectorAll('*').forEach(function(el) {{
-                    var comp = window.getComputedStyle(el);
-                    var bg = comp.backgroundColor || '';
-                    var m = bg.match(/rgb\((\d+),\s*(\d+),\s*(\d+)\)/);
-                    if (m) {{
-                        var sum = parseInt(m[1]) + parseInt(m[2]) + parseInt(m[3]);
-                        // Only fix truly dark elements (not normal dark text)
-                        if (sum < 150) {{
-                            var tag = el.tagName.toLowerCase();
-                            // Don't nuke text color on elements, only background
-                            if (tag !== 'svg' && tag !== 'path' && tag !== 'circle') {{
-                                el.style.setProperty('background-color', POPUP_BG, 'important');
-                                el.style.setProperty('background', POPUP_BG, 'important');
-                            }}
-                        }}
-                    }}
-                }});
-            }}
+            // NOTE: No universal dark-bg scanner — it was destroying dark mode
         }}
 
-        // Run immediately + staggered to beat Styletron timing
+        // Run immediately + staggered
         fixAllLight();
-        setTimeout(fixAllLight, 50);
-        setTimeout(fixAllLight, 150);
-        setTimeout(fixAllLight, 400);
-        setTimeout(fixAllLight, 800);
-        setTimeout(fixAllLight, 1500);
+        [50,150,400,800,1500].forEach(function(ms) {{
+            var t = setTimeout(function() {{ fixAllLight(); }}, ms);
+            doc._irTimers.push(t);
+        }});
 
-        // Continuous observer — re-fires for every new node
+        // Continuous observer for new DOM nodes (portals appear dynamically)
         var _fixTimer = null;
-        new MutationObserver(function(muts) {{
-            var needsFix = false;
+        var obs1 = new MutationObserver(function(muts) {{
+            if (!isStillLight()) return;  // GUARD
+            var dominated = false;
             for (var i = 0; i < muts.length; i++) {{
-                var added = muts[i].addedNodes;
-                for (var j = 0; j < added.length; j++) {{
-                    if (added[j].nodeType === 1) {{ needsFix = true; break; }}
+                for (var j = 0; j < muts[i].addedNodes.length; j++) {{
+                    if (muts[i].addedNodes[j].nodeType === 1) {{ dominated = true; break; }}
                 }}
-                if (needsFix) break;
+                if (dominated) break;
             }}
-            if (needsFix) {{
-                // Debounce to avoid thrashing
+            if (dominated) {{
                 if (_fixTimer) clearTimeout(_fixTimer);
                 _fixTimer = setTimeout(function() {{
+                    if (!isStillLight()) return;
                     fixAllLight();
-                    setTimeout(fixAllLight, 80);
-                    setTimeout(fixAllLight, 300);
+                    var t2 = setTimeout(fixAllLight, 100);
+                    doc._irTimers.push(t2);
                 }}, 20);
             }}
-        }}).observe(doc.body, {{childList:true, subtree:true}});
+        }});
+        obs1.observe(doc.body, {{childList:true, subtree:true}});
+        doc._irObservers.push(obs1);
 
-        // Attribute observer (debounced to prevent infinite loops from our own style changes)
+        // Attribute observer (class changes from Styletron)
         var _attrTimer = null;
-        new MutationObserver(function() {{
+        var obs2 = new MutationObserver(function() {{
+            if (!isStillLight()) return;  // GUARD
             if (_attrTimer) clearTimeout(_attrTimer);
             _attrTimer = setTimeout(function() {{
+                if (!isStillLight()) return;
                 fixRadios();
                 fixTags();
                 fixArrowButtons();
-            }}, 50);
-        }}).observe(doc.body, {{attributes:true, attributeFilter:['class'], subtree:true}});
+            }}, 60);
+        }});
+        obs2.observe(doc.body, {{attributes:true, attributeFilter:['class'], subtree:true}});
+        doc._irObservers.push(obs2);
 
     }} else {{
-        // DARK MODE — no changes needed, config.toml base=dark is correct
+        // DARK MODE — config.toml base=dark is correct, no overrides needed.
+        // Observers from previous light-mode session were disconnected above.
     }}
 
 }})();
