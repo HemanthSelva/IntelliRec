@@ -156,56 +156,57 @@ cat_count      = len(cat_list)
 # ═══════════════════════════════════════════════════════════════════════════════
 #  HERO SECTION
 # ═══════════════════════════════════════════════════════════════════════════════
-_cover_bg = "linear-gradient(135deg, #6366f1 0%, #8b5cf6 30%, #06b6d4 60%, #10b981 100%)"
+_cover_grad = "linear-gradient(135deg, #6366f1 0%, #8b5cf6 30%, #06b6d4 60%, #10b981 100%)"
 
-# Cover banner with avatar positioned inside (absolutely) — single block, reliable layout
-_bio_html = (f'<p style="font-size:13px;color:{p["text_muted"]};margin:6px 0 0;'
-             f'line-height:1.5;">{user_bio[:120]}</p>') if user_bio else ''
-st.markdown(f"""
-<div style="position:relative;overflow:visible;margin-bottom:58px;">
-  <!-- Inner cover (overflow:hidden clips decorative blobs) -->
-  <div style="background:{_cover_bg};border-radius:24px;height:130px;
-              overflow:hidden;position:relative;">
-    <div style="position:absolute;top:-40px;left:-40px;width:200px;height:200px;
-                border-radius:50%;background:rgba(255,255,255,0.06);"></div>
-    <div style="position:absolute;bottom:-60px;right:80px;width:180px;height:180px;
-                border-radius:50%;background:rgba(255,255,255,0.04);"></div>
-    <div style="position:absolute;top:20px;right:120px;width:60px;height:60px;
-                border-radius:50%;background:rgba(255,255,255,0.08);"></div>
-  </div>
-  <!-- Avatar: absolutely positioned at bottom-left, half inside / half below cover -->
-  <div style="position:absolute;bottom:-48px;left:24px;z-index:5;
-              width:96px;height:96px;border-radius:50%;overflow:hidden;
-              border:4px solid {p['page_bg']};
-              box-shadow:0 4px 20px rgba(0,0,0,0.22);">
-    {_avatar_html(initials, 96)}
-  </div>
-</div>
-""", unsafe_allow_html=True)
-
-# Info + Edit button row (padding-left leaves room for avatar)
+# Profile card — rectangle, avatar fully inside, resume-style layout
+_avatar_inner = _avatar_html(initials, 80)
 info_col, action_col = st.columns([5, 2])
 with info_col:
     st.markdown(f"""
-<div style="padding-left:128px;padding-top:2px;">
-  <h1 style="font-size:22px;font-weight:800;color:{p['text_primary']};margin:0 0 2px;
-             line-height:1.2;">{full_name}</h1>
-  <p style="font-size:13px;color:{p['text_secondary']};margin:0 0 6px;">
-    @{username} &nbsp;·&nbsp; {user_email or "guest@intellirec.com"}
-  </p>
-  <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
-    <span style="background:{tag_color}22;color:{tag_color};padding:3px 10px;
-                 border-radius:100px;font-size:11px;font-weight:700;
-                 border:1px solid {tag_color}44;">
-      {user_tag}
-    </span>
-    <span style="background:{p['accent_soft']};color:{p['accent']};padding:3px 12px;
-                 border-radius:100px;font-size:11px;font-weight:700;
-                 border:1px solid rgba(99,102,241,0.2);">
-      {'Guest' if is_guest else '✦ Member'} since {member_since}
-    </span>
+<div style="
+    background:{_cover_grad};
+    border-radius:16px;
+    padding:24px 28px;
+    display:flex;
+    align-items:center;
+    gap:20px;
+    box-shadow:0 4px 24px rgba(0,0,0,0.25);
+    margin-bottom:4px;
+    position:relative;
+    overflow:hidden;
+">
+  <!-- decorative blobs stay inside the rectangle -->
+  <div style="position:absolute;top:-30px;right:-30px;width:140px;height:140px;
+              border-radius:50%;background:rgba(255,255,255,0.07);pointer-events:none;"></div>
+  <div style="position:absolute;bottom:-40px;right:80px;width:120px;height:120px;
+              border-radius:50%;background:rgba(255,255,255,0.04);pointer-events:none;"></div>
+  <!-- Avatar — fully inside the rectangle -->
+  <div style="flex-shrink:0;width:80px;height:80px;border-radius:50%;overflow:hidden;
+              border:3px solid rgba(255,255,255,0.5);
+              box-shadow:0 2px 12px rgba(0,0,0,0.3);position:relative;z-index:1;">
+    {_avatar_inner}
   </div>
-  {_bio_html}
+  <!-- Text info -->
+  <div style="position:relative;z-index:1;flex:1;min-width:0;">
+    <h1 style="font-size:20px;font-weight:800;color:#ffffff;margin:0 0 2px;
+               line-height:1.2;text-shadow:0 1px 4px rgba(0,0,0,0.3);">{full_name}</h1>
+    <p style="font-size:12px;color:rgba(255,255,255,0.8);margin:0 0 8px;
+              white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">
+      @{username} &nbsp;·&nbsp; {user_email or "guest@intellirec.com"}
+    </p>
+    <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;">
+      <span style="background:rgba(255,255,255,0.2);color:#ffffff;padding:2px 10px;
+                   border-radius:100px;font-size:11px;font-weight:700;
+                   border:1px solid rgba(255,255,255,0.35);">
+        {user_tag}
+      </span>
+      <span style="background:rgba(255,255,255,0.15);color:#ffffff;padding:2px 10px;
+                   border-radius:100px;font-size:11px;font-weight:600;
+                   border:1px solid rgba(255,255,255,0.25);">
+        {'Guest' if is_guest else '✦ Member'} since {member_since}
+      </span>
+    </div>
+  </div>
 </div>""", unsafe_allow_html=True)
 
 with action_col:
@@ -213,7 +214,17 @@ with action_col:
     if st.button("✏️ Edit Profile", type="secondary", key="edit_profile_btn", use_container_width=True):
         st.session_state["profile_editing"] = True
 
-st.markdown('<div style="height:4px"></div>', unsafe_allow_html=True)
+st.markdown('<div style="height:8px"></div>', unsafe_allow_html=True)
+
+# Bio card — only shown when user has saved a bio
+if user_bio:
+    st.markdown(f"""
+<div style="background:{p['card_bg']};border:1px solid {p['border']};border-radius:12px;
+            padding:12px 18px;margin-bottom:4px;box-shadow:{p['shadow']};">
+  <p style="font-size:13px;color:{p['text_secondary']};margin:0;line-height:1.6;">
+    {user_bio[:200]}
+  </p>
+</div>""", unsafe_allow_html=True)
 
 # ── Edit Profile Panel ────────────────────────────────────────────────────────
 if '_temp_name' not in st.session_state:
