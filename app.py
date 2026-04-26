@@ -49,12 +49,17 @@ if _token_hash and _type == 'recovery':
     st.query_params.clear()
 
 elif _token_hash and _type:
-        try:
-            supabase.auth.verify_otp({'token_hash': _token_hash, 'type': _type})
-            st.query_params.clear()
+    try:
+        resp = supabase.auth.verify_otp({'token_hash': _token_hash, 'type': _type})
+        st.query_params.clear()
+        if resp and resp.user:
+            from auth.session import _apply_user_session
+            _apply_user_session(resp.user)
+            # User is now logged in — app.py will redirect to Home naturally
+        else:
             st.session_state.show_email_confirmed = True
-        except Exception:
-            st.markdown("""
+    except Exception:
+        st.markdown("""
 <div style="background:#FEE2E2;color:#DC2626;border-left:4px solid #DC2626;
             border-radius:8px;padding:14px 18px;margin:16px 0;font-size:14px;">
   <strong>Confirmation link expired.</strong> Request a new one by signing in and clicking

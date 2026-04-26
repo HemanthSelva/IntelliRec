@@ -49,10 +49,56 @@ st.markdown(f"""
     0%,100% {{ box-shadow: 0 0 0 3px #6366f1, 0 0 0 6px rgba(99,102,241,0.3); }}
     50%     {{ box-shadow: 0 0 0 3px #8b5cf6, 0 0 0 10px rgba(139,92,246,0.2); }}
 }}
-.avatar-animated {{ animation: avatarRing 2s ease-in-out infinite; border-radius: 50%; }}
+.avatar-animated {{ animation: avatarRing 2s ease-in-out infinite; border-radius: 50%; overflow: hidden; width: 96px; height: 96px; }}
 /* Tab styling */
 [data-testid="stTabs"] [data-testid="stTab"] {{
     font-size: 14px !important; font-weight: 600 !important; padding: 10px 20px !important;
+}}
+/* Hide file uploader "Limit: 200MB" text */
+[data-testid="stFileUploaderDropzoneInstructions"] small {{ display: none !important; }}
+/* Dark mode textarea (bio field) */
+[data-testid="stTextArea"] textarea {{
+    background: {p['input_bg']} !important;
+    color: {p['text_primary']} !important;
+    border-color: {p['border']} !important;
+}}
+[data-testid="stTextArea"] label p {{
+    color: {p['text_secondary']} !important;
+}}
+/* Dark mode file uploader */
+[data-testid="stFileUploaderDropzone"] {{
+    background: {p['card_bg']} !important;
+    border-color: {p['border']} !important;
+}}
+[data-testid="stFileUploaderDropzone"] button {{
+    background: {p['btn_bg']} !important;
+    color: {p['btn_text']} !important;
+    border: 1px solid {p['btn_border']} !important;
+}}
+[data-testid="stFileUploaderDropzone"] span,
+[data-testid="stFileUploaderDropzone"] p {{
+    color: {p['text_secondary']} !important;
+}}
+/* Dark mode selectbox (history filter) */
+[data-testid="stSelectbox"] [data-baseweb="select"] > div {{
+    background: {p['input_bg']} !important;
+    border-color: {p['border']} !important;
+}}
+[data-testid="stSelectbox"] [data-baseweb="select"] span,
+[data-testid="stSelectbox"] [data-baseweb="select"] div {{
+    color: {p['text_primary']} !important;
+}}
+/* Notification toggle — track and label colors */
+.st-key-notif_inapp [role="switch"] {{
+    background-color: {p['btn_bg']} !important;
+    border-color: {p['border']} !important;
+}}
+.st-key-notif_inapp [role="switch"][aria-checked="true"] {{
+    background-color: {p['accent']} !important;
+    border-color: {p['accent']} !important;
+}}
+.st-key-notif_inapp label p {{
+    color: {p['text_primary']} !important;
 }}
 </style>
 """, unsafe_allow_html=True)
@@ -67,6 +113,7 @@ member_since = user.get("member_since", "Today") if isinstance(user, dict) else 
 words        = [w for w in full_name.split() if w]
 initials     = "".join([w[0] for w in words[:2]]).upper() or "U"
 is_guest     = user_id == "guest"
+user_bio     = (st.session_state.get('user_bio') or '').strip()
 
 
 def _avatar_html(initials: str, size: int = 80) -> str:
@@ -136,7 +183,7 @@ st.markdown(f"""
 av_col, info_col, action_col = st.columns([1, 5, 2])
 with av_col:
     st.markdown(f"""
-<div style="margin-top:-50px;margin-left:20px;
+<div style="margin-top:-50px;margin-left:20px;width:96px;overflow:visible;
             filter:drop-shadow(0 4px 16px rgba(0,0,0,0.25));">
   <div class="avatar-animated">
     {_avatar_html(initials, 96)}
@@ -144,6 +191,8 @@ with av_col:
 </div>""", unsafe_allow_html=True)
 
 with info_col:
+    _bio_html = (f'<p style="font-size:13px;color:{p["text_muted"]};margin:6px 0 0;'
+                 f'line-height:1.5;">{user_bio[:120]}</p>') if user_bio else ''
     st.markdown(f"""
 <div style="padding-top:8px;">
   <h1 style="font-size:22px;font-weight:800;color:{p['text_primary']};margin:0 0 2px;
@@ -159,6 +208,7 @@ with info_col:
     </span>
     {'<span style="background:rgba(245,158,11,0.15);color:#F59E0B;padding:3px 12px;border-radius:100px;font-size:11px;font-weight:700;">Guest Mode</span>' if is_guest else ''}
   </div>
+  {_bio_html}
 </div>""", unsafe_allow_html=True)
 
 with action_col:
@@ -314,6 +364,50 @@ for col, s in zip([sc1, sc2, sc3, sc4], _stats):
 #  MAIN TABS
 # ═══════════════════════════════════════════════════════════════════════════════
 st.markdown('<div style="height:24px"></div>', unsafe_allow_html=True)
+
+@st.dialog("Confirm Account Deletion")
+def _delete_account_dialog(uid: str, email: str):
+    st.markdown(f"**This action is permanent and cannot be undone.**")
+    st.markdown(f"All data for **{email}** will be erased from IntelliRec.")
+    st.markdown('<div style="height:4px"></div>', unsafe_allow_html=True)
+    dc1, dc2 = st.columns(2)
+    with dc1:
+        if st.button("Delete Forever", key="btn_confirm_delete",
+                     type="primary", use_container_width=True):
+            try:
+                from database.supabase_client import supabase as _dsb
+                from auth.session import logout_user as _logout
+                for _tbl, _col in [
+                    ('feedback', 'user_id'),
+                    ('recommendation_history', 'user_id'),
+                    ('wishlist', 'user_id'),
+                    ('user_preferences', 'user_id'),
+                    ('profiles', 'id'),
+                ]:
+                    try:
+                        _dsb.table(_tbl).delete().eq(_col, uid).execute()
+                    except Exception:
+                        pass
+                try:
+                    from config import get_secret, SUPABASE_URL
+                    _srk = get_secret("SUPABASE_SERVICE_ROLE_KEY")
+                    if _srk:
+                        from supabase import create_client
+                        _admin = create_client(SUPABASE_URL, _srk)
+                        _admin.auth.admin.delete_user(uid)
+                except Exception:
+                    pass
+                _logout()
+                st.toast("Account deleted.", icon="✅")
+                st.switch_page("app.py")
+            except Exception as _de:
+                st.error(f"Deletion failed: {_de}")
+    with dc2:
+        if st.button("Cancel", key="btn_cancel_delete",
+                     type="secondary", use_container_width=True):
+            st.session_state['_confirm_delete_account'] = False
+            st.rerun()
+
 
 tab1, tab2, tab3, tab4 = st.tabs(["📊  Overview", "🕒  History", "♥  Wishlist", "⚙️  Settings"])
 
@@ -585,6 +679,7 @@ with tab3:
 
         st.markdown('<div style="height:12px"></div>', unsafe_allow_html=True)
         from utils.helpers import render_product_card_html
+        from utils.cart import add_to_cart as _add_to_cart, is_in_cart as _is_in_cart
         wl_cols = st.columns(3)
         for j, prod in enumerate(display_wl):
             pid = prod.get("asin", prod.get("product_id",""))
@@ -592,11 +687,16 @@ with tab3:
                 st.markdown(render_product_card_html(prod, j, show_match=False), unsafe_allow_html=True)
                 wc1, wc2 = st.columns([1,1])
                 with wc1:
-                    if st.button("Find Similar", key=f"wl_sim_{pid}_{j}",
+                    _in_cart = _is_in_cart(pid)
+                    _cart_lbl = "✓ In Cart" if _in_cart else "🛒 Add to Cart"
+                    if st.button(_cart_lbl, key=f"wl_cart_{pid}_{j}",
                                  use_container_width=True, type="primary"):
-                        st.session_state["similar_product"] = pid
-                        st.session_state["similar_product_title"] = prod.get("title","")
-                        st.switch_page("pages/02_For_You.py")
+                        if not _in_cart:
+                            _add_to_cart(pid, prod.get("title",""),
+                                         float(prod.get("price", 0)),
+                                         prod.get("category",""))
+                            st.toast("Added to cart!", icon="🛒")
+                            st.rerun()
                 with wc2:
                     if st.button("Remove", key=f"wl_rm_{pid}_{j}",
                                  use_container_width=True, type="secondary"):
@@ -741,21 +841,24 @@ with tab4:
   </div>
 </div>""", unsafe_allow_html=True)
 
-    # ── Danger Zone ───────────────────────────────────────────────────────────
+    # ── WARNING / Danger Zone ─────────────────────────────────────────────────
     st.markdown('<div style="height:16px"></div>', unsafe_allow_html=True)
     st.markdown(f"""
-<div style="background:{p['danger_bg']};border:1px solid {p['danger_border']};
-            border-radius:16px;padding:20px 24px;box-shadow:{p['shadow']};">
-  <p style="font-size:15px;font-weight:700;color:{p['danger_text']};margin:0 0 4px;">
-    ⚠️ Danger Zone
-  </p>
-  <p style="font-size:12px;color:{p['danger_text']};opacity:0.8;margin:0 0 16px;">
-    Irreversible actions — proceed with caution
-  </p>
+<div style="display:flex;align-items:center;gap:12px;
+            padding:14px 20px;background:{p['danger_bg']};
+            border:1px solid {p['danger_border']};border-radius:14px;
+            margin-bottom:14px;">
+  <span style="font-size:20px;flex-shrink:0;">⚠️</span>
+  <div>
+    <p style="font-size:14px;font-weight:700;color:{p['danger_text']};margin:0;">WARNING!</p>
+    <p style="font-size:11px;color:{p['danger_text']};opacity:0.75;margin:0;">
+      Irreversible actions — proceed with caution
+    </p>
+  </div>
 </div>""", unsafe_allow_html=True)
 
-    dz_col1, dz_col2, _ = st.columns([1, 1, 2])
-    with dz_col1:
+    dz_act1, dz_act2, _ = st.columns([1, 1, 2])
+    with dz_act1:
         if st.button("🗑️ Clear Wishlist", key="clear_wl_btn", type="secondary",
                      use_container_width=True):
             st.session_state["wishlist_ids"] = set()
@@ -768,54 +871,18 @@ with tab4:
             st.toast("Wishlist cleared.", icon="🗑️")
             st.rerun()
 
-    with dz_col2:
+    with dz_act2:
         if is_guest:
             st.markdown(f"""
 <div style="background:{p['accent_soft']};border:1px solid rgba(99,102,241,0.2);
             border-radius:10px;padding:10px 14px;font-size:12px;color:{p['text_secondary']};">
-  🔒 Account deletion requires sign-in.
+  🔒 Sign in to delete account.
 </div>""", unsafe_allow_html=True)
         else:
-            if not st.session_state.get('_confirm_delete_account'):
-                if st.button("🗑️ Delete Account", key="btn_request_delete",
-                             type="secondary", use_container_width=True):
-                    st.session_state['_confirm_delete_account'] = True
-                    st.rerun()
-            else:
-                st.error("Are you absolutely sure? This cannot be undone.")
-                col_yes, col_no = st.columns(2)
-                with col_yes:
-                    if st.button("Yes, Delete Forever", key="btn_confirm_delete",
-                                 type="primary", use_container_width=True):
-                        try:
-                            from database.supabase_client import supabase as sb
-                            from auth.session import logout_user
-                            for _tbl, _col in [
-                                ('feedback','user_id'),
-                                ('recommendation_history','user_id'),
-                                ('wishlist','user_id'),
-                                ('user_preferences','user_id'),
-                                ('profiles','id'),
-                            ]:
-                                try:
-                                    sb.table(_tbl).delete().eq(_col, user_id).execute()
-                                except Exception:
-                                    pass
-                            try:
-                                from config import get_secret, SUPABASE_URL
-                                _srk = get_secret("SUPABASE_SERVICE_ROLE_KEY")
-                                if _srk:
-                                    from supabase import create_client
-                                    _admin = create_client(SUPABASE_URL, _srk)
-                                    _admin.auth.admin.delete_user(user_id)
-                            except Exception:
-                                pass
-                            logout_user()
-                            st.toast("Account deleted.", icon="✅")
-                            st.switch_page("app.py")
-                        except Exception as e:
-                            st.error(f"Deletion failed: {e}")
-                with col_no:
-                    if st.button("Cancel", key="btn_cancel_delete", use_container_width=True):
-                        st.session_state['_confirm_delete_account'] = False
-                        st.rerun()
+            if st.button("🗑️ Delete Account", key="btn_request_delete",
+                         type="secondary", use_container_width=True):
+                st.session_state['_confirm_delete_account'] = True
+                st.rerun()
+
+    if st.session_state.get('_confirm_delete_account') and not is_guest:
+        _delete_account_dialog(user_id, user_email or "your account")
