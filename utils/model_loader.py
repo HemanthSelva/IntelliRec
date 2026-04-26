@@ -364,34 +364,30 @@ def get_similar_products(product_id: str, n: int = 12) -> list:
     product_vec = tfidf_matrix[idx]
     sim_scores  = cos_sim(product_vec, tfidf_matrix).flatten()
 
-    # Get top (n+1) and drop self
-    top_indices = sim_scores.argsort()[::-1][1:n + 1]
-
-    # Determine source product's category for priority sorting
+    # Determine source product's category before fetching candidates
     _src_rows = products[products['product_id'] == product_id]
     source_category = str(_src_rows.iloc[0].get("category", "")).strip().lower() if not _src_rows.empty else ""
 
-    results = []
+    # Fetch a larger pool so same-category products have a chance to surface
+    top_indices = sim_scores.argsort()[::-1][1: n * 4 + 1]
+
+    same_cat, other_cat = [], []
     for i in top_indices:
         if i >= len(products):
             continue
-        row = products.iloc[i]
-        pid = str(row["product_id"])
+        row  = products.iloc[i]
+        pid  = str(row["product_id"])
         card = _row_to_card(row, sentiments.get(pid, {}))
         card["match_score"]      = min(99, max(1, int(sim_scores[i] * 100)))
         card["predicted_rating"] = float(row.get("average_rating") or 0)
         card["explanation"]      = "Similar to the product you selected"
         card["engine"]           = "Content-Based (Similar)"
-        results.append(card)
+        if source_category and card.get("category", "").strip().lower() == source_category:
+            same_cat.append(card)
+        else:
+            other_cat.append(card)
 
-    # Sort: same category first (preserving score order within each group)
-    if source_category:
-        results.sort(key=lambda x: (
-            0 if x.get("category", "").strip().lower() == source_category else 1,
-            -x.get("match_score", 0)
-        ))
-
-    return results
+    return (same_cat + other_cat)[:n]
 
 
 def _load_fallback_recs(n: int = 12, categories: list = None) -> list:

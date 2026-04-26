@@ -632,6 +632,22 @@ section[data-testid="stSidebar"] hr{{margin:6px 16px !important;border:none !imp
     background-color: {p['input_bg']} !important;
     color: {p['text_primary']} !important;
 }}
+/* -webkit-text-fill-color — makes typed text visible in dark mode (Chrome/Edge ignore color without this) */
+[data-testid="stTextInput"] input,
+[data-testid="stTextInput"] input[type="text"],
+[data-testid="stTextInput"] input[type="search"],
+[data-baseweb="input"] input,
+[data-baseweb="base-input"] input {{
+    -webkit-text-fill-color:{p['text_primary']} !important;
+    caret-color:{p['accent']} !important;
+}}
+[data-testid="stTextArea"] textarea,
+textarea {{
+    -webkit-text-fill-color:{p['text_primary']} !important;
+    color:{p['text_primary']} !important;
+    background-color:{p['input_bg']} !important;
+    caret-color:{p['accent']} !important;
+}}
 
 /* ============================================================
    GLASS EXPANDER
@@ -671,6 +687,39 @@ section[data-testid="stSidebar"] hr{{margin:6px 16px !important;border:none !imp
 [data-testid="stSelectbox"] *,
 [data-testid="stMultiSelect"] *{{color:{p['text_primary']} !important;}}
 [data-testid="stSelectbox"] svg{{fill:{p['text_primary']} !important;}}
+
+/* ============================================================
+   DROPDOWN MENU PORTAL (global portal — outside .stApp DOM)
+============================================================ */
+[data-baseweb="popover"] > div,
+[data-baseweb="popover"] [data-baseweb="menu"] {{
+    background:{p['card_bg']} !important;
+    border:1px solid {p['border']} !important;
+    border-radius:12px !important;
+    box-shadow:{p['glass_shadow_lg']} !important;
+    backdrop-filter:blur(12px) !important;
+    -webkit-backdrop-filter:blur(12px) !important;
+}}
+[data-baseweb="menu"] ul {{
+    background:{p['card_bg']} !important;
+    padding:4px !important;
+}}
+[data-baseweb="menu"] li,
+[data-baseweb="menu"] [role="option"] {{
+    background:transparent !important;
+    color:{p['text_primary']} !important;
+    border-radius:8px !important;
+}}
+[data-baseweb="menu"] li:hover,
+[data-baseweb="menu"] [aria-selected="true"],
+[data-baseweb="menu"] [data-highlighted="true"] {{
+    background:{p['glass_bg']} !important;
+    color:{p['accent']} !important;
+}}
+[data-baseweb="menu"] [role="option"] span,
+[data-baseweb="menu"] [role="option"] div {{
+    color:inherit !important;
+}}
 
 /* ============================================================
    FILE UPLOADER
