@@ -367,6 +367,10 @@ def get_similar_products(product_id: str, n: int = 12) -> list:
     # Get top (n+1) and drop self
     top_indices = sim_scores.argsort()[::-1][1:n + 1]
 
+    # Determine source product's category for priority sorting
+    _src_rows = products[products['product_id'] == product_id]
+    source_category = str(_src_rows.iloc[0].get("category", "")).strip().lower() if not _src_rows.empty else ""
+
     results = []
     for i in top_indices:
         if i >= len(products):
@@ -379,6 +383,13 @@ def get_similar_products(product_id: str, n: int = 12) -> list:
         card["explanation"]      = "Similar to the product you selected"
         card["engine"]           = "Content-Based (Similar)"
         results.append(card)
+
+    # Sort: same category first (preserving score order within each group)
+    if source_category:
+        results.sort(key=lambda x: (
+            0 if x.get("category", "").strip().lower() == source_category else 1,
+            -x.get("match_score", 0)
+        ))
 
     return results
 

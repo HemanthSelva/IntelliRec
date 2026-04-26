@@ -366,6 +366,15 @@ def render_signup():
                         if success:
                             st.session_state["_su_success_email"] = email
                             st.rerun()
+                        elif "already exists" in msg.lower() or "already registered" in msg.lower():
+                            st.markdown(
+                                _err("An account with this email already exists. Please sign in instead."),
+                                unsafe_allow_html=True,
+                            )
+                            if st.button("→ Sign In", key="su_goto_signin",
+                                         type="primary", use_container_width=True):
+                                st.session_state.show_signup = False
+                                st.rerun()
                         else:
                             st.markdown(
                                 _err(f"Sign-up failed: {msg}"), unsafe_allow_html=True

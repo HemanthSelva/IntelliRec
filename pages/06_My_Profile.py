@@ -49,13 +49,13 @@ st.markdown(f"""
     0%,100% {{ box-shadow: 0 0 0 3px #6366f1, 0 0 0 6px rgba(99,102,241,0.3); }}
     50%     {{ box-shadow: 0 0 0 3px #8b5cf6, 0 0 0 10px rgba(139,92,246,0.2); }}
 }}
-.avatar-animated {{ animation: avatarRing 2s ease-in-out infinite; border-radius: 50%; overflow: hidden; width: 96px; height: 96px; }}
+.avatar-animated {{ animation: avatarRing 2s ease-in-out infinite; border-radius: 50%; }}
 /* Tab styling */
 [data-testid="stTabs"] [data-testid="stTab"] {{
     font-size: 14px !important; font-weight: 600 !important; padding: 10px 20px !important;
 }}
-/* Hide file uploader "Limit: 200MB" text */
-[data-testid="stFileUploaderDropzoneInstructions"] small {{ display: none !important; }}
+/* Hide file uploader instructions text entirely (size + type info) */
+[data-testid="stFileUploaderDropzoneInstructions"] {{ display: none !important; }}
 /* Dark mode textarea (bio field) */
 [data-testid="stTextArea"] textarea {{
     background: {p['input_bg']} !important;
@@ -88,17 +88,10 @@ st.markdown(f"""
 [data-testid="stSelectbox"] [data-baseweb="select"] div {{
     color: {p['text_primary']} !important;
 }}
-/* Notification toggle — track and label colors */
-.st-key-notif_inapp [role="switch"] {{
-    background-color: {p['btn_bg']} !important;
+/* Notification toggle button */
+.st-key-notif_toggle_btn button {{
     border-color: {p['border']} !important;
-}}
-.st-key-notif_inapp [role="switch"][aria-checked="true"] {{
-    background-color: {p['accent']} !important;
-    border-color: {p['accent']} !important;
-}}
-.st-key-notif_inapp label p {{
-    color: {p['text_primary']} !important;
+    color: {p['text_secondary']} !important;
 }}
 </style>
 """, unsafe_allow_html=True)
@@ -109,7 +102,12 @@ username     = st.session_state.get("username") or "user"
 user_email   = st.session_state.get("user_email") or ""
 user_id      = st.session_state.get("user_id") or "guest"
 user         = st.session_state.get("current_user") or {}
-member_since = user.get("member_since", "Today") if isinstance(user, dict) else "Today"
+_ms_raw      = user.get("member_since", "") if isinstance(user, dict) else ""
+try:
+    import datetime as _dt
+    member_since = _dt.datetime.strptime(_ms_raw[:10], "%Y-%m-%d").strftime("%b %d, %Y")
+except Exception:
+    member_since = _ms_raw if _ms_raw else "Today"
 words        = [w for w in full_name.split() if w]
 initials     = "".join([w[0] for w in words[:2]]).upper() or "U"
 is_guest     = user_id == "guest"
@@ -160,44 +158,39 @@ _cover_bg = "linear-gradient(135deg, #6366f1 0%, #8b5cf6 40%, #06b6d4 100%)"
 if theme == 'dark':
     _cover_bg = "linear-gradient(135deg, #0a1a40 0%, #0d2255 50%, #041e3a 100%)"
 
+# Cover banner with avatar positioned inside (absolutely) — single block, reliable layout
+_bio_html = (f'<p style="font-size:13px;color:{p["text_muted"]};margin:6px 0 0;'
+             f'line-height:1.5;">{user_bio[:120]}</p>') if user_bio else ''
 st.markdown(f"""
-<div style="
-    background: {_cover_bg};
-    border-radius: 24px;
-    padding: 0;
-    margin-bottom: 0;
-    position: relative;
-    overflow: hidden;
-    height: 130px;
-">
-  <div style="position:absolute;top:-40px;left:-40px;width:200px;height:200px;
-              border-radius:50%;background:rgba(255,255,255,0.06);"></div>
-  <div style="position:absolute;bottom:-60px;right:80px;width:180px;height:180px;
-              border-radius:50%;background:rgba(255,255,255,0.04);"></div>
-  <div style="position:absolute;top:20px;right:120px;width:60px;height:60px;
-              border-radius:50%;background:rgba(255,255,255,0.08);"></div>
+<div style="position:relative;overflow:visible;margin-bottom:58px;">
+  <!-- Inner cover (overflow:hidden clips decorative blobs) -->
+  <div style="background:{_cover_bg};border-radius:24px;height:130px;
+              overflow:hidden;position:relative;">
+    <div style="position:absolute;top:-40px;left:-40px;width:200px;height:200px;
+                border-radius:50%;background:rgba(255,255,255,0.06);"></div>
+    <div style="position:absolute;bottom:-60px;right:80px;width:180px;height:180px;
+                border-radius:50%;background:rgba(255,255,255,0.04);"></div>
+    <div style="position:absolute;top:20px;right:120px;width:60px;height:60px;
+                border-radius:50%;background:rgba(255,255,255,0.08);"></div>
+  </div>
+  <!-- Avatar: absolutely positioned at bottom-left, half inside / half below cover -->
+  <div style="position:absolute;bottom:-48px;left:24px;z-index:5;
+              width:96px;height:96px;border-radius:50%;overflow:hidden;
+              border:4px solid {p['page_bg']};
+              box-shadow:0 4px 20px rgba(0,0,0,0.22);">
+    {_avatar_html(initials, 96)}
+  </div>
 </div>
 """, unsafe_allow_html=True)
 
-# Avatar overlapping the cover
-av_col, info_col, action_col = st.columns([1, 5, 2])
-with av_col:
-    st.markdown(f"""
-<div style="margin-top:-50px;margin-left:20px;width:96px;overflow:visible;
-            filter:drop-shadow(0 4px 16px rgba(0,0,0,0.25));">
-  <div class="avatar-animated">
-    {_avatar_html(initials, 96)}
-  </div>
-</div>""", unsafe_allow_html=True)
-
+# Info + Edit button row (padding-left leaves room for avatar)
+info_col, action_col = st.columns([5, 2])
 with info_col:
-    _bio_html = (f'<p style="font-size:13px;color:{p["text_muted"]};margin:6px 0 0;'
-                 f'line-height:1.5;">{user_bio[:120]}</p>') if user_bio else ''
     st.markdown(f"""
-<div style="padding-top:8px;">
+<div style="padding-left:128px;padding-top:2px;">
   <h1 style="font-size:22px;font-weight:800;color:{p['text_primary']};margin:0 0 2px;
              line-height:1.2;">{full_name}</h1>
-  <p style="font-size:13px;color:{p['text_secondary']};margin:0 0 8px;">
+  <p style="font-size:13px;color:{p['text_secondary']};margin:0 0 6px;">
     @{username} &nbsp;·&nbsp; {user_email or "guest@intellirec.com"}
   </p>
   <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
@@ -212,7 +205,7 @@ with info_col:
 </div>""", unsafe_allow_html=True)
 
 with action_col:
-    st.markdown('<div style="height:12px"></div>', unsafe_allow_html=True)
+    st.markdown('<div style="height:8px"></div>', unsafe_allow_html=True)
     if st.button("✏️ Edit Profile", type="secondary", key="edit_profile_btn", use_container_width=True):
         st.session_state["profile_editing"] = True
 
@@ -806,9 +799,35 @@ with tab4:
   <div style="display:flex;flex-direction:column;gap:0;">
 </div>""", unsafe_allow_html=True)
 
-    notif_col, _ = st.columns([1, 2])
-    with notif_col:
-        st.toggle("In-App Notifications", value=True, key="notif_inapp")
+    _notif_on = st.session_state.get('notif_inapp_enabled', True)
+    _notif_track = p['accent'] if _notif_on else p['btn_bg']
+    _notif_status_color = p['accent'] if _notif_on else p['text_muted']
+    _notif_status_text = "ON" if _notif_on else "OFF"
+    _notif_icon = "🔔" if _notif_on else "🔕"
+    st.markdown(f"""
+<div style="display:flex;align-items:center;justify-content:space-between;
+            padding:12px 16px;background:{p['glass_bg']};border:1px solid {p['border']};
+            border-radius:12px;margin-bottom:4px;">
+  <div>
+    <p style="font-size:14px;font-weight:600;color:{p['text_primary']};margin:0;">
+      {_notif_icon} In-App Notifications
+    </p>
+    <p style="font-size:11px;color:{p['text_muted']};margin:2px 0 0;">
+      Show alerts for new recommendations and activity
+    </p>
+  </div>
+  <span style="font-size:12px;font-weight:700;
+               background:{_notif_track};color:white;
+               padding:4px 14px;border-radius:100px;letter-spacing:0.5px;">
+    {_notif_status_text}
+  </span>
+</div>""", unsafe_allow_html=True)
+    _ntog_col, _ = st.columns([1, 4])
+    with _ntog_col:
+        _ntog_label = "Turn Off" if _notif_on else "Turn On"
+        if st.button(_ntog_label, key="notif_toggle_btn", type="secondary", use_container_width=True):
+            st.session_state['notif_inapp_enabled'] = not _notif_on
+            st.rerun()
 
     st.markdown(f"""
 <div style="margin-top:8px;">
