@@ -722,18 +722,24 @@ textarea::placeholder {{
 /* ============================================================
    DROPDOWN MENU PORTAL (global portal — outside .stApp DOM)
 ============================================================ */
+[data-baseweb="popover"],
 [data-baseweb="popover"] > div,
+[data-baseweb="popover"] > div > div,
 [data-baseweb="popover"] [data-baseweb="menu"],
+[data-baseweb="menu"],
 [role="listbox"] {{
     background:{p['card_bg']} !important;
+    background-color:{p['card_bg']} !important;
     border:1px solid {p['border']} !important;
     border-radius:12px !important;
     box-shadow:{p['glass_shadow_lg']} !important;
     backdrop-filter:blur(12px) !important;
     -webkit-backdrop-filter:blur(12px) !important;
 }}
-[data-baseweb="menu"] ul {{
+[data-baseweb="menu"] ul,
+[data-baseweb="menu"] > ul {{
     background:{p['card_bg']} !important;
+    background-color:{p['card_bg']} !important;
     padding:4px !important;
 }}
 [data-baseweb="menu"] li,
@@ -1038,52 +1044,100 @@ section[data-testid="stSidebar"] .stButton > button[kind="primary"] {
 </style>
 """, unsafe_allow_html=True)
 
-    # ── JS: header-gap killer only (BaseWeb now handled by config.toml dark theme) ──
+    # ── JS: gap killer + portal/input inline-style fixer ──────────────────────
     import streamlit.components.v1 as _components
-    _components.html("""
+    _theme_js = theme_val  # "light" or "dark"
+    _popup_bg   = p['card_bg']
+    _popup_text = p['text_primary']
+    _input_bg   = p['input_bg']
+    _input_text = p['text_primary']
+    _input_muted = p['text_muted']
+    _components.html(f"""
 <script>
-(function () {
-    var SELECTORS = [
-        '.stApp',
-        '[data-testid="stAppViewContainer"]',
-        '[data-testid="stMain"]',
-        '[data-testid="stHeader"]',
-        '[data-testid="stToolbar"]',
-        '[data-testid="stStatusWidget"]',
-        '[data-testid="stSidebarContent"]',
+(function () {{
+    var doc = window.parent.document;
+    var THEME      = "{_theme_js}";
+    var POPUP_BG   = "{_popup_bg}";
+    var POPUP_TEXT = "{_popup_text}";
+    var INPUT_BG   = "{_input_bg}";
+    var INPUT_TEXT = "{_input_text}";
+    var INPUT_MUTED = "{_input_muted}";
+
+    // ── 1. Header-gap killer ──────────────────────────────────────────────────
+    var GAP_SEL = [
+        '.stApp','[data-testid="stAppViewContainer"]','[data-testid="stMain"]',
+        '[data-testid="stHeader"]','[data-testid="stToolbar"]',
+        '[data-testid="stStatusWidget"]','[data-testid="stSidebarContent"]',
     ];
-
-    function killGap() {
-        SELECTORS.forEach(function (sel) {
-            var el = window.parent.document.querySelector(sel);
+    function killGap() {{
+        GAP_SEL.forEach(function(sel) {{
+            var el = doc.querySelector(sel);
             if (!el) return;
-            el.style.setProperty('padding-top',  '0', 'important');
-            el.style.setProperty('margin-top',   '0', 'important');
-            if (sel.indexOf('stHeader') > -1 || sel.indexOf('stToolbar') > -1 ||
-                sel.indexOf('stStatus') > -1) {
-                el.style.setProperty('height',     '0', 'important');
-                el.style.setProperty('min-height', '0', 'important');
-                el.style.setProperty('overflow',   'hidden', 'important');
-                el.style.setProperty('display',    'none', 'important');
-            }
-        });
-        window.parent.scrollTo(0, 0);
-    }
+            el.style.setProperty('padding-top','0','important');
+            el.style.setProperty('margin-top','0','important');
+            if (sel.indexOf('stHeader')>-1||sel.indexOf('stToolbar')>-1||sel.indexOf('stStatus')>-1) {{
+                el.style.setProperty('height','0','important');
+                el.style.setProperty('min-height','0','important');
+                el.style.setProperty('overflow','hidden','important');
+                el.style.setProperty('display','none','important');
+            }}
+        }});
+    }}
+    killGap(); setTimeout(killGap,100); setTimeout(killGap,400); setTimeout(killGap,800);
+    var appEl = doc.querySelector('.stApp');
+    if (appEl) new MutationObserver(killGap).observe(appEl,{{attributes:true,attributeFilter:['style'],subtree:false}});
 
-    killGap();
-    setTimeout(killGap, 100);
-    setTimeout(killGap, 400);
-    setTimeout(killGap, 800);
+    // ── 2. Portal dropdown + input inline-style fixer ────────────────────────
+    // Styletron class CSS is injected AFTER our <style> tags, so !important CSS
+    // can be overridden by later Styletron rules. Inline styles bypass this.
+    function fixNode(el) {{
+        if (!el || el.nodeType !== 1) return;
+        var bw   = el.getAttribute('data-baseweb') || '';
+        var role = el.getAttribute('role') || '';
+        var tag  = el.tagName ? el.tagName.toLowerCase() : '';
 
-    var appEl = window.parent.document.querySelector('.stApp');
-    if (appEl) {
-        new MutationObserver(killGap).observe(appEl, {
-            attributes: true,
-            attributeFilter: ['style'],
-            subtree: false
-        });
-    }
-})();
+        // Portal containers — force theme-correct background
+        if (bw === 'popover' || bw === 'menu' || role === 'listbox') {{
+            el.style.setProperty('background-color', POPUP_BG, 'important');
+            el.style.setProperty('background',       POPUP_BG, 'important');
+            el.style.setProperty('color',            POPUP_TEXT, 'important');
+        }}
+        // List items — transparent bg so container shows; only fix text
+        if (role === 'option' || (tag === 'li' && el.closest('[role="listbox"]'))) {{
+            el.style.setProperty('color', POPUP_TEXT, 'important');
+        }}
+        // Inputs / textareas — fix typed-text visibility
+        if (tag === 'input' || tag === 'textarea') {{
+            el.style.setProperty('background-color',       INPUT_BG,   'important');
+            el.style.setProperty('color',                  INPUT_TEXT, 'important');
+            el.style.setProperty('-webkit-text-fill-color',INPUT_TEXT, 'important');
+            el.style.setProperty('caret-color',            INPUT_TEXT, 'important');
+        }}
+    }}
+
+    function fixAll(root) {{
+        var sels = [
+            '[data-baseweb="popover"]','[data-baseweb="menu"]',
+            '[role="listbox"]','[role="option"]',
+            'input','textarea'
+        ];
+        sels.forEach(function(s) {{
+            try {{ (root || doc).querySelectorAll(s).forEach(fixNode); }} catch(e) {{}}
+        }});
+    }}
+
+    fixAll(); setTimeout(fixAll, 150); setTimeout(fixAll, 500);
+
+    new MutationObserver(function(muts) {{
+        muts.forEach(function(m) {{
+            m.addedNodes.forEach(function(n) {{
+                if (n.nodeType !== 1) return;
+                fixNode(n);
+                fixAll(n);
+            }});
+        }});
+    }}).observe(doc.body, {{childList:true, subtree:true}});
+}})();
 </script>
 """, height=0)
 
