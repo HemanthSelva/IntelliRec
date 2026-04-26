@@ -13,6 +13,7 @@ from utils.topbar import render_topbar
 from utils.notifications import add_notification
 from utils.evaluator import metrics_to_dataframe, get_best_model_summary
 from utils.model_loader import get_metrics as _get_ml_metrics
+from database.db_operations import get_recommendation_history
 
 st.set_page_config(page_title="Analytics | IntelliRec", page_icon="💡", layout="wide", initial_sidebar_state="expanded")
 check_login()
@@ -80,20 +81,10 @@ st.markdown(f"""
 [data-testid="stDateInput"] input::placeholder {{
     color: {p['text_muted']} !important;
 }}
-/* Calendar popover */
-[data-baseweb="calendar"] {{
-    background: {p['card_bg']} !important;
-    border: 1px solid {p['border']} !important;
+/* Calendar popover — specificity handled globally by style.css triple selectors */
+[data-baseweb="calendar"][data-baseweb="calendar"][data-baseweb="calendar"] {{
     border-radius: 16px !important;
     box-shadow: {p['glass_shadow_lg']} !important;
-}}
-[data-baseweb="calendar"] * {{
-    color: {p['text_primary']} !important;
-}}
-[data-baseweb="calendar"] [aria-selected="true"] button {{
-    background: {p['accent']} !important;
-    color: #ffffff !important;
-    border-radius: 8px !important;
 }}
 
 /* st.metric cards — ensure values are bold and coloured */
@@ -194,6 +185,13 @@ with date_col:
         value=(date.today() - timedelta(days=30), date.today()),
         key="analytics_dates"
     )
+
+# Unpack date range safely
+if isinstance(date_range, (list, tuple)) and len(date_range) == 2:
+    dr_start, dr_end = date_range[0], date_range[1]
+else:
+    dr_start = date.today() - timedelta(days=30)
+    dr_end = date.today()
 
 st.markdown("<div style='height:4px'></div>", unsafe_allow_html=True)
 
@@ -340,62 +338,78 @@ with tbl_col:
         f'Detailed Metrics {_source_badge}</p>',
         unsafe_allow_html=True)
 
-    # Build themed HTML table (Bug Fix 1: replaces st.dataframe white BG)
-    rows_html = ""
-    for _, row in df.iterrows():
-        rmse_val = row.get('RMSE', 0)
-        rmse_color = tbl_good if rmse_val < 1.0 else (tbl_warn if rmse_val < 1.1 else tbl_bad)
-
-        mae_val = row.get('MAE', 0)
-        mae_color = tbl_good if mae_val < 0.75 else (tbl_warn if mae_val < 0.85 else tbl_bad)
-
-        prec_val = row.get('Precision@10', 0)
-        prec_color = tbl_good if prec_val > 0.5 else (tbl_warn if prec_val > 0.2 else tbl_bad)
-
+    # Card-grid metrics layout
+    _model_accent = ['#6366f1', '#06b6d4', '#10b981']
+    cards_html = '<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:14px;margin:8px 0 16px;">'
+    for idx, (_, row) in enumerate(df.iterrows()):
+        rmse_val   = row.get('RMSE', 0)
+        mae_val    = row.get('MAE', 0)
+        prec_val   = row.get('Precision@10', 0)
         recall_val = row.get('Recall@10', 0)
-        recall_color = tbl_good if recall_val > 0.7 else (tbl_warn if recall_val > 0.4 else tbl_bad)
-
-        f1_val = row.get('F1 Score', 0)
-        f1_color = tbl_good if f1_val > 0.45 else (tbl_warn if f1_val > 0.3 else tbl_bad)
-
-        model_name = row.get('Model', '')
+        f1_val     = row.get('F1 Score', 0)
         train_time = row.get('Training Time (s)', '-')
+        model_name = row.get('Model', '')
+        accent_col = _model_accent[idx % len(_model_accent)]
 
-        rows_html += f"""<tr>
-<td style="padding:8px 10px;color:{tbl_text};font-weight:600;font-size:13px;border-bottom:1px solid {tbl_border};white-space:nowrap;">{model_name}</td>
-<td style="padding:8px 10px;text-align:center;border-bottom:1px solid {tbl_border};"><span style="color:{rmse_color};font-weight:700;font-size:13px;">{rmse_val:.4f}</span></td>
-<td style="padding:8px 10px;text-align:center;border-bottom:1px solid {tbl_border};"><span style="color:{mae_color};font-weight:700;font-size:13px;">{mae_val:.4f}</span></td>
-<td style="padding:8px 10px;text-align:center;border-bottom:1px solid {tbl_border};"><span style="color:{prec_color};font-weight:700;font-size:13px;">{prec_val:.2f}</span></td>
-<td style="padding:8px 10px;text-align:center;border-bottom:1px solid {tbl_border};"><span style="color:{recall_color};font-weight:700;font-size:13px;">{recall_val:.2f}</span></td>
-<td style="padding:8px 10px;text-align:center;border-bottom:1px solid {tbl_border};"><span style="color:{f1_color};font-weight:700;font-size:13px;">{f1_val:.4f}</span></td>
-<td style="padding:8px 10px;text-align:center;color:{tbl_sub};font-size:12px;border-bottom:1px solid {tbl_border};white-space:nowrap;">{train_time}s</td>
-</tr>"""
+        rmse_c   = tbl_good if rmse_val < 1.0   else (tbl_warn if rmse_val < 1.1 else tbl_bad)
+        mae_c    = tbl_good if mae_val < 0.75    else (tbl_warn if mae_val < 0.85 else tbl_bad)
+        prec_c   = tbl_good if prec_val > 0.5    else (tbl_warn if prec_val > 0.2 else tbl_bad)
+        recall_c = tbl_good if recall_val > 0.7  else (tbl_warn if recall_val > 0.4 else tbl_bad)
+        f1_c     = tbl_good if f1_val > 0.45     else (tbl_warn if f1_val > 0.3 else tbl_bad)
 
-    # Strip leading whitespace so Markdown's 4-space code-block rule isn't triggered
-    rows_html = '\n'.join(line.strip() for line in rows_html.splitlines() if line.strip())
+        is_best = 'Hybrid' in model_name
+        crown   = ' <span style="font-size:13px;" title="Best Overall">🏆</span>' if is_best else ''
 
-    _th = f"padding:10px 10px;color:{tbl_sub};font-size:10px;font-weight:700;letter-spacing:0.06em;text-transform:uppercase;border-bottom:2px solid {tbl_border};white-space:nowrap;"
-    st.markdown(f"""
-<div style="background:{tbl_bg};border:1px solid {tbl_border};border-radius:16px;overflow-x:auto;box-shadow:0 2px 12px rgba(0,0,0,0.08);margin:16px 0;">
-<table style="width:100%;border-collapse:collapse;min-width:520px;">
-<thead><tr style="background:{tbl_header};">
-<th style="{_th}text-align:left;">Model</th>
-<th style="{_th}text-align:center;">RMSE ↓</th>
-<th style="{_th}text-align:center;">MAE ↓</th>
-<th style="{_th}text-align:center;">P@10 ↑</th>
-<th style="{_th}text-align:center;">R@10 ↑</th>
-<th style="{_th}text-align:center;">F1 ↑</th>
-<th style="{_th}text-align:center;">Time (s)</th>
-</tr></thead>
-<tbody>{rows_html}</tbody>
-</table>
-<div style="padding:8px 14px;font-size:11px;color:{tbl_sub};text-align:right;">
-↓ Lower is better &nbsp;|&nbsp; ↑ Higher is better &nbsp;|&nbsp;
-<span style="color:{tbl_good};">■</span> Best &nbsp;
-<span style="color:{tbl_warn};">■</span> Mid &nbsp;
-<span style="color:{tbl_bad};">■</span> Needs improvement
-</div></div>
-""", unsafe_allow_html=True)
+        pill = (f'background:{tbl_header};border-radius:10px;padding:8px 12px;'
+                f'text-align:center;flex:1;min-width:70px;')
+        pill_label = f'font-size:9px;color:{tbl_sub};font-weight:700;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:3px;'
+
+        cards_html += f"""
+<div style="background:{tbl_bg};border:1px solid {tbl_border};border-radius:16px;
+            border-left:4px solid {accent_col};padding:18px 20px;
+            box-shadow:0 2px 14px rgba(0,0,0,0.07);">
+  <div style="font-size:14px;font-weight:700;color:{tbl_text};margin-bottom:14px;
+              display:flex;align-items:center;gap:4px;flex-wrap:wrap;">
+    <span style="background:{accent_col}22;color:{accent_col};font-size:10px;font-weight:800;
+                 padding:2px 8px;border-radius:20px;margin-right:6px;">
+      {['CF','CB','HY'][idx % 3]}
+    </span>{model_name}{crown}
+  </div>
+  <div style="display:flex;flex-wrap:wrap;gap:8px;">
+    <div style="{pill}">
+      <div style="{pill_label}">RMSE ↓</div>
+      <div style="font-size:17px;font-weight:800;color:{rmse_c};">{rmse_val:.3f}</div>
+    </div>
+    <div style="{pill}">
+      <div style="{pill_label}">MAE ↓</div>
+      <div style="font-size:17px;font-weight:800;color:{mae_c};">{mae_val:.3f}</div>
+    </div>
+    <div style="{pill}">
+      <div style="{pill_label}">P@10 ↑</div>
+      <div style="font-size:17px;font-weight:800;color:{prec_c};">{prec_val:.2f}</div>
+    </div>
+    <div style="{pill}">
+      <div style="{pill_label}">R@10 ↑</div>
+      <div style="font-size:17px;font-weight:800;color:{recall_c};">{recall_val:.2f}</div>
+    </div>
+    <div style="{pill}">
+      <div style="{pill_label}">F1 ↑</div>
+      <div style="font-size:17px;font-weight:800;color:{f1_c};">{f1_val:.3f}</div>
+    </div>
+    <div style="{pill}">
+      <div style="{pill_label}">Time</div>
+      <div style="font-size:14px;font-weight:700;color:{tbl_sub};">{train_time}s</div>
+    </div>
+  </div>
+</div>"""
+
+    cards_html += '</div>'
+    cards_html += (f'<div style="font-size:11px;color:{tbl_sub};text-align:right;margin-bottom:4px;">'
+                   f'↓ Lower is better &nbsp;|&nbsp; ↑ Higher is better &nbsp;|&nbsp;'
+                   f'<span style="color:{tbl_good};">■</span> Best &nbsp;'
+                   f'<span style="color:{tbl_warn};">■</span> Mid &nbsp;'
+                   f'<span style="color:{tbl_bad};">■</span> Needs improvement</div>')
+    st.markdown(cards_html, unsafe_allow_html=True)
 
     st.markdown(f"""
 <div style="background-color:{p['accent_soft']};border-left:3px solid {p['accent']};padding:12px 16px;
@@ -498,6 +512,46 @@ st.download_button(
     mime="text/csv",
     key="btn_download_metrics"
 )
+
+# ── Recommendation Activity (date-range filtered) ────────────────────────────
+st.markdown("---")
+st.markdown(
+    f'<h3 style="color:{p["text_primary"]};font-size:18px;font-weight:700;margin-bottom:8px;">'
+    f'📅 My Recommendation Activity</h3>',
+    unsafe_allow_html=True)
+
+_user_id = st.session_state.get("user_id") or "guest"
+_history = get_recommendation_history(_user_id, limit=500)
+
+if _history:
+    _hist_df = pd.DataFrame(_history)
+    _hist_df['date'] = pd.to_datetime(_hist_df['created_at']).dt.date
+    _filtered = _hist_df[(_hist_df['date'] >= dr_start) & (_hist_df['date'] <= dr_end)]
+    if _filtered.empty:
+        st.warning(
+            f"No activity found between **{dr_start.strftime('%b %d, %Y')}** and "
+            f"**{dr_end.strftime('%b %d, %Y')}**. Try expanding your date range.")
+        _min_d = _hist_df['date'].min().strftime('%b %d, %Y')
+        _max_d = _hist_df['date'].max().strftime('%b %d, %Y')
+        st.info(f"Your data spans **{_min_d}** → **{_max_d}**.")
+    else:
+        _daily = _filtered.groupby('date').size().reset_index(name='Recommendations')
+        _daily['date'] = _daily['date'].astype(str)
+        _fig_act = px.bar(_daily, x='date', y='Recommendations',
+                          color_discrete_sequence=[p['accent']], template="plotly_white")
+        _fig_act.update_layout(
+            margin=dict(t=8, b=0, l=0, r=0),
+            paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)',
+            font=dict(family='Inter', color=_label_col),
+            xaxis_title='', yaxis_title='Recommendations per Day')
+        st.plotly_chart(_fig_act, use_container_width=True)
+        st.caption(
+            f"Showing {len(_filtered)} recommendations · "
+            f"{dr_start.strftime('%b %d')} – {dr_end.strftime('%b %d, %Y')}")
+elif _user_id == "guest":
+    st.info("Sign in to see your personal recommendation activity.")
+else:
+    st.info("No recommendation history yet. Explore products to start building your activity feed!")
 
 # ── Training Pipeline Timeline (Enhancement 3) ───────────────────────────────
 st.markdown("---")

@@ -1242,26 +1242,51 @@ body:not(.ir-dark) [role="option"]:hover {
 }
 
 /* ── Calendar/date picker in light mode ──────────────────────────────────── */
-body:not(.ir-dark) [data-baseweb="calendar"],
-body:not(.ir-dark) [data-baseweb="calendar"] > div,
-body:not(.ir-dark) [data-baseweb="datepicker"] {
+/* Root containers */
+body:not(.ir-dark) [data-baseweb="calendar"][data-baseweb="calendar"][data-baseweb="calendar"],
+body:not(.ir-dark) [data-baseweb="calendar"][data-baseweb="calendar"][data-baseweb="calendar"] > div,
+body:not(.ir-dark) [data-baseweb="datepicker"][data-baseweb="datepicker"][data-baseweb="datepicker"],
+body:not(.ir-dark) [data-baseweb="datepicker"][data-baseweb="datepicker"][data-baseweb="datepicker"] > div {
   background-color: #ffffff !important;
   background:       #ffffff !important;
-  color:            #0F0F1A !important;
-  border:           1px solid rgba(108,99,255,0.15) !important;
+  color:            #0f0f1a !important;
+  border:           1px solid rgba(99,102,241,0.15) !important;
   border-radius:    16px !important;
-  box-shadow:       0 8px 32px rgba(108,99,255,0.12) !important;
+  box-shadow:       0 8px 32px rgba(99,102,241,0.12) !important;
 }
-body:not(.ir-dark) [data-baseweb="calendar"] *,
-body:not(.ir-dark) [data-baseweb="calendar"] button {
-  color: #0F0F1A !important;
+/* Nuclear sweep: clear ALL dark backgrounds on every descendant + pseudo-elements */
+body:not(.ir-dark) [data-baseweb="calendar"][data-baseweb="calendar"][data-baseweb="calendar"] *,
+body:not(.ir-dark) [data-baseweb="datepicker"][data-baseweb="datepicker"][data-baseweb="datepicker"] * {
+  background-color: transparent !important;
+  background:       transparent !important;
+  color:            #0f0f1a !important;
 }
-body:not(.ir-dark) [data-baseweb="calendar"] button[aria-selected="true"] {
-  background-color: #6C63FF !important;
-  color: #ffffff !important;
+body:not(.ir-dark) [data-baseweb="calendar"][data-baseweb="calendar"][data-baseweb="calendar"] *::before,
+body:not(.ir-dark) [data-baseweb="calendar"][data-baseweb="calendar"][data-baseweb="calendar"] *::after,
+body:not(.ir-dark) [data-baseweb="datepicker"][data-baseweb="datepicker"][data-baseweb="datepicker"] *::before,
+body:not(.ir-dark) [data-baseweb="datepicker"][data-baseweb="datepicker"][data-baseweb="datepicker"] *::after {
+  background-color: transparent !important;
+  background:       transparent !important;
 }
-body:not(.ir-dark) [data-baseweb="calendar"] button:not([aria-selected="true"]):hover {
-  background-color: rgba(108,99,255,0.08) !important;
+/* Restore selected date */
+body:not(.ir-dark) [data-baseweb="calendar"][data-baseweb="calendar"][data-baseweb="calendar"] button[aria-selected="true"],
+body:not(.ir-dark) [data-baseweb="datepicker"][data-baseweb="datepicker"][data-baseweb="datepicker"] button[aria-selected="true"] {
+  background-color: #6366f1 !important;
+  background:       #6366f1 !important;
+  color:            #ffffff !important;
+  border-radius:    50% !important;
+}
+/* Today: subtle ring instead of dark blob */
+body:not(.ir-dark) [data-baseweb="calendar"][data-baseweb="calendar"][data-baseweb="calendar"] button[aria-current="date"]:not([aria-selected="true"]) {
+  outline: 2px solid #6366f1 !important;
+  outline-offset: -2px !important;
+  border-radius: 50% !important;
+}
+/* Hover */
+body:not(.ir-dark) [data-baseweb="calendar"][data-baseweb="calendar"][data-baseweb="calendar"] button:not([aria-selected="true"]):hover {
+  background-color: rgba(99,102,241,0.10) !important;
+  background:       rgba(99,102,241,0.10) !important;
+  border-radius:    50% !important;
 }
 
 /* ── Streamlit dialog/modal: always light in light mode ──────────────────── */
@@ -1309,19 +1334,43 @@ body.ir-dark [role="option"] {
 body.ir-dark [role="option"]:hover {
   background-color: rgba(0,180,255,0.08) !important;
 }
-body.ir-dark [data-baseweb="calendar"],
-body.ir-dark [data-baseweb="calendar"] > div {
+body.ir-dark [data-baseweb="calendar"][data-baseweb="calendar"][data-baseweb="calendar"],
+body.ir-dark [data-baseweb="calendar"][data-baseweb="calendar"][data-baseweb="calendar"] > div,
+body.ir-dark [data-baseweb="datepicker"][data-baseweb="datepicker"][data-baseweb="datepicker"] {
   background-color: #0d1e35 !important;
   background:       #0d1e35 !important;
   color:            #e2eeff !important;
   border:           1px solid rgba(0,180,255,0.18) !important;
+  border-radius:    16px !important;
 }
-body.ir-dark [data-baseweb="calendar"] * {
+body.ir-dark [data-baseweb="calendar"][data-baseweb="calendar"][data-baseweb="calendar"] div,
+body.ir-dark [data-baseweb="calendar"][data-baseweb="calendar"][data-baseweb="calendar"] span,
+body.ir-dark [data-baseweb="calendar"][data-baseweb="calendar"][data-baseweb="calendar"] [role="gridcell"],
+body.ir-dark [data-baseweb="calendar"][data-baseweb="calendar"][data-baseweb="calendar"] [role="row"],
+body.ir-dark [data-baseweb="calendar"][data-baseweb="calendar"][data-baseweb="calendar"] [role="presentation"] {
   color: #e2eeff !important;
+  background-color: transparent !important;
+  background: transparent !important;
 }
-body.ir-dark [data-baseweb="calendar"] button[aria-selected="true"] {
+body.ir-dark [data-baseweb="calendar"][data-baseweb="calendar"][data-baseweb="calendar"] button {
+  color: #e2eeff !important;
+  background-color: transparent !important;
+  background: transparent !important;
+}
+body.ir-dark [data-baseweb="calendar"][data-baseweb="calendar"][data-baseweb="calendar"] button[aria-selected="true"] {
   background-color: #00b4ff !important;
+  background: #00b4ff !important;
   color: #000d1a !important;
+  border-radius: 50% !important;
+}
+body.ir-dark [data-baseweb="calendar"][data-baseweb="calendar"][data-baseweb="calendar"] button[aria-current="date"]:not([aria-selected="true"]) {
+  border: 2px solid #00b4ff !important;
+  border-radius: 50% !important;
+}
+body.ir-dark [data-baseweb="calendar"][data-baseweb="calendar"][data-baseweb="calendar"] button:not([aria-selected="true"]):hover {
+  background-color: rgba(0,180,255,0.12) !important;
+  background: rgba(0,180,255,0.12) !important;
+  border-radius: 50% !important;
 }
 body.ir-dark [data-baseweb="tag"] {
   background-color: rgba(0,180,255,0.12) !important;

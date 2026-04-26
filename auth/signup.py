@@ -64,7 +64,11 @@ footer,#MainMenu,
 [data-baseweb="input"]:focus-within input:-webkit-autofill{
   -webkit-box-shadow:0 0 0 30px #fff inset!important}
 [data-baseweb="input"] div[aria-label="Toggle password visibility"],
-[data-baseweb="input"] div[aria-label="unmask"]{color:#6B7280!important}
+[data-baseweb="input"] div[aria-label="unmask"]{color:#374151!important}
+[data-baseweb="input"] div[aria-label="Toggle password visibility"] svg,
+[data-baseweb="input"] div[aria-label="unmask"] svg,
+[data-baseweb="input"] div[aria-label="Toggle password visibility"] svg path,
+[data-baseweb="input"] div[aria-label="unmask"] svg path{fill:#374151!important;color:#374151!important}
 [data-testid="stTextInput"] label p{
   font-weight:500!important;font-size:13px!important;
   color:#374151!important;margin-bottom:5px!important}
@@ -326,6 +330,16 @@ def render_signup():
                     ),
                     unsafe_allow_html=True,
                 )
+                # Convert Supabase #access_token hash to ?confirmed=1 query param
+                st.markdown("""
+<script>
+(function() {
+  var h = window.location.hash;
+  if (h && h.includes('type=signup')) {
+    window.location.href = window.location.origin + window.location.pathname + '?confirmed=1';
+  }
+})();
+</script>""", unsafe_allow_html=True)
                 st.markdown("<div style='height:12px'></div>", unsafe_allow_html=True)
                 if st.button("Back to Sign In", use_container_width=True,
                              type="primary", key="su_back_success"):
