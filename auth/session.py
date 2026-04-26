@@ -248,7 +248,8 @@ def logout_user():
         'cart', 'notifications', 'selected_engine',
         'selected_categories', 'oauth_error',
         'signup_success_email', 'li_resend_email',
-        'current_page'
+        'current_page',
+        'user_bio', '_temp_bio', '_temp_name', '_temp_photo', '_last_uploaded',
     ]
     for key in keys_to_clear:
         if key in st.session_state:

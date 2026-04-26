@@ -13,17 +13,19 @@ _FONT_LINK = (
 
 # ── Compact CSS ────────────────────────────────────────────────────────────────
 _CSS = """<style>
+/* ── Force light page background (overrides config.toml base=dark) ── */
+html,body{background:#f4f6fb!important}
+.stApp,[data-testid="stAppViewContainer"]{background:#f4f6fb!important}
 /* ── Base reset ── */
 *,*::before,*::after{box-sizing:border-box}
 html,body,[data-testid="stAppViewContainer"],[data-testid="stAppViewContainer"]>.main{
-  font-family:'Inter',-apple-system,BlinkMacSystemFont,sans-serif!important;
-  background:transparent!important}
+  font-family:'Inter',-apple-system,BlinkMacSystemFont,sans-serif!important}
 [data-testid="stAppViewContainer"]>.main{
   background:linear-gradient(135deg,#EEF2FF 0%,#F0FDFF 50%,#F5F3FF 100%)!important}
 
 /* ── Left column glass ── */
 [data-testid="column"]:nth-of-type(1){
-  background:rgba(255,255,255,0.88)!important;
+  background:rgba(255,255,255,0.97)!important;
   backdrop-filter:blur(24px)!important;
   -webkit-backdrop-filter:blur(24px)!important;
   border-right:1px solid rgba(255,255,255,0.5)!important;
