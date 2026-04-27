@@ -73,10 +73,8 @@ elif _code:
         _pkce_verifier = st.session_state.get('_pkce_verifier')
         
         if not _pkce_verifier and _state:
-            from auth.session import _OAUTH_VERIFIERS
-            _pkce_verifier = _OAUTH_VERIFIERS.get(_state)
-            if _state in _OAUTH_VERIFIERS:
-                del _OAUTH_VERIFIERS[_state]
+            from auth.session import _get_pkce_global
+            _pkce_verifier = _get_pkce_global(_state)
                 
         if _pkce_verifier:
             exchange_params["code_verifier"] = _pkce_verifier
@@ -130,13 +128,14 @@ init_session()
 # ── Show OAuth error if present ───────────────────────────────────────────────
 if st.session_state.get('oauth_error'):
     _err_msg = st.session_state.pop('oauth_error')
+    _is_403 = "403" in _err_msg or "access_denied" in _err_msg.lower()
+    
     st.markdown(f"""
 <div style="background:#FEE2E2;color:#DC2626;border-left:4px solid #DC2626;
             border-radius:8px;padding:14px 18px;margin:16px 0;font-size:14px;">
   <strong>Google Sign-In failed.</strong> {_err_msg}<br>
-  <span style="font-size:12px;margin-top:4px;display:block">
-    Please try again or use email/password login.
-    If this persists, ensure the redirect URL is authorized in your Google Console.
+  <span style="font-size:12px;margin-top:8px;display:block;line-height:1.6">
+    {"<strong>Possible Fix for 403 error:</strong><br>1. Ensure your Google Cloud Project is set to 'Production' (not Testing) OR add your email as a 'Test User' in Google Console.<br>2. Check that 'rjzzaotivapqjkzcjclw.supabase.co' is authorized in Google Console.<br>3. Verify that your redirect URL is allowed in the Supabase Dashboard." if _is_403 else "Please try again or use email/password login. If this persists, ensure your Supabase configuration is correct."}
   </span>
 </div>
 """, unsafe_allow_html=True)

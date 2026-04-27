@@ -1,7 +1,38 @@
 import streamlit as st
 from database.supabase_client import supabase
+import os
+import json
 
+# Global in-memory store for PKCE verifiers (survives script reruns in same process)
 _OAUTH_VERIFIERS = {}
+CACHE_DIR = ".streamlit/auth_cache"
+
+def _save_pkce_global(state: str, verifier: str):
+    """Saves PKCE verifier to memory and disk fallback."""
+    _OAUTH_VERIFIERS[state] = verifier
+    try:
+        os.makedirs(CACHE_DIR, exist_ok=True)
+        with open(os.path.join(CACHE_DIR, f"{state}.json"), "w") as f:
+            json.dump({"v": verifier}, f)
+    except: pass
+
+def _get_pkce_global(state: str) -> str:
+    """Retrieves PKCE verifier from memory or disk fallback."""
+    # 1. Try memory
+    v = _OAUTH_VERIFIERS.get(state)
+    if v:
+        # Cleanup
+        _OAUTH_VERIFIERS.pop(state, None)
+    else:
+        # 2. Try disk
+        try:
+            path = os.path.join(CACHE_DIR, f"{state}.json")
+            if os.path.exists(path):
+                with open(path, "r") as f:
+                    v = json.load(f).get("v")
+                os.remove(path)
+        except: pass
+    return v
 
 
 # ── CSS / Theme helpers ───────────────────────────────────────────────────────
@@ -232,7 +263,7 @@ def login_with_google():
                     qs = urllib.parse.parse_qs(parsed.query)
                     state = qs.get("state", [None])[0]
                     if state:
-                        _OAUTH_VERIFIERS[state] = verifier
+                        _save_pkce_global(state, verifier)
             except Exception:
                 pass
             return response.url
