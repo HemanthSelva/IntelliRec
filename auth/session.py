@@ -1,6 +1,8 @@
 import streamlit as st
 from database.supabase_client import supabase
 
+_OAUTH_VERIFIERS = {}
+
 
 # ── CSS / Theme helpers ───────────────────────────────────────────────────────
 
@@ -60,6 +62,13 @@ def init_session():
 def signup_user(email: str, password: str, full_name: str):
     try:
         username = full_name.strip().lower().replace(" ", "_")
+        # Layer 1: pre-check profiles table before hitting Supabase sign_up
+        try:
+            existing = supabase.table('profiles').select('id').eq('email', email.strip()).execute()
+            if existing.data:
+                return False, "An account with this email already exists. Please sign in instead."
+        except Exception:
+            pass  # If check fails, let Supabase handle it
         response = supabase.auth.sign_up({
             "email": email,
             "password": password,
@@ -71,6 +80,10 @@ def signup_user(email: str, password: str, full_name: str):
             }
         })
         if response.user:
+            # Layer 2: Supabase returns empty identities for already-confirmed accounts
+            # instead of throwing an error — catch that here
+            if not response.user.identities:
+                return False, "An account with this email already exists. Please sign in instead."
             try:
                 supabase.table('profiles').insert({
                     'id': response.user.id,
@@ -141,6 +154,7 @@ def login_user(email: str, password: str):
                             'id': response.user.id,
                             'full_name': full_name,
                             'username': username,
+                            'email': response.user.email,
                             'preferred_categories': [],
                             'avatar_color': '#6C63FF'
                         }).execute()
@@ -165,9 +179,11 @@ def login_user(email: str, password: str):
             return False, "EMAIL_NOT_CONFIRMED"
         if "invalid login" in error or "invalid credentials" in error:
             try:
-                chk = supabase.table('profiles').select('id').eq('email', email).execute()
+                chk = supabase.table('profiles').select('id').ilike('email', email.strip()).execute()
                 if not chk.data:
                     return False, "NO_ACCOUNT"
+                # Account exists but password is wrong (could be a Google-only account)
+                return False, "WRONG_PASSWORD"
             except Exception:
                 pass
             return False, "Incorrect email or password. Please try again."
@@ -177,16 +193,15 @@ def login_user(email: str, password: str):
 
 
 def login_with_google():
-    # MANUAL SETUP REQUIRED to fix 403 errors:
-    # 1. Google Cloud Console → APIs & Services → Credentials → OAuth 2.0 Client ID
-    #    Add BOTH of these to "Authorized redirect URIs":
-    #      http://localhost:8501/
-    #      http://localhost:8501
-    #    (Supabase uses the callback URL — also add your Supabase project's OAuth callback)
-    # 2. OAuth consent screen → Test users → add your Gmail address exactly
-    # 3. Supabase Dashboard → Authentication → Providers → Google:
-    #    Site URL: http://localhost:8501
-    #    Redirect URLs: http://localhost:8501/**
+    # Cache the OAuth URL in session_state so sign_in_with_oauth() is called
+    # exactly ONCE per login attempt.  Every call to sign_in_with_oauth()
+    # generates a new PKCE code_verifier and overwrites the one stored in the
+    # Supabase singleton.  Streamlit rerenders the page many times between the
+    # initial redirect and the OAuth callback, so without caching each rerender
+    # generates a new verifier, making the final exchange fail with
+    # "code challenge does not match previously saved code verifier".
+    if st.session_state.get('_google_oauth_url'):
+        return st.session_state['_google_oauth_url']
     try:
         from config import STREAMLIT_URL
         base_url = (STREAMLIT_URL or "http://localhost:8501").rstrip("/")
@@ -198,6 +213,28 @@ def login_with_google():
             }
         })
         if response.url:
+            st.session_state['_google_oauth_url'] = response.url
+            # Bridge the PKCE verifier into session_state so it survives the
+            # OAuth redirect.  The supabase singleton's SyncMemoryStorage is
+            # in-process memory; if the callback lands on a different Streamlit
+            # session or Cloud worker the storage dict is empty.  Storing it
+            # here lets app.py pass it explicitly to exchange_code_for_session()
+            # which accepts params.get("code_verifier") before falling back to
+            # storage (supabase_auth/_sync/gotrue_client.py line 1184).
+            try:
+                verifier = supabase.auth._storage.get_item(
+                    f"{supabase.auth._storage_key}-code-verifier"
+                )
+                if verifier:
+                    st.session_state['_pkce_verifier'] = verifier
+                    import urllib.parse
+                    parsed = urllib.parse.urlparse(response.url)
+                    qs = urllib.parse.parse_qs(parsed.query)
+                    state = qs.get("state", [None])[0]
+                    if state:
+                        _OAUTH_VERIFIERS[state] = verifier
+            except Exception:
+                pass
             return response.url
         return None
     except Exception as e:
@@ -257,6 +294,7 @@ def logout_user():
         'signup_success_email', 'li_resend_email',
         'current_page',
         'user_bio', '_temp_bio', '_temp_name', '_temp_photo', '_last_uploaded',
+        '_google_oauth_url', '_pkce_verifier',
     ]
     for key in keys_to_clear:
         if key in st.session_state:
@@ -323,6 +361,7 @@ def _apply_user_session(user):
                     'id': user.id,
                     'full_name': full_name,
                     'username': username,
+                    'email': user.email,
                     'preferred_categories': [],
                     'avatar_color': '#6C63FF'
                 }).execute()

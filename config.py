@@ -2,11 +2,18 @@ import os
 from dotenv import load_dotenv
 load_dotenv()
 
+_PLACEHOLDERS = {
+    "add_your_key_here", "add_your_secret_here",
+    "your-anon-key", "your-publishable-key",
+    "your-google-client-id", "your-google-client-secret",
+    "your-grok-api-key", "your-project.supabase.co",
+}
+
 def get_secret(key):
     try:
         import streamlit as st
         val = st.secrets.get(key)
-        if val:
+        if val and val not in _PLACEHOLDERS:
             return val
     except Exception:
         pass
