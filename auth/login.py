@@ -496,6 +496,11 @@ def render_login():
                                      '<a href="?signup=1" style="color:#6366f1;font-weight:700;'
                                      'text-decoration:none;">Sign up to continue →</a>'),
                                 unsafe_allow_html=True)
+                        elif msg == "WRONG_PASSWORD":
+                            st.markdown(
+                                _err('Incorrect password. If you signed up with Google, '
+                                     'use the <strong>Continue with Google</strong> button below.'),
+                                unsafe_allow_html=True)
                         else:
                             st.markdown(_err(f"Sign-in failed: {msg}"), unsafe_allow_html=True)
 

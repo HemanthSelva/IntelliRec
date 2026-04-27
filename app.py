@@ -39,6 +39,7 @@ _token_hash = st.query_params.get('token_hash')
 _type       = st.query_params.get('type')
 _code       = st.query_params.get('code')
 _reset      = st.query_params.get('reset')
+_state      = st.query_params.get('state')
 
 if _reset == '1' or _type == 'recovery':
     st.session_state['show_password_update'] = True
@@ -68,13 +69,25 @@ elif _token_hash and _type:
 """, unsafe_allow_html=True)
 elif _code:
     try:
-        resp = supabase.auth.exchange_code_for_session(
-            {"auth_code": _code}
-        )
+        exchange_params = {"auth_code": _code}
+        _pkce_verifier = st.session_state.get('_pkce_verifier')
+        
+        if not _pkce_verifier and _state:
+            from auth.session import _OAUTH_VERIFIERS
+            _pkce_verifier = _OAUTH_VERIFIERS.get(_state)
+            if _state in _OAUTH_VERIFIERS:
+                del _OAUTH_VERIFIERS[_state]
+                
+        if _pkce_verifier:
+            exchange_params["code_verifier"] = _pkce_verifier
+            
+        resp = supabase.auth.exchange_code_for_session(exchange_params)
         st.query_params.clear()
         if resp and resp.user:
             from auth.session import _apply_user_session
             _apply_user_session(resp.user)
+            st.session_state.pop('_google_oauth_url', None)
+            st.session_state.pop('_pkce_verifier', None)
             # Create profile for Google users if missing
             try:
                 existing = supabase.table('profiles').select(
@@ -92,6 +105,7 @@ elif _code:
                         'id': resp.user.id,
                         'full_name': full_name,
                         'username': username,
+                        'email': resp.user.email,
                         'preferred_categories': [],
                         'avatar_color': '#6C63FF'
                     }).execute()
@@ -105,6 +119,9 @@ elif _code:
                 print(f"Google profile creation: {profile_err}")
     except Exception as e:
         print(f"OAuth code exchange error: {e}")
+        st.query_params.clear()
+        st.session_state.pop('_google_oauth_url', None)
+        st.session_state.pop('_pkce_verifier', None)
         st.session_state.oauth_error = str(e)
 
 # ── Session init ──────────────────────────────────────────────────────────────
