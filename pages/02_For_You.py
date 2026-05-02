@@ -14,7 +14,7 @@ from utils.explainer import generate_explanation
 from utils.model_loader import (
     MODELS_READY, get_hybrid_recommendations,
     get_cf_recommendations, get_cb_recommendations,
-    get_similar_products, get_products_df
+    get_cb_tfidf_recommendations, get_similar_products, get_products_df
 )
 from database.db_operations import add_to_wishlist, remove_from_wishlist, save_feedback
 
@@ -433,7 +433,7 @@ if MODELS_READY:
                 recs = get_cf_recommendations(user_id, n=num_recs * 2, categories=_cats_to_use)
             elif engine == "Content-Based" or (engine == "Collaborative" and _is_guest):
                 # Guest users can't use collaborative filtering (no user history)
-                recs = get_cb_recommendations(categories=_cats_to_use, n=num_recs * 2)
+                recs = get_cb_tfidf_recommendations(user_id, n=num_recs * 2, categories=_cats_to_use)
             else:
                 recs = get_hybrid_recommendations(
                     user_id, n=num_recs * 2,

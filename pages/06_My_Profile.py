@@ -895,21 +895,8 @@ with tab4:
   </div>
 </div>""", unsafe_allow_html=True)
 
-    dz_act1, dz_act2, _ = st.columns([1, 1, 2])
+    dz_act1, _ = st.columns([1, 3])
     with dz_act1:
-        if st.button("🗑️ Clear Wishlist", key="clear_wl_btn", type="secondary",
-                     use_container_width=True):
-            st.session_state["wishlist_ids"] = set()
-            if user_id and user_id != 'guest':
-                try:
-                    from database.supabase_client import supabase as _sb
-                    _sb.table('wishlist').delete().eq('user_id', user_id).execute()
-                except Exception:
-                    pass
-            st.toast("Wishlist cleared.", icon="🗑️")
-            st.rerun()
-
-    with dz_act2:
         if is_guest:
             st.markdown(f"""
 <div style="background:{p['accent_soft']};border:1px solid rgba(99,102,241,0.2);
