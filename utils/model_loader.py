@@ -523,6 +523,86 @@ def get_cb_recommendations(categories: list = None, n: int = 12) -> list:
     return results
 
 
+def get_cb_tfidf_recommendations(_user_id: str, n: int = 12,
+                                  categories: list = None) -> list:
+    """
+    Content-based recommendations using TF-IDF cosine similarity.
+    Builds a user profile from liked/saved product vectors, then finds
+    the most similar unseen products. Falls back to get_cb_recommendations()
+    for new users with no interaction history.
+    """
+    from sklearn.metrics.pairwise import cosine_similarity as cos_sim
+    import numpy as np
+
+    _, tfidf_matrix, product_indices = get_tfidf()
+    products   = get_products_df()
+    sentiments = get_sentiments()
+
+    if tfidf_matrix is None or products.empty:
+        return get_cb_recommendations(categories=categories, n=n)
+
+    # Build interaction history from session state
+    try:
+        import streamlit as st
+        liked_pids   = set(st.session_state.get("liked_pids", set()))
+        wishlist_ids = set(st.session_state.get("wishlist_ids", set()))
+        seen_pids    = liked_pids | wishlist_ids
+    except Exception:
+        seen_pids = set()
+
+    if not seen_pids:
+        # No history — fall back to popularity-based CB
+        return get_cb_recommendations(categories=categories, n=n)
+
+    # Map product IDs to matrix row indices
+    liked_indices = []
+    for pid in seen_pids:
+        if pid in product_indices:
+            liked_indices.append(product_indices[pid])
+
+    if not liked_indices:
+        return get_cb_recommendations(categories=categories, n=n)
+
+    # Mean TF-IDF profile of liked products
+    user_profile = tfidf_matrix[liked_indices].mean(axis=0)
+
+    # Cosine similarity against all products
+    scores = cos_sim(user_profile, tfidf_matrix).flatten()
+
+    # Zero out already-seen products
+    for idx in liked_indices:
+        if idx < len(scores):
+            scores[idx] = 0.0
+
+    # Optional category filter
+    if categories:
+        categories = normalize_categories(categories)
+        cat_mask = products["category"].isin(categories).values
+        scores[~cat_mask] = 0.0
+
+    top_indices = np.argsort(scores)[::-1][:n * 2]
+
+    results = []
+    for idx in top_indices:
+        if len(results) >= n:
+            break
+        if scores[idx] <= 0:
+            break
+        row = products.iloc[idx]
+        pid = row["product_id"]
+        card = _row_to_card(row, sentiments.get(pid, {}))
+        card["match_score"]      = min(99, int(round(float(scores[idx]) * 100)))
+        card["predicted_rating"] = float(row.get("average_rating") or 0)
+        card["explanation"]      = "Similar to products you liked"
+        card["engine"]           = "Content-Based"
+        results.append(card)
+
+    if not results:
+        return get_cb_recommendations(categories=categories, n=n)
+
+    return results
+
+
 def _time_context_boost(category: str) -> int:
     """Return a small score nudge (+3) when category matches time-of-day affinity."""
     try:
@@ -587,15 +667,20 @@ def get_hybrid_recommendations(user_id: str, n: int = 12,
         disliked_cat_counts = {}
         saved_cat_counts = {}
 
+    norm_cats = normalize_categories(categories) if categories else categories
     cf_n = max(1, int(n * (1 - diversity)))
     cb_n = max(1, n - cf_n)
 
-    cf_recs = get_cf_recommendations(user_id, n=cf_n,
-                                      categories=normalize_categories(categories) if categories else categories)
-    cb_recs = get_cb_recommendations(categories=normalize_categories(categories) if categories else categories,
-                                     n=cb_n)
+    cf_recs = get_cf_recommendations(user_id, n=cf_n, categories=norm_cats)
+    cb_recs = get_cb_recommendations(categories=norm_cats, n=cb_n)
 
-    # Deduplicate by product_id
+    # Tag each rec with its source weight for the weighted formula
+    for r in cf_recs:
+        r["_src_weight"] = 0.40
+    for r in cb_recs:
+        r["_src_weight"] = 0.35
+
+    # Deduplicate by product_id (CF takes precedence)
     seen   = {r["product_id"] for r in cf_recs}
     merged = cf_recs + [r for r in cb_recs if r["product_id"] not in seen]
 
@@ -608,9 +693,13 @@ def get_hybrid_recommendations(user_id: str, n: int = 12,
         pid        = rec["product_id"]
         sent_score = sentiments.get(pid, {}).get("score", 0.5)
         base       = rec["match_score"]
+        src_w      = rec.pop("_src_weight", 0.375)  # default midpoint if unknown
 
-        # 1. Sentiment boost: 0.8×base + 0.2×sentiment_score×100
-        boosted = int(base * 0.8 + sent_score * 20)
+        # 1. Weighted combination: cf_score×0.40 + cbf_score×0.35 + sentiment×0.25
+        # Normalise base to [0,1], apply source weight, add sentiment at 0.25 weight,
+        # then scale back to [1,99].
+        norm_base = base / 99.0
+        boosted   = int((src_w * norm_base + 0.25 * sent_score) / (src_w + 0.25) * 99)
 
         # 2. Category boost: +5 if in user preferred categories
         if pref_cats and rec.get("category") in pref_cats:
