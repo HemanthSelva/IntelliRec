@@ -1630,7 +1630,27 @@ div[data-testid="stButton"] button:hover {{
             fixArrowButtons();
             fixSelectboxControls();
             fixCalendar();
+            fixFileUploader();
             // NOTE: No universal dark-bg scanner — it was destroying dark mode
+        }}
+
+        function fixFileUploader() {{
+            if (!isStillLight()) return;
+            doc.querySelectorAll('[data-testid="stFileUploader"]').forEach(function(root) {{
+                root.querySelectorAll('*').forEach(function(el) {{
+                    var bg = window.getComputedStyle(el).backgroundColor || '';
+                    var m = bg.match(/rgba?\((\d+),\s*(\d+),\s*(\d+)/);
+                    if (m) {{
+                        var sum = parseInt(m[1])+parseInt(m[2])+parseInt(m[3]);
+                        // Fix elements darker than medium grey (avoids touching icons)
+                        if (sum < 350) {{
+                            el.style.setProperty('background-color', POPUP_BG, 'important');
+                            el.style.setProperty('background', POPUP_BG, 'important');
+                        }}
+                    }}
+                    el.style.setProperty('color', POPUP_TEXT, 'important');
+                }});
+            }});
         }}
 
         // Run immediately + staggered
@@ -1664,7 +1684,7 @@ div[data-testid="stButton"] button:hover {{
         obs1.observe(doc.body, {{childList:true, subtree:true}});
         doc._irObservers.push(obs1);
 
-        // Attribute observer (class changes from Styletron)
+        // Attribute observer (class/style changes from Styletron)
         var _attrTimer = null;
         var obs2 = new MutationObserver(function() {{
             if (!isStillLight()) return;  // GUARD
@@ -1674,9 +1694,11 @@ div[data-testid="stButton"] button:hover {{
                 fixRadios();
                 fixTags();
                 fixArrowButtons();
+                fixChatAvatars();
+                fixFileUploader();
             }}, 60);
         }});
-        obs2.observe(doc.body, {{attributes:true, attributeFilter:['class'], subtree:true}});
+        obs2.observe(doc.body, {{attributes:true, attributeFilter:['class','style'], subtree:true}});
         doc._irObservers.push(obs2);
 
     }} else {{

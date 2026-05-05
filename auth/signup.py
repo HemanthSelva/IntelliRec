@@ -111,27 +111,17 @@ div.stButton>button[kind="secondary"]:hover p{color:#6C63FF!important}
 .ir-logo-anim{animation:gradShift 4s ease infinite,floatBeat 4s ease-in-out infinite!important;background-size:200% 200%!important}
 
 /* ── Checkbox ── */
-[data-testid="stCheckbox"],[data-baseweb="checkbox"],
-[data-testid="stCheckbox"] label,[data-baseweb="checkbox"] label{
-  user-select:none!important;-webkit-user-select:none!important}
-[data-testid="stCheckbox"] p,[data-baseweb="checkbox"] p{color:#6B7280!important}
-[data-testid="stCheckbox"] *:has(input:checked) p,
-[data-baseweb="checkbox"]:has(input:checked) p{color:#374151!important}
-input[type="checkbox"]{accent-color:#6C63FF!important;width:16px!important;height:16px!important;cursor:pointer!important}
-/* BaseWeb checkbox — multiple selectors for Streamlit 1.32+ */
-[data-baseweb="checkbox"] [role="checkbox"],
-[data-baseweb="checkbox"] [aria-checked],
-[data-baseweb="checkbox"] > label > div:first-child,
-[data-baseweb="checkbox"] > label > div:first-child > div:first-child{
+[data-testid="stCheckbox"] p,label[data-baseweb="checkbox"] span{color:#6B7280!important}
+/* label IS the baseweb="checkbox" element — correct selector */
+label[data-baseweb="checkbox"] > div:first-child,
+label[data-baseweb="checkbox"] > div:first-child > div{
   border:2px solid #6C63FF!important;border-radius:4px!important;
-  background:#fff!important;transition:all .15s!important}
-[data-baseweb="checkbox"] [role="checkbox"][aria-checked="true"],
-[data-baseweb="checkbox"] [aria-checked="true"],
-[data-baseweb="checkbox"]:has(input:checked) > label > div:first-child,
-[data-baseweb="checkbox"]:has(input:checked) > label > div:first-child > div:first-child{
+  background:#fff!important;transition:all .15s!important;
+  min-width:16px!important;min-height:16px!important}
+label[data-baseweb="checkbox"]:has(input:checked) > div:first-child,
+label[data-baseweb="checkbox"]:has(input:checked) > div:first-child > div{
   background:#6C63FF!important;border-color:#6C63FF!important}
-[data-baseweb="checkbox"] [aria-checked="true"] svg,
-[data-baseweb="checkbox"]:has(input:checked) svg{fill:#fff!important}
+label[data-baseweb="checkbox"]:has(input:checked) svg{fill:#fff!important}
 
 /* ── Google button ── */
 .g-btn{display:flex;align-items:center;justify-content:center;gap:10px;
@@ -310,6 +300,43 @@ def render_signup():
 
     st.markdown(_FONT_LINK, unsafe_allow_html=True)
     st.markdown(_CSS, unsafe_allow_html=True)
+
+    # JS: fix BaseWeb checkbox appearance (CSS alone can't override Styletron)
+    import streamlit.components.v1 as _cv1
+    _cv1.html("""
+<script>
+(function(){
+  var doc = window.parent.document;
+  function fixCB(){
+    doc.querySelectorAll('label[data-baseweb="checkbox"]').forEach(function(lbl){
+      var inp = lbl.querySelector('input[type="checkbox"]');
+      var chk = inp ? inp.checked : false;
+      var box = lbl.querySelector('div');
+      if(!box) return;
+      var bg = chk ? '#6C63FF' : '#ffffff';
+      [box].concat(Array.from(box.querySelectorAll('div'))).forEach(function(el){
+        el.style.setProperty('background','transparent','important');
+        el.style.setProperty('background-color','transparent','important');
+      });
+      box.style.setProperty('background', bg, 'important');
+      box.style.setProperty('background-color', bg, 'important');
+      box.style.setProperty('border', '2px solid #6C63FF', 'important');
+      box.style.setProperty('border-radius', '4px', 'important');
+      box.style.setProperty('min-width', '16px', 'important');
+      box.style.setProperty('min-height', '16px', 'important');
+      box.querySelectorAll('svg').forEach(function(s){
+        s.style.setProperty('fill','#ffffff','important');
+        s.style.setProperty('opacity', chk ? '1' : '0', 'important');
+      });
+    });
+  }
+  fixCB();
+  [50,150,400,900,2000].forEach(function(ms){ setTimeout(fixCB,ms); });
+  var obs = new MutationObserver(function(){ clearTimeout(obs._t); obs._t=setTimeout(fixCB,40); });
+  obs.observe(doc.body,{childList:true,subtree:true,attributes:true,attributeFilter:['aria-checked','class','style']});
+})();
+</script>
+""", height=0)
 
     left, right = st.columns([46, 54])
 
