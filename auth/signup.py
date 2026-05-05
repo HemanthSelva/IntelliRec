@@ -110,18 +110,33 @@ div.stButton>button[kind="secondary"]:hover p{color:#6C63FF!important}
 @keyframes floatBeat{0%,100%{transform:translateY(0) scale(1)}50%{transform:translateY(-3px) scale(1.04)}}
 .ir-logo-anim{animation:gradShift 4s ease infinite,floatBeat 4s ease-in-out infinite!important;background-size:200% 200%!important}
 
-/* ── Checkbox — text visibility fix (overrides config.toml base=dark) ────── */
-/* IMPORTANT: Do NOT add width/height/border/background to any div selectors here.
-   The JS fixCB() below handles visual box styling. CSS only handles text color. */
+/* ── Checkbox fix (overrides config.toml base=dark inline styles) ─────────── */
 label[data-baseweb="checkbox"]{outline:none!important}
+
+/* Text color — always dark on signup page */
 label[data-baseweb="checkbox"] span,
 label[data-baseweb="checkbox"] p,
-.stCheckbox label span,
-.stCheckbox label p,
-.stCheckbox label,
-[data-testid="stCheckbox"] label span,
-[data-testid="stCheckbox"] label p,
+.stCheckbox label span, .stCheckbox label p, .stCheckbox label,
+[data-testid="stCheckbox"] label span, [data-testid="stCheckbox"] label p,
 [data-testid="stCheckbox"] label{color:#374151!important;-webkit-text-fill-color:#374151!important}
+
+/* Visual checkbox box — BaseWeb uses data-baseweb="checkbox-checkmark" on the
+   checkmark container and sets background via inline style. Override with !important.
+   Also target the input's adjacent sibling (div or span) as fallback. */
+[data-baseweb="checkbox-checkmark"],
+[data-baseweb="checkbox-toggle"],
+label[data-baseweb="checkbox"] input[type="checkbox"] + div,
+label[data-baseweb="checkbox"] input[type="checkbox"] + span{
+  background-color:#ffffff!important;background:#ffffff!important;
+  border:2px solid #6C63FF!important;border-radius:4px!important}
+/* Checked state */
+label[data-baseweb="checkbox"]:has(input:checked) [data-baseweb="checkbox-checkmark"],
+label[data-baseweb="checkbox"]:has(input:checked) [data-baseweb="checkbox-toggle"],
+label[data-baseweb="checkbox"]:has(input:checked) input[type="checkbox"] + div,
+label[data-baseweb="checkbox"]:has(input:checked) input[type="checkbox"] + span{
+  background-color:#6C63FF!important;background:#6C63FF!important;
+  border-color:#6C63FF!important}
+label[data-baseweb="checkbox"]:has(input:checked) svg{fill:#fff!important;display:block!important}
 
 /* ── Google button ── */
 .g-btn{display:flex;align-items:center;justify-content:center;gap:10px;
@@ -313,54 +328,52 @@ def render_signup():
       var inp = lbl.querySelector('input[type="checkbox"]');
       var chk = inp ? inp.checked : false;
       var bg  = chk ? '#6C63FF' : '#ffffff';
+      var bdr = chk ? '#6C63FF' : '#6C63FF';
 
-      /* Find the visual checkbox box. Strategy:
-         Walk through the label's direct children. The checkbox box is the
-         child div (or child of child) that does NOT contain text (span/p).
-         This is reliable because BaseWeb always puts the checkmark container
-         and the text label as siblings inside the label element. */
-      var visualBox = null;
-      var children = lbl.children;
-      for(var i = 0; i < children.length; i++){
-        var child = children[i];
-        if(child.tagName !== 'DIV') continue;
-        /* If this div has NO span or p children, it's the checkbox container */
-        var hasText = child.querySelector('span,p');
-        if(!hasText){
-          /* It's the checkbox wrapper — find the innermost div */
-          var inner = child.querySelector('div');
-          visualBox = inner || child;
+      /* === Find the visual checkbox box === */
+      var vb = null;
+
+      /* Method 1: BaseWeb attribute (most reliable) */
+      vb = lbl.querySelector('[data-baseweb="checkbox-checkmark"]')
+        || lbl.querySelector('[data-baseweb="checkbox-toggle"]');
+
+      /* Method 2: Input's next sibling (the visual box is always right after input) */
+      if(!vb && inp && inp.nextElementSibling){
+        var sib = inp.nextElementSibling;
+        /* Only use it if it's NOT the text element */
+        if(sib.tagName !== 'P' && !sib.querySelector('p')){
+          vb = sib;
+        }
+      }
+
+      /* Method 3: Walk direct children — find first non-input, non-text child */
+      if(!vb){
+        for(var i = 0; i < lbl.children.length; i++){
+          var ch = lbl.children[i];
+          if(ch.tagName === 'INPUT') continue;
+          if(ch.tagName === 'P' || ch.tagName === 'SPAN' && ch.textContent.length > 3) continue;
+          if(ch.querySelector && ch.querySelector('p,span')) continue;
+          vb = ch;
           break;
         }
       }
 
-      /* Fallback: look for any div with role=checkbox */
-      if(!visualBox){
-        visualBox = lbl.querySelector('div[role="checkbox"]');
-      }
-
-      /* Clear dark bg on the label itself */
+      /* Clear label bg */
       lbl.style.setProperty('background','transparent','important');
       lbl.style.setProperty('background-color','transparent','important');
 
-      if(!visualBox) return;
+      if(!vb) return;
 
-      /* Style ONLY the visual box */
-      visualBox.style.setProperty('background',      bg, 'important');
-      visualBox.style.setProperty('background-color',bg, 'important');
-      visualBox.style.setProperty('border',    '2px solid #6C63FF','important');
-      visualBox.style.setProperty('border-radius',   '4px','important');
-      visualBox.style.setProperty('min-width',  '18px','important');
-      visualBox.style.setProperty('min-height', '18px','important');
-      visualBox.style.setProperty('width',  '18px','important');
-      visualBox.style.setProperty('height', '18px','important');
-      visualBox.style.setProperty('flex-shrink','0','important');
-      visualBox.style.setProperty('overflow','hidden','important');
+      /* Style the visual box */
+      vb.style.setProperty('background',      bg, 'important');
+      vb.style.setProperty('background-color',bg, 'important');
+      vb.style.setProperty('border',    '2px solid ' + bdr,'important');
+      vb.style.setProperty('border-radius',   '4px','important');
 
-      /* Also force the parent wrapper (if we went to inner) to be transparent */
-      if(visualBox.parentElement && visualBox.parentElement !== lbl){
-        visualBox.parentElement.style.setProperty('background','transparent','important');
-        visualBox.parentElement.style.setProperty('background-color','transparent','important');
+      /* Also clear parent wrapper bg if needed */
+      if(vb.parentElement && vb.parentElement !== lbl){
+        vb.parentElement.style.setProperty('background','transparent','important');
+        vb.parentElement.style.setProperty('background-color','transparent','important');
       }
 
       var svg = lbl.querySelector('svg');
@@ -369,7 +382,7 @@ def render_signup():
         svg.style.setProperty('display', chk ? 'block':'none','important');
       }
 
-      /* Force label text to dark color */
+      /* Force text to dark color */
       lbl.querySelectorAll('span,p').forEach(function(txt){
         txt.style.setProperty('color','#374151','important');
         txt.style.setProperty('-webkit-text-fill-color','#374151','important');
