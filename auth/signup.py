@@ -122,16 +122,27 @@ label[data-baseweb="checkbox"] p,
 [data-testid="stCheckbox"] label span,
 [data-testid="stCheckbox"] label p,
 [data-testid="stCheckbox"] label{color:#374151!important;-webkit-text-fill-color:#374151!important}
-/* Force checkbox box to white background with purple border (unchecked state) */
-label[data-baseweb="checkbox"] > div:first-child,
-[data-baseweb="checkbox"] > div:first-child{
+/* Force checkbox visual box to white — target every possible wrapper div.
+   BaseWeb nests: label > div > div(role=checkbox) > div(checkmark) > svg
+   We must override ALL of them to beat the inline dark styles. */
+label[data-baseweb="checkbox"] div[role="checkbox"],
+label[data-baseweb="checkbox"] > div,
+label[data-baseweb="checkbox"] > div > div,
+[data-baseweb="checkbox"] div[role="checkbox"],
+[data-baseweb="checkbox"] > div:first-child,
+[data-baseweb="checkbox"] > div > div:first-child{
   background-color:#ffffff!important;background:#ffffff!important;
   border:2px solid #6C63FF!important;border-radius:4px!important;
   width:18px!important;height:18px!important;min-width:18px!important;min-height:18px!important;
-  flex-shrink:0!important}
+  max-width:18px!important;max-height:18px!important;
+  flex-shrink:0!important;box-sizing:border-box!important}
 /* Checked state — purple background */
-label[data-baseweb="checkbox"]:has(input:checked) > div:first-child,
-[data-baseweb="checkbox"]:has(input:checked) > div:first-child{
+label[data-baseweb="checkbox"]:has(input:checked) div[role="checkbox"],
+label[data-baseweb="checkbox"]:has(input:checked) > div,
+label[data-baseweb="checkbox"]:has(input:checked) > div > div,
+[data-baseweb="checkbox"]:has(input:checked) div[role="checkbox"],
+[data-baseweb="checkbox"]:has(input:checked) > div:first-child,
+[data-baseweb="checkbox"]:has(input:checked) > div > div:first-child{
   background-color:#6C63FF!important;background:#6C63FF!important;
   border-color:#6C63FF!important}
 
@@ -326,34 +337,50 @@ def render_signup():
       var chk = inp ? inp.checked : false;
       var bg  = chk ? '#6C63FF' : '#ffffff';
 
-      /* Find the visual box: the div that is the direct parent of the SVG */
-      var visualBox = null;
-      var svg = lbl.querySelector('svg');
-      if(svg){
-        var el = svg.parentElement;
-        while(el && el !== lbl){
-          if(el.tagName === 'DIV'){ visualBox = el; break; }
-          el = el.parentElement;
+      /* Strategy 1: Find by role="checkbox" (BaseWeb convention) */
+      var visualBox = lbl.querySelector('div[role="checkbox"]');
+
+      /* Strategy 2: Find the div that is the direct parent of the SVG */
+      if(!visualBox){
+        var svg = lbl.querySelector('svg');
+        if(svg){
+          var el = svg.parentElement;
+          while(el && el !== lbl){
+            if(el.tagName === 'DIV'){ visualBox = el; break; }
+            el = el.parentElement;
+          }
         }
       }
-      /* Fallback: smallest div by area (avoids text container) */
+
+      /* Strategy 3: Find any div with dark background color */
       if(!visualBox){
-        var best = null, bestArea = Infinity;
         Array.from(lbl.querySelectorAll('div')).forEach(function(d){
+          if(visualBox) return;
           var r = d.getBoundingClientRect();
-          var a = r.width * r.height;
-          if(a > 50 && a < 800 && a < bestArea){ bestArea=a; best=d; }
+          if(r.width < 30 && r.height < 30 && r.width > 10){
+            var comp = window.getComputedStyle(d);
+            var cbg = comp.backgroundColor || '';
+            var m = cbg.match(/rgb\((\d+),\s*(\d+),\s*(\d+)\)/);
+            if(m && (parseInt(m[1])+parseInt(m[2])+parseInt(m[3])) < 200){
+              visualBox = d;
+            }
+          }
         });
-        visualBox = best;
       }
 
-      /* Clear all div backgrounds so nothing else turns purple */
+      /* Nuclear: force ALL divs inside the label to transparent first */
       lbl.style.setProperty('background','transparent','important');
       lbl.style.setProperty('background-color','transparent','important');
       Array.from(lbl.querySelectorAll('div')).forEach(function(d){
-        if(d !== visualBox){
-          d.style.setProperty('background','transparent','important');
-          d.style.setProperty('background-color','transparent','important');
+        var comp = window.getComputedStyle(d);
+        var cbg = comp.backgroundColor || '';
+        var m = cbg.match(/rgb\((\d+),\s*(\d+),\s*(\d+)\)/);
+        /* Clear dark backgrounds on ANY div inside the checkbox */
+        if(m && (parseInt(m[1])+parseInt(m[2])+parseInt(m[3])) < 200){
+          if(d !== visualBox){
+            d.style.setProperty('background','transparent','important');
+            d.style.setProperty('background-color','transparent','important');
+          }
         }
       });
 
@@ -367,6 +394,7 @@ def render_signup():
       visualBox.style.setProperty('width',  '18px','important');
       visualBox.style.setProperty('height', '18px','important');
       visualBox.style.setProperty('flex-shrink','0','important');
+      var svg = lbl.querySelector('svg');
       if(svg){
         svg.style.setProperty('fill','#ffffff','important');
         svg.style.setProperty('display', chk ? 'block':'none','important');
