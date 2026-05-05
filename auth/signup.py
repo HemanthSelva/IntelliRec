@@ -110,9 +110,30 @@ div.stButton>button[kind="secondary"]:hover p{color:#6C63FF!important}
 @keyframes floatBeat{0%,100%{transform:translateY(0) scale(1)}50%{transform:translateY(-3px) scale(1.04)}}
 .ir-logo-anim{animation:gradShift 4s ease infinite,floatBeat 4s ease-in-out infinite!important;background-size:200% 200%!important}
 
-/* ── Checkbox — all styling handled by JS below ── */
+/* ── Checkbox — forced light-theme styling (overrides config.toml base=dark) ── */
 label[data-baseweb="checkbox"]{outline:none!important}
 label[data-baseweb="checkbox"]:has(input:checked) svg{fill:#fff!important;display:block!important}
+/* Force checkbox label text to dark color — visible on light signup background */
+label[data-baseweb="checkbox"] span,
+label[data-baseweb="checkbox"] p,
+.stCheckbox label span,
+.stCheckbox label p,
+.stCheckbox label,
+[data-testid="stCheckbox"] label span,
+[data-testid="stCheckbox"] label p,
+[data-testid="stCheckbox"] label{color:#374151!important;-webkit-text-fill-color:#374151!important}
+/* Force checkbox box to white background with purple border (unchecked state) */
+label[data-baseweb="checkbox"] > div:first-child,
+[data-baseweb="checkbox"] > div:first-child{
+  background-color:#ffffff!important;background:#ffffff!important;
+  border:2px solid #6C63FF!important;border-radius:4px!important;
+  width:18px!important;height:18px!important;min-width:18px!important;min-height:18px!important;
+  flex-shrink:0!important}
+/* Checked state — purple background */
+label[data-baseweb="checkbox"]:has(input:checked) > div:first-child,
+[data-baseweb="checkbox"]:has(input:checked) > div:first-child{
+  background-color:#6C63FF!important;background:#6C63FF!important;
+  border-color:#6C63FF!important}
 
 /* ── Google button ── */
 .g-btn{display:flex;align-items:center;justify-content:center;gap:10px;
@@ -305,8 +326,7 @@ def render_signup():
       var chk = inp ? inp.checked : false;
       var bg  = chk ? '#6C63FF' : '#ffffff';
 
-      /* Find the visual box: the div that is the direct parent of the SVG.
-         This is reliable regardless of nesting depth. */
+      /* Find the visual box: the div that is the direct parent of the SVG */
       var visualBox = null;
       var svg = lbl.querySelector('svg');
       if(svg){
@@ -342,18 +362,26 @@ def render_signup():
       visualBox.style.setProperty('background-color',bg, 'important');
       visualBox.style.setProperty('border',    '2px solid #6C63FF','important');
       visualBox.style.setProperty('border-radius',   '4px','important');
-      visualBox.style.setProperty('min-width',  '16px','important');
-      visualBox.style.setProperty('min-height', '16px','important');
+      visualBox.style.setProperty('min-width',  '18px','important');
+      visualBox.style.setProperty('min-height', '18px','important');
+      visualBox.style.setProperty('width',  '18px','important');
+      visualBox.style.setProperty('height', '18px','important');
       visualBox.style.setProperty('flex-shrink','0','important');
       if(svg){
         svg.style.setProperty('fill','#ffffff','important');
         svg.style.setProperty('display', chk ? 'block':'none','important');
       }
+
+      /* Force label text to dark color — visible on light signup background */
+      lbl.querySelectorAll('span,p').forEach(function(txt){
+        txt.style.setProperty('color','#374151','important');
+        txt.style.setProperty('-webkit-text-fill-color','#374151','important');
+      });
     });
   }
 
   fixCB();
-  [100,300,700,1500].forEach(function(ms){ setTimeout(fixCB,ms); });
+  [50,100,200,400,700,1200,2000].forEach(function(ms){ setTimeout(fixCB,ms); });
 
   /* Watch only structural changes + aria-checked — avoids infinite loop
      caused by watching 'style' (our own setProperty would re-trigger it) */

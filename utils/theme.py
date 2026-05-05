@@ -1289,17 +1289,17 @@ div[class*="st-key-dn_"] button:hover {{
     border-color:     {_ACCENT} !important;
     color:            {_ACCENT} !important;
 }}
-/* Generic fallback: ALL st.button secondary buttons via stButton testid  */
-div[data-testid="stButton"] button {{
+/* Generic fallback: secondary buttons in MAIN area only (not sidebar) */
+[data-testid="stMain"] div[data-testid="stButton"] button {{
     background-color: {_BTN_BG} !important;
     color:            {_BTN_TEXT} !important;
     border:           1.5px solid {_BTN_BORDER} !important;
 }}
-div[data-testid="stButton"] button p,
-div[data-testid="stButton"] button span {{
+[data-testid="stMain"] div[data-testid="stButton"] button p,
+[data-testid="stMain"] div[data-testid="stButton"] button span {{
     color: {_BTN_TEXT} !important;
 }}
-div[data-testid="stButton"] button:hover {{
+[data-testid="stMain"] div[data-testid="stButton"] button:hover {{
     background-color: {_ACCENT_SOFT} !important;
     border-color:     {_ACCENT} !important;
     color:            {_ACCENT} !important;
@@ -1539,13 +1539,17 @@ div[data-testid="stButton"] button:hover {{
             if (!isStillLight()) return;
             // Streamlit 1.56: buttons are inside div[data-testid="stButton"]
             // Also target by key class: st-key-up_ and st-key-dn_
+            // CRITICAL: Exclude sidebar buttons to avoid overwriting their styles
+            var sidebar = doc.querySelector('section[data-testid="stSidebar"]');
             var selectors = [
-                'div[data-testid="stButton"] button',
+                '[data-testid="stMain"] div[data-testid="stButton"] button',
                 'div[class*="st-key-up_"] button',
                 'div[class*="st-key-dn_"] button'
             ];
             selectors.forEach(function(sel) {{
                 doc.querySelectorAll(sel).forEach(function(el) {{
+                    // Skip if this button is inside the sidebar
+                    if (sidebar && sidebar.contains(el)) return;
                     var bg = window.getComputedStyle(el).backgroundColor || '';
                     var m = bg.match(/rgb\((\d+),\s*(\d+),\s*(\d+)\)/);
                     if (m && (parseInt(m[1])+parseInt(m[2])+parseInt(m[3])) < 200) {{
@@ -1702,8 +1706,55 @@ div[data-testid="stButton"] button:hover {{
         doc._irObservers.push(obs2);
 
     }} else {{
-        // DARK MODE — config.toml base=dark is correct, no overrides needed.
-        // Observers from previous light-mode session were disconnected above.
+        // DARK MODE — purge any stale inline styles set by a previous light-mode session.
+        // When the user switches light→dark, the light-mode JS may have stamped
+        // style.setProperty(..., 'important') directly on DOM elements. Those inline
+        // overrides survive CSS theme changes and must be removed explicitly.
+        function removeLightOverrides() {{
+            var sels = [
+                'div[data-testid="stButton"] button',
+                'div[data-testid="stButton"] button p',
+                'div[data-testid="stButton"] button span',
+                'div[class*="st-key-up_"] button',
+                'div[class*="st-key-up_"] button p',
+                'div[class*="st-key-up_"] button span',
+                'div[class*="st-key-dn_"] button',
+                'div[class*="st-key-dn_"] button p',
+                'div[class*="st-key-dn_"] button span',
+                '.st-key-btn_sidebar_toggle button',
+                '.st-key-btn_sidebar_toggle button p',
+                '.st-key-btn_sidebar_toggle button span',
+                '[data-testid="chatAvatarIcon-user"]',
+                '[data-testid="chatAvatarIcon-assistant"]',
+                '[data-testid="stChatMessageAvatar"]',
+                '[data-testid="stChatMessageAvatar"] > div',
+                '[data-testid="stChatMessageAvatar"] > div > div',
+                '[data-testid="stChatMessageAvatar"] svg',
+                '[data-testid="stChatMessageAvatar"] svg path',
+                '[data-testid="stFileUploader"] *',
+                '[data-baseweb="radio"] [role="radio"]',
+                '[data-baseweb="radio"] span',
+                '[data-baseweb="tag"]',
+                '[data-baseweb="tag"] span'
+            ];
+            var props = ['background-color','background','color','border',
+                         'border-color','fill','box-shadow','-webkit-text-fill-color'];
+            sels.forEach(function(sel) {{
+                doc.querySelectorAll(sel).forEach(function(el) {{
+                    props.forEach(function(p) {{ el.style.removeProperty(p); }});
+                }});
+            }});
+        }}
+        removeLightOverrides();
+        [100, 300, 600, 1000, 2000].forEach(function(ms) {{ setTimeout(removeLightOverrides, ms); }});
+
+        // Re-observe to clean up any new elements added by Streamlit after mode switch
+        var obsClean = new MutationObserver(function(muts) {{
+            var hasNew = muts.some(function(m) {{ return m.addedNodes.length > 0; }});
+            if(hasNew) {{ setTimeout(removeLightOverrides, 80); }}
+        }});
+        obsClean.observe(doc.body, {{childList:true, subtree:true}});
+        doc._irObservers.push(obsClean);
     }}
 
 }})();
