@@ -356,9 +356,38 @@ def _render_product_strip(products: list, palette: dict, strip_key: str = "strip
                     st.toast(f"Error: {_e}", icon="\u274c")
 
 
-# ── Render existing chat history ──────────────────────────────────────────────
+# ── Premium SVG avatars for chat (no emojis) ─────────────────────────────────
+_USER_AVATAR_SVG = (
+    'data:image/svg+xml;utf8,'
+    '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 40 40">'
+    '<defs><linearGradient id="ug" x1="0%25" y1="0%25" x2="100%25" y2="100%25">'
+    '<stop offset="0%25" stop-color="%236366f1"/>'
+    '<stop offset="100%25" stop-color="%2306B6D4"/>'
+    '</linearGradient></defs>'
+    '<rect width="40" height="40" rx="12" fill="url(%23ug)"/>'
+    '<circle cx="20" cy="15" r="6" fill="white" opacity="0.9"/>'
+    '<path d="M10 33 a10 8 0 0 1 20 0" fill="white" opacity="0.9"/>'
+    '</svg>'
+)
+_BOT_AVATAR_SVG = (
+    'data:image/svg+xml;utf8,'
+    '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 40 40">'
+    '<defs><linearGradient id="bg" x1="0%25" y1="0%25" x2="100%25" y2="100%25">'
+    '<stop offset="0%25" stop-color="%238b5cf6"/>'
+    '<stop offset="100%25" stop-color="%236366f1"/>'
+    '</linearGradient></defs>'
+    '<rect width="40" height="40" rx="12" fill="url(%23bg)"/>'
+    '<rect x="11" y="12" width="18" height="14" rx="4" fill="white" opacity="0.9"/>'
+    '<circle cx="16" cy="18" r="2" fill="%236366f1"/>'
+    '<circle cx="24" cy="18" r="2" fill="%236366f1"/>'
+    '<rect x="15" y="22" width="10" height="2" rx="1" fill="%236366f1" opacity="0.5"/>'
+    '<line x1="20" y1="8" x2="20" y2="12" stroke="white" stroke-width="2" stroke-linecap="round"/>'
+    '<circle cx="20" cy="7" r="2" fill="white" opacity="0.8"/>'
+    '</svg>'
+)
+
 for msg in st.session_state["chat_history"]:
-    with st.chat_message(msg["role"], avatar="\U0001f9d1" if msg["role"] == "user" else "\U0001f916"):
+    with st.chat_message(msg["role"], avatar=_USER_AVATAR_SVG if msg["role"] == "user" else _BOT_AVATAR_SVG):
         st.markdown(msg["content"])
         if msg.get("products"):
             _render_product_strip(msg["products"], p, msg.get("strip_key", "hist"))
@@ -386,10 +415,10 @@ if user_input:
         "content": user_input,
     })
 
-    with st.chat_message("user", avatar="🧑"):
+    with st.chat_message("user", avatar=_USER_AVATAR_SVG):
         st.markdown(user_input)
 
-    with st.chat_message("assistant", avatar="🤖"):
+    with st.chat_message("assistant", avatar=_BOT_AVATAR_SVG):
         if chatbot is None:
             st.error("Chatbot engine failed to load. Please restart the app.")
         else:

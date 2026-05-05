@@ -458,16 +458,26 @@ with tab1:
             values="Views", names="Category", hole=0.55,
             color_discrete_sequence=["#6366f1","#06B6D4","#F59E0B","#EC4899","#10B981","#8B5CF6"]
         )
+        # Explicitly set legend font color — config.toml base=dark makes it
+        # invisible otherwise because Plotly inherits the dark text color
+        _legend_text_color = p['text_primary']
         fig.update_layout(
-            margin=dict(t=10,b=10,l=0,r=0),
+            margin=dict(t=10,b=40,l=0,r=0),
             paper_bgcolor="rgba(0,0,0,0)",
             plot_bgcolor="rgba(0,0,0,0)",
-            font=dict(family="Inter", color=p['text_primary']),
+            font=dict(family="Inter", color=_legend_text_color),
             showlegend=True,
-            legend=dict(orientation="h", yanchor="bottom", y=-0.25, xanchor="center", x=0.5)
+            legend=dict(
+                orientation="h", yanchor="bottom", y=-0.25,
+                xanchor="center", x=0.5,
+                font=dict(color=_legend_text_color, size=12)
+            )
         )
-        fig.update_traces(textinfo="percent", textfont_size=12)
-        st.plotly_chart(fig, use_container_width=True)
+        fig.update_traces(
+            textinfo="percent", textfont_size=12,
+            textfont_color=_legend_text_color
+        )
+        st.plotly_chart(fig, use_container_width=True, theme=None)
 
     with activity_col:
         st.markdown(f"""
