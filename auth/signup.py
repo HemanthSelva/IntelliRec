@@ -110,14 +110,9 @@ div.stButton>button[kind="secondary"]:hover p{color:#6C63FF!important}
 @keyframes floatBeat{0%,100%{transform:translateY(0) scale(1)}50%{transform:translateY(-3px) scale(1.04)}}
 .ir-logo-anim{animation:gradShift 4s ease infinite,floatBeat 4s ease-in-out infinite!important;background-size:200% 200%!important}
 
-/* ── Checkbox — JS-only fix (see components.v1.html below) ── */
-/* Prevent any div inside label from getting spurious backgrounds */
-label[data-baseweb="checkbox"],
-label[data-baseweb="checkbox"] > div,
-label[data-baseweb="checkbox"] > div > div:not(:first-child){
-  background:transparent!important;background-color:transparent!important;
-  border:none!important}
-label[data-baseweb="checkbox"]:has(input:checked) svg{fill:#fff!important}
+/* ── Checkbox — all styling handled by JS below ── */
+label[data-baseweb="checkbox"]{outline:none!important}
+label[data-baseweb="checkbox"]:has(input:checked) svg{fill:#fff!important;display:block!important}
 
 /* ── Google button ── */
 .g-btn{display:flex;align-items:center;justify-content:center;gap:10px;
@@ -297,64 +292,80 @@ def render_signup():
     st.markdown(_FONT_LINK, unsafe_allow_html=True)
     st.markdown(_CSS, unsafe_allow_html=True)
 
-    # JS: surgically fix BaseWeb checkbox using getBoundingClientRect to find
-    # the actual small visual box (avoids coloring the wrong outer wrapper div)
     import streamlit.components.v1 as _cv1
     _cv1.html("""
 <script>
 (function(){
   var doc = window.parent.document;
+  var _t = null;
+
   function fixCB(){
     doc.querySelectorAll('label[data-baseweb="checkbox"]').forEach(function(lbl){
       var inp = lbl.querySelector('input[type="checkbox"]');
       var chk = inp ? inp.checked : false;
-      var bg = chk ? '#6C63FF' : '#ffffff';
+      var bg  = chk ? '#6C63FF' : '#ffffff';
 
-      // Step 1: clear spurious backgrounds on label and all wrapper divs
+      /* Find the visual box: the div that is the direct parent of the SVG.
+         This is reliable regardless of nesting depth. */
+      var visualBox = null;
+      var svg = lbl.querySelector('svg');
+      if(svg){
+        var el = svg.parentElement;
+        while(el && el !== lbl){
+          if(el.tagName === 'DIV'){ visualBox = el; break; }
+          el = el.parentElement;
+        }
+      }
+      /* Fallback: smallest div by area (avoids text container) */
+      if(!visualBox){
+        var best = null, bestArea = Infinity;
+        Array.from(lbl.querySelectorAll('div')).forEach(function(d){
+          var r = d.getBoundingClientRect();
+          var a = r.width * r.height;
+          if(a > 50 && a < 800 && a < bestArea){ bestArea=a; best=d; }
+        });
+        visualBox = best;
+      }
+
+      /* Clear all div backgrounds so nothing else turns purple */
       lbl.style.setProperty('background','transparent','important');
       lbl.style.setProperty('background-color','transparent','important');
       Array.from(lbl.querySelectorAll('div')).forEach(function(d){
-        d.style.setProperty('background','transparent','important');
-        d.style.setProperty('background-color','transparent','important');
-        d.style.setProperty('border','none','important');
-      });
-
-      // Step 2: find the visual checkbox square using rendered size
-      // It's the smallest visible div (typically 16-20px)
-      var visualBox = null;
-      var allDivs = Array.from(lbl.querySelectorAll('div'));
-      for(var i=0;i<allDivs.length;i++){
-        var r = allDivs[i].getBoundingClientRect();
-        if(r.width >= 8 && r.width <= 28 && r.height >= 8 && r.height <= 28){
-          visualBox = allDivs[i]; break;
+        if(d !== visualBox){
+          d.style.setProperty('background','transparent','important');
+          d.style.setProperty('background-color','transparent','important');
         }
-      }
-      // Fallback: first div's first div child
-      if(!visualBox){
-        var outer = lbl.querySelector('div');
-        if(outer) visualBox = outer.querySelector('div') || outer;
-      }
-      if(!visualBox) return;
-
-      // Step 3: style only the visual box
-      visualBox.style.setProperty('background', bg, 'important');
-      visualBox.style.setProperty('background-color', bg, 'important');
-      visualBox.style.setProperty('border', '2px solid #6C63FF', 'important');
-      visualBox.style.setProperty('border-radius', '4px', 'important');
-      visualBox.style.setProperty('min-width', '16px', 'important');
-      visualBox.style.setProperty('min-height', '16px', 'important');
-      visualBox.style.setProperty('flex-shrink', '0', 'important');
-      visualBox.querySelectorAll('svg').forEach(function(s){
-        s.style.setProperty('fill','#ffffff','important');
-        s.style.setProperty('color','#ffffff','important');
-        s.style.setProperty('display', chk ? 'block' : 'none', 'important');
       });
+
+      if(!visualBox) return;
+      visualBox.style.setProperty('background',      bg, 'important');
+      visualBox.style.setProperty('background-color',bg, 'important');
+      visualBox.style.setProperty('border',    '2px solid #6C63FF','important');
+      visualBox.style.setProperty('border-radius',   '4px','important');
+      visualBox.style.setProperty('min-width',  '16px','important');
+      visualBox.style.setProperty('min-height', '16px','important');
+      visualBox.style.setProperty('flex-shrink','0','important');
+      if(svg){
+        svg.style.setProperty('fill','#ffffff','important');
+        svg.style.setProperty('display', chk ? 'block':'none','important');
+      }
     });
   }
+
   fixCB();
-  [80,200,500,1000,2200].forEach(function(ms){ setTimeout(fixCB,ms); });
-  var obs = new MutationObserver(function(){ clearTimeout(obs._t); obs._t=setTimeout(fixCB,50); });
-  obs.observe(doc.body,{childList:true,subtree:true,attributes:true,attributeFilter:['aria-checked','class','style']});
+  [100,300,700,1500].forEach(function(ms){ setTimeout(fixCB,ms); });
+
+  /* Watch only structural changes + aria-checked — avoids infinite loop
+     caused by watching 'style' (our own setProperty would re-trigger it) */
+  var obs = new MutationObserver(function(muts){
+    var relevant = muts.some(function(m){
+      return m.type==='childList' || m.attributeName==='aria-checked';
+    });
+    if(!relevant) return;
+    clearTimeout(_t); _t = setTimeout(fixCB, 60);
+  });
+  obs.observe(doc.body,{childList:true,subtree:true,
+    attributes:true,attributeFilter:['aria-checked']});
 })();
 </script>
 """, height=0)
