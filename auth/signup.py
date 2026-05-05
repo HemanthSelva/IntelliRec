@@ -110,17 +110,13 @@ div.stButton>button[kind="secondary"]:hover p{color:#6C63FF!important}
 @keyframes floatBeat{0%,100%{transform:translateY(0) scale(1)}50%{transform:translateY(-3px) scale(1.04)}}
 .ir-logo-anim{animation:gradShift 4s ease infinite,floatBeat 4s ease-in-out infinite!important;background-size:200% 200%!important}
 
-/* ── Checkbox ── */
-[data-testid="stCheckbox"] p,label[data-baseweb="checkbox"] span{color:#6B7280!important}
-/* label IS the baseweb="checkbox" element — correct selector */
-label[data-baseweb="checkbox"] > div:first-child,
-label[data-baseweb="checkbox"] > div:first-child > div{
-  border:2px solid #6C63FF!important;border-radius:4px!important;
-  background:#fff!important;transition:all .15s!important;
-  min-width:16px!important;min-height:16px!important}
-label[data-baseweb="checkbox"]:has(input:checked) > div:first-child,
-label[data-baseweb="checkbox"]:has(input:checked) > div:first-child > div{
-  background:#6C63FF!important;border-color:#6C63FF!important}
+/* ── Checkbox — JS-only fix (see components.v1.html below) ── */
+/* Prevent any div inside label from getting spurious backgrounds */
+label[data-baseweb="checkbox"],
+label[data-baseweb="checkbox"] > div,
+label[data-baseweb="checkbox"] > div > div:not(:first-child){
+  background:transparent!important;background-color:transparent!important;
+  border:none!important}
 label[data-baseweb="checkbox"]:has(input:checked) svg{fill:#fff!important}
 
 /* ── Google button ── */
@@ -301,7 +297,8 @@ def render_signup():
     st.markdown(_FONT_LINK, unsafe_allow_html=True)
     st.markdown(_CSS, unsafe_allow_html=True)
 
-    # JS: fix BaseWeb checkbox appearance (CSS alone can't override Styletron)
+    # JS: surgically fix BaseWeb checkbox using getBoundingClientRect to find
+    # the actual small visual box (avoids coloring the wrong outer wrapper div)
     import streamlit.components.v1 as _cv1
     _cv1.html("""
 <script>
@@ -311,28 +308,52 @@ def render_signup():
     doc.querySelectorAll('label[data-baseweb="checkbox"]').forEach(function(lbl){
       var inp = lbl.querySelector('input[type="checkbox"]');
       var chk = inp ? inp.checked : false;
-      var box = lbl.querySelector('div');
-      if(!box) return;
       var bg = chk ? '#6C63FF' : '#ffffff';
-      [box].concat(Array.from(box.querySelectorAll('div'))).forEach(function(el){
-        el.style.setProperty('background','transparent','important');
-        el.style.setProperty('background-color','transparent','important');
+
+      // Step 1: clear spurious backgrounds on label and all wrapper divs
+      lbl.style.setProperty('background','transparent','important');
+      lbl.style.setProperty('background-color','transparent','important');
+      Array.from(lbl.querySelectorAll('div')).forEach(function(d){
+        d.style.setProperty('background','transparent','important');
+        d.style.setProperty('background-color','transparent','important');
+        d.style.setProperty('border','none','important');
       });
-      box.style.setProperty('background', bg, 'important');
-      box.style.setProperty('background-color', bg, 'important');
-      box.style.setProperty('border', '2px solid #6C63FF', 'important');
-      box.style.setProperty('border-radius', '4px', 'important');
-      box.style.setProperty('min-width', '16px', 'important');
-      box.style.setProperty('min-height', '16px', 'important');
-      box.querySelectorAll('svg').forEach(function(s){
+
+      // Step 2: find the visual checkbox square using rendered size
+      // It's the smallest visible div (typically 16-20px)
+      var visualBox = null;
+      var allDivs = Array.from(lbl.querySelectorAll('div'));
+      for(var i=0;i<allDivs.length;i++){
+        var r = allDivs[i].getBoundingClientRect();
+        if(r.width >= 8 && r.width <= 28 && r.height >= 8 && r.height <= 28){
+          visualBox = allDivs[i]; break;
+        }
+      }
+      // Fallback: first div's first div child
+      if(!visualBox){
+        var outer = lbl.querySelector('div');
+        if(outer) visualBox = outer.querySelector('div') || outer;
+      }
+      if(!visualBox) return;
+
+      // Step 3: style only the visual box
+      visualBox.style.setProperty('background', bg, 'important');
+      visualBox.style.setProperty('background-color', bg, 'important');
+      visualBox.style.setProperty('border', '2px solid #6C63FF', 'important');
+      visualBox.style.setProperty('border-radius', '4px', 'important');
+      visualBox.style.setProperty('min-width', '16px', 'important');
+      visualBox.style.setProperty('min-height', '16px', 'important');
+      visualBox.style.setProperty('flex-shrink', '0', 'important');
+      visualBox.querySelectorAll('svg').forEach(function(s){
         s.style.setProperty('fill','#ffffff','important');
-        s.style.setProperty('opacity', chk ? '1' : '0', 'important');
+        s.style.setProperty('color','#ffffff','important');
+        s.style.setProperty('display', chk ? 'block' : 'none', 'important');
       });
     });
   }
   fixCB();
-  [50,150,400,900,2000].forEach(function(ms){ setTimeout(fixCB,ms); });
-  var obs = new MutationObserver(function(){ clearTimeout(obs._t); obs._t=setTimeout(fixCB,40); });
+  [80,200,500,1000,2200].forEach(function(ms){ setTimeout(fixCB,ms); });
+  var obs = new MutationObserver(function(){ clearTimeout(obs._t); obs._t=setTimeout(fixCB,50); });
   obs.observe(doc.body,{childList:true,subtree:true,attributes:true,attributeFilter:['aria-checked','class','style']});
 })();
 </script>
