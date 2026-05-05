@@ -1163,20 +1163,20 @@ div[data-testid="column"] .ir-pill-wrapper div.stButton > button {
    ═══════════════════════════════════════════════════════════════════════════ */
 
 /* ── Arrow (▲▼) buttons: ensure they have light bg in light mode ─────────── */
-/* These narrow-column buttons sometimes inherit dark baseweb base styles */
-body:not(.ir-dark) div.stButton > button[kind="secondary"],
-body:not(.ir-dark) div.stButton > button[data-testid="baseButton-secondary"] {
+/* Scoped to main area only to prevent sidebar button contamination */
+body:not(.ir-dark) [data-testid="stMain"] div.stButton > button[kind="secondary"],
+body:not(.ir-dark) [data-testid="stMain"] div.stButton > button[data-testid="baseButton-secondary"] {
   background-color: #f3f4f6 !important;
   color: #1a1a2e !important;
   border: 1px solid rgba(108,99,255,0.15) !important;
 }
-body:not(.ir-dark) div.stButton > button[kind="secondary"] p,
-body:not(.ir-dark) div.stButton > button[data-testid="baseButton-secondary"] p,
-body:not(.ir-dark) div.stButton > button[kind="secondary"] span,
-body:not(.ir-dark) div.stButton > button[data-testid="baseButton-secondary"] span {
+body:not(.ir-dark) [data-testid="stMain"] div.stButton > button[kind="secondary"] p,
+body:not(.ir-dark) [data-testid="stMain"] div.stButton > button[data-testid="baseButton-secondary"] p,
+body:not(.ir-dark) [data-testid="stMain"] div.stButton > button[kind="secondary"] span,
+body:not(.ir-dark) [data-testid="stMain"] div.stButton > button[data-testid="baseButton-secondary"] span {
   color: #1a1a2e !important;
 }
-body:not(.ir-dark) div.stButton > button[kind="secondary"]:hover {
+body:not(.ir-dark) [data-testid="stMain"] div.stButton > button[kind="secondary"]:hover {
   background-color: #ede9fe !important;
   color: #6C63FF !important;
   border-color: #6C63FF !important;
