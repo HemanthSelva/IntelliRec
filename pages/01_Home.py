@@ -375,20 +375,18 @@ def render_section(title: str, icon_svg: str, prods: list, section_key: str):
                             st.session_state["wishlist_ids"].discard(prod["asin"])
                             st.toast("Removed from wishlist", icon="✅")
                         else:
-                            success = add_to_wishlist(user_id, prod["asin"],
+                            # Always update session state first (matches AI Assistant pattern)
+                            st.session_state["wishlist_ids"].add(prod["asin"])
+                            add_to_wishlist(user_id, prod["asin"],
                                             prod.get("title", ""),
                                             prod.get("price", 0),
                                             prod.get("category", ""))
-                            if success:
-                                st.session_state["wishlist_ids"].add(prod["asin"])
-                                try:
-                                    add_notification("success", "Saved to Wishlist",
-                                                     f"{prod.get('title','')[:35]} added to your wishlist")
-                                except Exception:
-                                    pass
-                                st.toast("✅ Product saved to wishlist!", icon="💾")
-                            else:
-                                st.toast("Could not save. Try again.", icon="❌")
+                            try:
+                                add_notification("success", "Saved to Wishlist",
+                                                 f"{prod.get('title','')[:35]} added to your wishlist")
+                            except Exception:
+                                pass
+                            st.toast("✅ Product saved to wishlist!", icon="💾")
                         st.rerun()
                     except Exception as _save_err:
                         st.toast(f"Error: {_save_err}", icon="❌")

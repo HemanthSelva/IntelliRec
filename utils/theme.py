@@ -783,13 +783,22 @@ textarea::placeholder {{
 }}
 [data-testid="stFileUploader"] *{{color:{p['text_primary']} !important;}}
 [data-testid="stFileUploaderDropzone"]{{background:{p['glass_bg_strong']} !important;border-color:{p['glass_border_soft']} !important;}}
-/* Uploaded file name + size text always matches theme */
-[data-testid="stFileUploaderFile"],
+/* Uploaded file pill — light background, readable text */
+[data-testid="stFileUploaderFile"] {{
+    background:{p['card_bg']} !important;
+    background-color:{p['card_bg']} !important;
+    border:1px solid {p['border']} !important;
+    border-radius:8px !important;
+}}
 [data-testid="stFileUploaderFile"] *,
+[data-testid="stFileUploaderFile"] > div,
+[data-testid="stFileUploaderFile"] > div > div,
+[data-testid="stFileUploaderFile"] section,
 [data-testid="stFileUploaderFile"] small,
 [data-testid="stFileUploaderFile"] span {{
     color:{p['text_primary']} !important;
     background:transparent !important;
+    background-color:transparent !important;
 }}
 [data-testid="stFileUploaderDeleteBtn"] button {{
     color:{p['text_secondary']} !important;
@@ -1301,14 +1310,19 @@ div[data-testid="stButton"] button:hover {{
 [data-testid="chatAvatarIcon-assistant"],
 [data-testid="chatAvatarIcon-user"] > div,
 [data-testid="chatAvatarIcon-assistant"] > div,
-[data-testid="stChatMessageAvatar"] {{
+[data-testid="stChatMessageAvatar"],
+[data-testid="stChatMessageAvatar"] > div,
+[data-testid="stChatMessageAvatar"] > div > div {{
     background-color: {p['card_bg_hover']} !important;
     background:       {p['card_bg_hover']} !important;
     border-color:     {_BORDER} !important;
 }}
 [data-testid="chatAvatarIcon-user"] svg,
-[data-testid="chatAvatarIcon-assistant"] svg {{
+[data-testid="chatAvatarIcon-assistant"] svg,
+[data-testid="stChatMessageAvatar"] svg,
+[data-testid="stChatMessageAvatar"] svg path {{
     fill: {_ACCENT} !important;
+    color: {_ACCENT} !important;
 }}
 [data-testid="stChatMessage"] {{
     background: transparent !important;
@@ -1330,6 +1344,22 @@ div[data-testid="stButton"] button:hover {{
 }}
 [data-testid="stToast"] p, [data-testid="stToast"] span {{
     color: {_TEXT_PRIMARY} !important;
+}}
+
+/* ── Tooltip popup ("More like this" / "Less like this") ─────────────── */
+[data-baseweb="tooltip"] {{
+    background-color: {_CARD_BG} !important;
+    background:       {_CARD_BG} !important;
+    color:            {_TEXT_PRIMARY} !important;
+    border:           1px solid {_BORDER} !important;
+    border-radius:    8px !important;
+    box-shadow:       0 4px 16px rgba(0,0,0,0.12) !important;
+}}
+[data-baseweb="tooltip"] *,
+[data-testid="stTooltipContent"],
+[data-testid="stTooltipContent"] * {{
+    color: {_TEXT_PRIMARY} !important;
+    background: transparent !important;
 }}
 </style>
 """, unsafe_allow_html=True)
@@ -1497,6 +1527,11 @@ div[data-testid="stButton"] button:hover {{
                 }}
                 fixChild(el);
                 el.querySelectorAll('*').forEach(fixChild);
+                // Also force SVG icon color to accent (not black)
+                el.querySelectorAll('svg, svg path').forEach(function(c) {{
+                    c.style.setProperty('fill', ACCENT, 'important');
+                    c.style.setProperty('color', ACCENT, 'important');
+                }});
             }});
         }}
 

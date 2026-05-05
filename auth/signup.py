@@ -118,13 +118,20 @@ div.stButton>button[kind="secondary"]:hover p{color:#6C63FF!important}
 [data-testid="stCheckbox"] *:has(input:checked) p,
 [data-baseweb="checkbox"]:has(input:checked) p{color:#374151!important}
 input[type="checkbox"]{accent-color:#6C63FF!important;width:16px!important;height:16px!important;cursor:pointer!important}
-/* BaseWeb checkbox visual box */
-[data-baseweb="checkbox"] [role="checkbox"]{
+/* BaseWeb checkbox — multiple selectors for Streamlit 1.32+ */
+[data-baseweb="checkbox"] [role="checkbox"],
+[data-baseweb="checkbox"] [aria-checked],
+[data-baseweb="checkbox"] > label > div:first-child,
+[data-baseweb="checkbox"] > label > div:first-child > div:first-child{
   border:2px solid #6C63FF!important;border-radius:4px!important;
   background:#fff!important;transition:all .15s!important}
-[data-baseweb="checkbox"] [role="checkbox"][aria-checked="true"]{
+[data-baseweb="checkbox"] [role="checkbox"][aria-checked="true"],
+[data-baseweb="checkbox"] [aria-checked="true"],
+[data-baseweb="checkbox"]:has(input:checked) > label > div:first-child,
+[data-baseweb="checkbox"]:has(input:checked) > label > div:first-child > div:first-child{
   background:#6C63FF!important;border-color:#6C63FF!important}
-[data-baseweb="checkbox"] [role="checkbox"][aria-checked="true"] svg{fill:#fff!important}
+[data-baseweb="checkbox"] [aria-checked="true"] svg,
+[data-baseweb="checkbox"]:has(input:checked) svg{fill:#fff!important}
 
 /* ── Google button ── */
 .g-btn{display:flex;align-items:center;justify-content:center;gap:10px;

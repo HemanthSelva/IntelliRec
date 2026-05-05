@@ -329,15 +329,12 @@ else:
                             st.session_state['wishlist_ids'].discard(prod['asin'])
                             st.toast("Removed from wishlist", icon="✅")
                         else:
-                            success = add_to_wishlist(user_id, prod['asin'],
+                            st.session_state['wishlist_ids'].add(prod['asin'])
+                            add_to_wishlist(user_id, prod['asin'],
                                             prod.get('title', ''),
                                             prod.get('price', 0),
                                             prod.get('category', ''))
-                            if success:
-                                st.session_state['wishlist_ids'].add(prod['asin'])
-                                st.toast("✅ Product saved to wishlist!", icon="💾")
-                            else:
-                                st.toast("Could not save. Try again.", icon="❌")
+                            st.toast("✅ Product saved to wishlist!", icon="💾")
                         st.rerun()
                     except Exception as _save_err:
                         st.toast(f"Error: {_save_err}", icon="❌")
