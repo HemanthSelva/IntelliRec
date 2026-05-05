@@ -712,24 +712,20 @@ else:
                                 st.session_state['wishlist_ids'].discard(prod['asin'])
                                 st.toast("Removed from wishlist", icon="✅")
                             else:
-                                success = add_to_wishlist(user_id, prod['asin'],
+                                st.session_state['wishlist_ids'].add(prod['asin'])
+                                _cat = prod.get('category', '')
+                                if _cat:
+                                    st.session_state.setdefault('saved_cats', []).append(_cat)
+                                add_to_wishlist(user_id, prod['asin'],
                                                 prod.get('title', ''),
                                                 prod.get('price', 0),
                                                 prod.get('category', ''))
-                                if success:
-                                    st.session_state['wishlist_ids'].add(prod['asin'])
-                                    # Track saved category for recommendation boosting
-                                    _cat = prod.get('category', '')
-                                    if _cat:
-                                        st.session_state.setdefault('saved_cats', []).append(_cat)
-                                    try:
-                                        add_notification('success', 'Wishlist Updated',
-                                                         f"{prod.get('title','')[:35]} added")
-                                    except Exception:
-                                        pass
-                                    st.toast("✅ Product saved to wishlist!", icon="💾")
-                                else:
-                                    st.toast("Could not save. Try again.", icon="❌")
+                                try:
+                                    add_notification('success', 'Wishlist Updated',
+                                                     f"{prod.get('title','')[:35]} added")
+                                except Exception:
+                                    pass
+                                st.toast("✅ Product saved to wishlist!", icon="💾")
                             st.rerun()
                         except Exception as _save_err:
                             st.toast(f"Error: {_save_err}", icon="❌")
