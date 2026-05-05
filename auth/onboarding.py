@@ -85,12 +85,11 @@ def needs_onboarding() -> bool:
         return False
     try:
         resp = supabase.table('user_preferences').select(
-            'preferred_categories').eq('user_id', user_id).execute()
+            'user_id').eq('user_id', user_id).execute()
         if resp.data:
-            cats = resp.data[0].get('preferred_categories', [])
-            if cats:
-                st.session_state.onboarding_done = True
-                return False
+            # Row exists = user has already seen onboarding (even if they skipped)
+            st.session_state.onboarding_done = True
+            return False
     except Exception:
         pass
     return True
@@ -205,6 +204,16 @@ def show_onboarding():
     with col_b:
         if st.button("Skip for now", key="ob_skip",
                      use_container_width=True, type="secondary"):
+            user_id = st.session_state.get('user_id')
+            if user_id and user_id != "guest":
+                try:
+                    supabase.table('user_preferences').upsert({
+                        'user_id':              user_id,
+                        'preferred_categories': [],
+                        'preferred_engine':     'hybrid'
+                    }).execute()
+                except Exception:
+                    pass
             st.session_state.onboarding_done = True
             st.rerun()
 

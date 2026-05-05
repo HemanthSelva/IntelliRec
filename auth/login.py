@@ -122,6 +122,12 @@ div.stButton>button[kind="secondary"]:hover p{color:#6C63FF!important}
 [data-testid="stCheckbox"] *:has(input:checked) p,
 [data-baseweb="checkbox"]:has(input:checked) p{color:#374151!important}
 input[type="checkbox"]{accent-color:#6C63FF!important;width:16px!important;height:16px!important;cursor:pointer!important}
+[data-baseweb="checkbox"] [role="checkbox"]{
+  border:2px solid #6C63FF!important;border-radius:4px!important;
+  background:#fff!important;transition:all .15s!important}
+[data-baseweb="checkbox"] [role="checkbox"][aria-checked="true"]{
+  background:#6C63FF!important;border-color:#6C63FF!important}
+[data-baseweb="checkbox"] [role="checkbox"][aria-checked="true"] svg{fill:#fff!important}
 
 /* ── Forgot password link ── */
 .fp-link-btn{
@@ -348,7 +354,7 @@ def render_login():
     # ── LEFT: Form ─────────────────────────────────────────────────────────────
     with left:
         st.markdown("<div class='login-left'>", unsafe_allow_html=True)
-        st.markdown("<div style='height:9vh;min-height:48px'></div>", unsafe_allow_html=True)
+        st.markdown("<div style='height:4vh;min-height:28px'></div>", unsafe_allow_html=True)
 
         # Logo
         st.markdown(_LOGO, unsafe_allow_html=True)
@@ -588,7 +594,7 @@ def render_login():
                         st.rerun()
 
         st.markdown("</div>", unsafe_allow_html=True)
-        st.markdown("<div style='height:9vh;min-height:48px'></div>", unsafe_allow_html=True)
+        st.markdown("<div style='height:4vh;min-height:28px'></div>", unsafe_allow_html=True)
 
     # ── RIGHT: Enterprise branded panel ────────────────────────────────────────
     with right:

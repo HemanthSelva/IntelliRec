@@ -783,6 +783,17 @@ textarea::placeholder {{
 }}
 [data-testid="stFileUploader"] *{{color:{p['text_primary']} !important;}}
 [data-testid="stFileUploaderDropzone"]{{background:{p['glass_bg_strong']} !important;border-color:{p['glass_border_soft']} !important;}}
+/* Uploaded file name + size text always matches theme */
+[data-testid="stFileUploaderFile"],
+[data-testid="stFileUploaderFile"] *,
+[data-testid="stFileUploaderFile"] small,
+[data-testid="stFileUploaderFile"] span {{
+    color:{p['text_primary']} !important;
+    background:transparent !important;
+}}
+[data-testid="stFileUploaderDeleteBtn"] button {{
+    color:{p['text_secondary']} !important;
+}}
 
 /* ============================================================
    GLASS TABS
@@ -1286,13 +1297,13 @@ div[data-testid="stButton"] button:hover {{
 }}
 
 /* ── Chat message avatar background circle ───────────────────────────── */
-/* The emoji avatar circle is dark from config base=dark                  */
 [data-testid="chatAvatarIcon-user"],
 [data-testid="chatAvatarIcon-assistant"],
 [data-testid="chatAvatarIcon-user"] > div,
-[data-testid="chatAvatarIcon-assistant"] > div {{
-    background-color: {_ACCENT_SOFT} !important;
-    background:       {_ACCENT_SOFT} !important;
+[data-testid="chatAvatarIcon-assistant"] > div,
+[data-testid="stChatMessageAvatar"] {{
+    background-color: {p['card_bg_hover']} !important;
+    background:       {p['card_bg_hover']} !important;
     border-color:     {_BORDER} !important;
 }}
 [data-testid="chatAvatarIcon-user"] svg,
@@ -1301,6 +1312,14 @@ div[data-testid="stButton"] button:hover {{
 }}
 [data-testid="stChatMessage"] {{
     background: transparent !important;
+}}
+/* ── Chat message text always readable ──────────────────────────────── */
+[data-testid="stChatMessage"] p,
+[data-testid="stChatMessage"] li,
+[data-testid="stChatMessage"] span:not([data-testid]),
+[data-testid="stChatMessage"] .stMarkdown p,
+[data-testid="stChatMessage"] .stMarkdown li {{
+    color: {_TEXT_PRIMARY} !important;
 }}
 
 /* ── Notification/toast text ─────────────────────────────────────────── */
