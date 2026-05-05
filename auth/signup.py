@@ -313,32 +313,33 @@ def render_signup():
       var inp = lbl.querySelector('input[type="checkbox"]');
       var chk = inp ? inp.checked : false;
       var bg  = chk ? '#6C63FF' : '#ffffff';
-      var svg = lbl.querySelector('svg');
 
-      /* Find the visual checkbox square. It's the smallest square-ish div
-         inside the label (roughly 14-28px). We must NOT match the text
-         container or any wrapper div. */
+      /* Find the visual checkbox box. Strategy:
+         Walk through the label's direct children. The checkbox box is the
+         child div (or child of child) that does NOT contain text (span/p).
+         This is reliable because BaseWeb always puts the checkmark container
+         and the text label as siblings inside the label element. */
       var visualBox = null;
-      var allDivs = Array.from(lbl.querySelectorAll('div'));
-      allDivs.forEach(function(d){
-        if(visualBox) return;
-        var r = d.getBoundingClientRect();
-        /* The checkbox square is small and roughly square */
-        if(r.width >= 12 && r.width <= 28 && r.height >= 12 && r.height <= 28
-           && Math.abs(r.width - r.height) < 6){
-          /* Extra check: it should either contain the SVG or have a dark bg */
-          var hasSvg = d.contains(svg);
-          var comp = window.getComputedStyle(d);
-          var cbg = comp.backgroundColor || '';
-          var m = cbg.match(/rgb\((\d+),\s*(\d+),\s*(\d+)\)/);
-          var isDark = m && (parseInt(m[1])+parseInt(m[2])+parseInt(m[3])) < 200;
-          if(hasSvg || isDark){
-            visualBox = d;
-          }
+      var children = lbl.children;
+      for(var i = 0; i < children.length; i++){
+        var child = children[i];
+        if(child.tagName !== 'DIV') continue;
+        /* If this div has NO span or p children, it's the checkbox container */
+        var hasText = child.querySelector('span,p');
+        if(!hasText){
+          /* It's the checkbox wrapper — find the innermost div */
+          var inner = child.querySelector('div');
+          visualBox = inner || child;
+          break;
         }
-      });
+      }
 
-      /* Clear dark backgrounds on the label and wrapper divs (NOT the visual box) */
+      /* Fallback: look for any div with role=checkbox */
+      if(!visualBox){
+        visualBox = lbl.querySelector('div[role="checkbox"]');
+      }
+
+      /* Clear dark bg on the label itself */
       lbl.style.setProperty('background','transparent','important');
       lbl.style.setProperty('background-color','transparent','important');
 
@@ -355,12 +356,20 @@ def render_signup():
       visualBox.style.setProperty('height', '18px','important');
       visualBox.style.setProperty('flex-shrink','0','important');
       visualBox.style.setProperty('overflow','hidden','important');
+
+      /* Also force the parent wrapper (if we went to inner) to be transparent */
+      if(visualBox.parentElement && visualBox.parentElement !== lbl){
+        visualBox.parentElement.style.setProperty('background','transparent','important');
+        visualBox.parentElement.style.setProperty('background-color','transparent','important');
+      }
+
+      var svg = lbl.querySelector('svg');
       if(svg){
         svg.style.setProperty('fill','#ffffff','important');
         svg.style.setProperty('display', chk ? 'block':'none','important');
       }
 
-      /* Force label text to dark color — visible on light signup background */
+      /* Force label text to dark color */
       lbl.querySelectorAll('span,p').forEach(function(txt){
         txt.style.setProperty('color','#374151','important');
         txt.style.setProperty('-webkit-text-fill-color','#374151','important');
@@ -399,10 +408,8 @@ def render_signup():
         # Heading
         st.markdown(
             '<div style="padding:0 clamp(1.5rem,6vw,5rem);margin-bottom:1.8rem">'
-            '<h1 style="font-size:28px;font-weight:700;color:#111827;margin:0 0 5px;'
-            'letter-spacing:-.5px">Create your account</h1>'
-            '<p style="font-size:15px;color:#6B7280;margin:0">'
-            'Free forever &middot; No credit card required</p></div>',
+            '<h1 style="font-size:28px;font-weight:700;color:#111827;margin:0;'
+            'letter-spacing:-.5px">Create your account</h1></div>',
             unsafe_allow_html=True,
         )
 
