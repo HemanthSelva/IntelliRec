@@ -110,33 +110,81 @@ div.stButton>button[kind="secondary"]:hover p{color:#6C63FF!important}
 @keyframes floatBeat{0%,100%{transform:translateY(0) scale(1)}50%{transform:translateY(-3px) scale(1.04)}}
 .ir-logo-anim{animation:gradShift 4s ease infinite,floatBeat 4s ease-in-out infinite!important;background-size:200% 200%!important}
 
-/* ── Checkbox fix (overrides config.toml base=dark inline styles) ─────────── */
-label[data-baseweb="checkbox"]{outline:none!important}
+/* ── Pure CSS Checkbox Override ─────────── */
+/* Hide all native visual elements inside the label that don't contain the text */
+[data-testid="stCheckbox"] label > *:not(:has(p)):not(p):not(input) {
+  display: none !important;
+}
+/* Ensure the input is invisible but still functional */
+[data-testid="stCheckbox"] input {
+  opacity: 0 !important;
+  position: absolute !important;
+  width: 0 !important;
+  height: 0 !important;
+  margin: 0 !important;
+}
 
-/* Text color — always dark on signup page */
-label[data-baseweb="checkbox"] span,
-label[data-baseweb="checkbox"] p,
-.stCheckbox label span, .stCheckbox label p, .stCheckbox label,
-[data-testid="stCheckbox"] label span, [data-testid="stCheckbox"] label p,
-[data-testid="stCheckbox"] label{color:#374151!important;-webkit-text-fill-color:#374151!important}
+[data-testid="stCheckbox"] label {
+  position: relative !important;
+  display: flex !important;
+  align-items: center !important;
+  padding-left: 28px !important; /* Space for our custom box */
+  min-height: 24px !important;
+  cursor: pointer !important;
+  outline: none !important;
+}
 
-/* Visual checkbox box — BaseWeb uses data-baseweb="checkbox-checkmark" on the
-   checkmark container and sets background via inline style. Override with !important.
-   Also target the input's adjacent sibling (div or span) as fallback. */
-[data-baseweb="checkbox-checkmark"],
-[data-baseweb="checkbox-toggle"],
-label[data-baseweb="checkbox"] input[type="checkbox"] + div,
-label[data-baseweb="checkbox"] input[type="checkbox"] + span{
-  background-color:#ffffff!important;background:#ffffff!important;
-  border:2px solid #6C63FF!important;border-radius:4px!important}
-/* Checked state */
-label[data-baseweb="checkbox"]:has(input:checked) [data-baseweb="checkbox-checkmark"],
-label[data-baseweb="checkbox"]:has(input:checked) [data-baseweb="checkbox-toggle"],
-label[data-baseweb="checkbox"]:has(input:checked) input[type="checkbox"] + div,
-label[data-baseweb="checkbox"]:has(input:checked) input[type="checkbox"] + span{
-  background-color:#6C63FF!important;background:#6C63FF!important;
-  border-color:#6C63FF!important}
-label[data-baseweb="checkbox"]:has(input:checked) svg{fill:#fff!important;display:block!important}
+/* Draw our own pristine white box */
+[data-testid="stCheckbox"] label::before {
+  content: '' !important;
+  position: absolute !important;
+  left: 0 !important;
+  top: 50% !important;
+  transform: translateY(-50%) !important;
+  width: 16px !important;
+  height: 16px !important;
+  background-color: #ffffff !important;
+  border: 2px solid #6C63FF !important;
+  border-radius: 4px !important;
+  box-sizing: border-box !important;
+  z-index: 1 !important;
+  transition: all 0.2s !important;
+}
+
+/* Draw the checkmark */
+[data-testid="stCheckbox"] label::after {
+  content: '' !important;
+  position: absolute !important;
+  left: 5px !important;
+  top: 50% !important;
+  transform: translateY(-60%) rotate(45deg) !important;
+  width: 5px !important;
+  height: 9px !important;
+  border: solid #ffffff !important;
+  border-width: 0 2px 2px 0 !important;
+  display: none !important;
+  z-index: 2 !important;
+}
+
+/* Checked state logic */
+[data-testid="stCheckbox"] label[aria-checked="true"]::before,
+[data-testid="stCheckbox"] label:has(input:checked)::before {
+  background-color: #6C63FF !important;
+}
+
+[data-testid="stCheckbox"] label[aria-checked="true"]::after,
+[data-testid="stCheckbox"] label:has(input:checked)::after {
+  display: block !important;
+}
+
+/* Text color and reset margins */
+[data-testid="stCheckbox"] label p {
+  color: #374151 !important;
+  -webkit-text-fill-color: #374151 !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  line-height: normal !important;
+}
 
 /* ── Google button ── */
 .g-btn{display:flex;align-items:center;justify-content:center;gap:10px;
@@ -316,97 +364,7 @@ def render_signup():
     st.markdown(_FONT_LINK, unsafe_allow_html=True)
     st.markdown(_CSS, unsafe_allow_html=True)
 
-    import streamlit.components.v1 as _cv1
-    _cv1.html("""
-<script>
-(function(){
-  var doc = window.parent.document;
-  var _t = null;
 
-  function fixCB(){
-    doc.querySelectorAll('label[data-baseweb="checkbox"]').forEach(function(lbl){
-      var inp = lbl.querySelector('input[type="checkbox"]');
-      var chk = inp ? inp.checked : false;
-      var bg  = chk ? '#6C63FF' : '#ffffff';
-      var bdr = chk ? '#6C63FF' : '#6C63FF';
-
-      /* === Find the visual checkbox box === */
-      var vb = null;
-
-      /* Method 1: BaseWeb attribute (most reliable) */
-      vb = lbl.querySelector('[data-baseweb="checkbox-checkmark"]')
-        || lbl.querySelector('[data-baseweb="checkbox-toggle"]');
-
-      /* Method 2: Input's next sibling (the visual box is always right after input) */
-      if(!vb && inp && inp.nextElementSibling){
-        var sib = inp.nextElementSibling;
-        /* Only use it if it's NOT the text element */
-        if(sib.tagName !== 'P' && !sib.querySelector('p')){
-          vb = sib;
-        }
-      }
-
-      /* Method 3: Walk direct children — find first non-input, non-text child */
-      if(!vb){
-        for(var i = 0; i < lbl.children.length; i++){
-          var ch = lbl.children[i];
-          if(ch.tagName === 'INPUT') continue;
-          if(ch.tagName === 'P' || ch.tagName === 'SPAN' && ch.textContent.length > 3) continue;
-          if(ch.querySelector && ch.querySelector('p,span')) continue;
-          vb = ch;
-          break;
-        }
-      }
-
-      /* Clear label bg */
-      lbl.style.setProperty('background','transparent','important');
-      lbl.style.setProperty('background-color','transparent','important');
-
-      if(!vb) return;
-
-      /* Style the visual box */
-      vb.style.setProperty('background',      bg, 'important');
-      vb.style.setProperty('background-color',bg, 'important');
-      vb.style.setProperty('border',    '2px solid ' + bdr,'important');
-      vb.style.setProperty('border-radius',   '4px','important');
-
-      /* Also clear parent wrapper bg if needed */
-      if(vb.parentElement && vb.parentElement !== lbl){
-        vb.parentElement.style.setProperty('background','transparent','important');
-        vb.parentElement.style.setProperty('background-color','transparent','important');
-      }
-
-      var svg = lbl.querySelector('svg');
-      if(svg){
-        svg.style.setProperty('fill','#ffffff','important');
-        svg.style.setProperty('display', chk ? 'block':'none','important');
-      }
-
-      /* Force text to dark color */
-      lbl.querySelectorAll('span,p').forEach(function(txt){
-        txt.style.setProperty('color','#374151','important');
-        txt.style.setProperty('-webkit-text-fill-color','#374151','important');
-      });
-    });
-  }
-
-  fixCB();
-  [50,100,200,400,700,1200,2000].forEach(function(ms){ setTimeout(fixCB,ms); });
-
-  /* Watch only structural changes + aria-checked — avoids infinite loop
-     caused by watching 'style' (our own setProperty would re-trigger it) */
-  var obs = new MutationObserver(function(muts){
-    var relevant = muts.some(function(m){
-      return m.type==='childList' || m.attributeName==='aria-checked';
-    });
-    if(!relevant) return;
-    clearTimeout(_t); _t = setTimeout(fixCB, 60);
-  });
-  obs.observe(doc.body,{childList:true,subtree:true,
-    attributes:true,attributeFilter:['aria-checked']});
-})();
-</script>
-""", height=0)
 
     left, right = st.columns([46, 54])
 
