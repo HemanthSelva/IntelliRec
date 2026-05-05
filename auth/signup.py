@@ -110,10 +110,10 @@ div.stButton>button[kind="secondary"]:hover p{color:#6C63FF!important}
 @keyframes floatBeat{0%,100%{transform:translateY(0) scale(1)}50%{transform:translateY(-3px) scale(1.04)}}
 .ir-logo-anim{animation:gradShift 4s ease infinite,floatBeat 4s ease-in-out infinite!important;background-size:200% 200%!important}
 
-/* ── Checkbox — forced light-theme styling (overrides config.toml base=dark) ── */
+/* ── Checkbox — text visibility fix (overrides config.toml base=dark) ────── */
+/* IMPORTANT: Do NOT add width/height/border/background to any div selectors here.
+   The JS fixCB() below handles visual box styling. CSS only handles text color. */
 label[data-baseweb="checkbox"]{outline:none!important}
-label[data-baseweb="checkbox"]:has(input:checked) svg{fill:#fff!important;display:block!important}
-/* Force checkbox label text to dark color — visible on light signup background */
 label[data-baseweb="checkbox"] span,
 label[data-baseweb="checkbox"] p,
 .stCheckbox label span,
@@ -122,29 +122,6 @@ label[data-baseweb="checkbox"] p,
 [data-testid="stCheckbox"] label span,
 [data-testid="stCheckbox"] label p,
 [data-testid="stCheckbox"] label{color:#374151!important;-webkit-text-fill-color:#374151!important}
-/* Force checkbox visual box to white — target every possible wrapper div.
-   BaseWeb nests: label > div > div(role=checkbox) > div(checkmark) > svg
-   We must override ALL of them to beat the inline dark styles. */
-label[data-baseweb="checkbox"] div[role="checkbox"],
-label[data-baseweb="checkbox"] > div,
-label[data-baseweb="checkbox"] > div > div,
-[data-baseweb="checkbox"] div[role="checkbox"],
-[data-baseweb="checkbox"] > div:first-child,
-[data-baseweb="checkbox"] > div > div:first-child{
-  background-color:#ffffff!important;background:#ffffff!important;
-  border:2px solid #6C63FF!important;border-radius:4px!important;
-  width:18px!important;height:18px!important;min-width:18px!important;min-height:18px!important;
-  max-width:18px!important;max-height:18px!important;
-  flex-shrink:0!important;box-sizing:border-box!important}
-/* Checked state — purple background */
-label[data-baseweb="checkbox"]:has(input:checked) div[role="checkbox"],
-label[data-baseweb="checkbox"]:has(input:checked) > div,
-label[data-baseweb="checkbox"]:has(input:checked) > div > div,
-[data-baseweb="checkbox"]:has(input:checked) div[role="checkbox"],
-[data-baseweb="checkbox"]:has(input:checked) > div:first-child,
-[data-baseweb="checkbox"]:has(input:checked) > div > div:first-child{
-  background-color:#6C63FF!important;background:#6C63FF!important;
-  border-color:#6C63FF!important}
 
 /* ── Google button ── */
 .g-btn{display:flex;align-items:center;justify-content:center;gap:10px;
@@ -336,55 +313,38 @@ def render_signup():
       var inp = lbl.querySelector('input[type="checkbox"]');
       var chk = inp ? inp.checked : false;
       var bg  = chk ? '#6C63FF' : '#ffffff';
+      var svg = lbl.querySelector('svg');
 
-      /* Strategy 1: Find by role="checkbox" (BaseWeb convention) */
-      var visualBox = lbl.querySelector('div[role="checkbox"]');
-
-      /* Strategy 2: Find the div that is the direct parent of the SVG */
-      if(!visualBox){
-        var svg = lbl.querySelector('svg');
-        if(svg){
-          var el = svg.parentElement;
-          while(el && el !== lbl){
-            if(el.tagName === 'DIV'){ visualBox = el; break; }
-            el = el.parentElement;
-          }
-        }
-      }
-
-      /* Strategy 3: Find any div with dark background color */
-      if(!visualBox){
-        Array.from(lbl.querySelectorAll('div')).forEach(function(d){
-          if(visualBox) return;
-          var r = d.getBoundingClientRect();
-          if(r.width < 30 && r.height < 30 && r.width > 10){
-            var comp = window.getComputedStyle(d);
-            var cbg = comp.backgroundColor || '';
-            var m = cbg.match(/rgb\((\d+),\s*(\d+),\s*(\d+)\)/);
-            if(m && (parseInt(m[1])+parseInt(m[2])+parseInt(m[3])) < 200){
-              visualBox = d;
-            }
-          }
-        });
-      }
-
-      /* Nuclear: force ALL divs inside the label to transparent first */
-      lbl.style.setProperty('background','transparent','important');
-      lbl.style.setProperty('background-color','transparent','important');
-      Array.from(lbl.querySelectorAll('div')).forEach(function(d){
-        var comp = window.getComputedStyle(d);
-        var cbg = comp.backgroundColor || '';
-        var m = cbg.match(/rgb\((\d+),\s*(\d+),\s*(\d+)\)/);
-        /* Clear dark backgrounds on ANY div inside the checkbox */
-        if(m && (parseInt(m[1])+parseInt(m[2])+parseInt(m[3])) < 200){
-          if(d !== visualBox){
-            d.style.setProperty('background','transparent','important');
-            d.style.setProperty('background-color','transparent','important');
+      /* Find the visual checkbox square. It's the smallest square-ish div
+         inside the label (roughly 14-28px). We must NOT match the text
+         container or any wrapper div. */
+      var visualBox = null;
+      var allDivs = Array.from(lbl.querySelectorAll('div'));
+      allDivs.forEach(function(d){
+        if(visualBox) return;
+        var r = d.getBoundingClientRect();
+        /* The checkbox square is small and roughly square */
+        if(r.width >= 12 && r.width <= 28 && r.height >= 12 && r.height <= 28
+           && Math.abs(r.width - r.height) < 6){
+          /* Extra check: it should either contain the SVG or have a dark bg */
+          var hasSvg = d.contains(svg);
+          var comp = window.getComputedStyle(d);
+          var cbg = comp.backgroundColor || '';
+          var m = cbg.match(/rgb\((\d+),\s*(\d+),\s*(\d+)\)/);
+          var isDark = m && (parseInt(m[1])+parseInt(m[2])+parseInt(m[3])) < 200;
+          if(hasSvg || isDark){
+            visualBox = d;
           }
         }
       });
 
+      /* Clear dark backgrounds on the label and wrapper divs (NOT the visual box) */
+      lbl.style.setProperty('background','transparent','important');
+      lbl.style.setProperty('background-color','transparent','important');
+
       if(!visualBox) return;
+
+      /* Style ONLY the visual box */
       visualBox.style.setProperty('background',      bg, 'important');
       visualBox.style.setProperty('background-color',bg, 'important');
       visualBox.style.setProperty('border',    '2px solid #6C63FF','important');
@@ -394,7 +354,7 @@ def render_signup():
       visualBox.style.setProperty('width',  '18px','important');
       visualBox.style.setProperty('height', '18px','important');
       visualBox.style.setProperty('flex-shrink','0','important');
-      var svg = lbl.querySelector('svg');
+      visualBox.style.setProperty('overflow','hidden','important');
       if(svg){
         svg.style.setProperty('fill','#ffffff','important');
         svg.style.setProperty('display', chk ? 'block':'none','important');
