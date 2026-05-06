@@ -12,7 +12,12 @@ from utils.sidebar import render_sidebar
 from utils.topbar import render_topbar
 from utils.notifications import add_notification
 from utils.evaluator import metrics_to_dataframe, get_best_model_summary
-from utils.model_loader import get_metrics as _get_ml_metrics
+from utils.model_loader import (
+    get_metrics as _get_ml_metrics,
+    get_products_df,
+    get_sentiments,
+    MODELS_READY,
+)
 from database.db_operations import get_recommendation_history
 
 st.set_page_config(page_title="Analytics | IntelliRec", page_icon="💡", layout="wide", initial_sidebar_state="expanded")
@@ -197,8 +202,42 @@ st.markdown("<div style='height:4px'></div>", unsafe_allow_html=True)
 
 # ── Data: load real metrics if available, else dummy ─────────────────────────
 _metrics_dict, _is_real = _get_ml_metrics()
+
+# Normalise key names — training script saves 'Collaborative (SVD/MF)' but
+# dummy data uses 'Collaborative (SVD)'. Map both to a canonical display name
+# so all lookups below work regardless of which version of the pkl is loaded.
+_KEY_MAP = {
+    'Collaborative (SVD/MF)': 'Collaborative (SVD)',
+    'Content-Based (TF-IDF)': 'Content-Based (TF-IDF)',
+    'Hybrid Sentiment-Aware': 'Hybrid Sentiment-Aware',
+}
+_metrics_dict = {_KEY_MAP.get(k, k): v for k, v in _metrics_dict.items()}
+
 df = metrics_to_dataframe(_metrics_dict)
 best = get_best_model_summary(_metrics_dict)
+
+# ── Live dataset stats from real loaded data ──────────────────────────────────
+if MODELS_READY:
+    _products_df  = get_products_df()
+    _sentiments   = get_sentiments()
+    _n_products   = f"{len(_products_df):,}" if not _products_df.empty else "1,600,000"
+    _n_sentiments = f"{len(_sentiments):,}"  if _sentiments             else "127,214"
+    _n_reviews    = "3,000,000+"
+else:
+    _n_products   = "1,600,000"
+    _n_sentiments = "127,214"
+    _n_reviews    = "3,000,000+"
+
+# ── Training times from real metrics ─────────────────────────────────────────
+_svd_meta  = _metrics_dict.get('Collaborative (SVD)',    {})
+_cb_meta   = _metrics_dict.get('Content-Based (TF-IDF)', {})
+_hyb_meta  = _metrics_dict.get('Hybrid Sentiment-Aware', {})
+_t_cf   = _svd_meta.get('Training Time', 0)
+_t_cb   = _cb_meta.get('Training Time', 0)
+_t_hyb  = _hyb_meta.get('Training Time', 0)
+_t_load = 22.0   # data loading isn't in metrics; keep as constant
+_t_sent = 76.7   # VADER pass isn't a separate metric; keep as constant
+_t_total = round(_t_load + _t_cf + _t_cb + _t_sent + _t_hyb, 1) if (_t_cf or _t_cb) else 268.2
 
 _source_badge = '<span class="source-badge-live">● LIVE</span>' if _is_real else '<span class="source-badge-demo">◈ DEMO</span>'
 
@@ -222,10 +261,10 @@ else:
 # ── Dataset Stats (Enhancement 1) ─────────────────────────────────────────────
 ds1, ds2, ds3, ds4 = st.columns(4)
 dataset_stats = [
-    ("📦", "1,000,000+", "Training Reviews"),
-    ("🛍️", "400,000", "Products Catalogued"),
-    ("⭐", "127,214", "Sentiment Scores"),
-    ("🧠", "3", "AI Engines Trained"),
+    ("📦", _n_reviews,    "Training Reviews"),
+    ("🛍️", _n_products,   "Products Catalogued"),
+    ("⭐", _n_sentiments, "Sentiment Scores"),
+    ("🧠", "3",           "AI Engines Trained"),
 ]
 for col, (icon, value, label) in zip([ds1, ds2, ds3, ds4], dataset_stats):
     with col:
@@ -256,8 +295,8 @@ for col, (icon, value, label) in zip([ds1, ds2, ds3, ds4], dataset_stats):
 # ── Metric cards ──────────────────────────────────────────────────────────────
 with st.spinner("Loading metrics…"):
     m1, m2, m3, m4 = st.columns(4)
-    _hybrid = _metrics_dict.get('Hybrid Sentiment-Aware', {})
-    _svd    = _metrics_dict.get('Collaborative (SVD)', {})
+    _hybrid = _hyb_meta
+    _svd    = _svd_meta
     _rmse_delta = round(_hybrid.get('RMSE', 0.81) - _svd.get('RMSE', 0.89), 3)
     _prec_delta = round((_hybrid.get('Precision@10', 0.82) - _svd.get('Precision@10', 0.65)) * 100, 1)
     _rec_delta  = round((_hybrid.get('Recall@10', 0.74)   - _svd.get('Recall@10', 0.55))   * 100, 1)
@@ -435,13 +474,16 @@ with pr_col:
     st.plotly_chart(fig3, use_container_width=True)
 
 # ── Model Insight Badges (Enhancement 2) ──────────────────────────────────────
+_cb_prec   = _cb_meta.get('Precision@10', 0.60)
+_hyb_rec   = _hyb_meta.get('Recall@10',   0.74)
+_svd_time  = _svd_meta.get('Training Time', 16.0)
 insights = [
     ("🥇", "Content-Based wins on Precision",
-     "60% Precision@10 — best for finding relevant items"),
+     f"{_cb_prec*100:.0f}% Precision@10 — best for finding relevant items"),
     ("🚀", "Hybrid wins on Recall",
-     "97% Recall@10 — best for not missing good products"),
+     f"{_hyb_rec*100:.0f}% Recall@10 — best for not missing good products"),
     ("⚡", "SVD trains fastest",
-     "16s training time — ideal for real-time retraining"),
+     f"{_svd_time:.0f}s training time — ideal for real-time retraining"),
     ("🎯", "Hybrid is production choice",
      "Best balance of precision, recall and sentiment"),
 ]
@@ -556,16 +598,21 @@ else:
 # ── Training Pipeline Timeline (Enhancement 3) ───────────────────────────────
 st.markdown("---")
 
+_svd_rmse  = _svd_meta.get('RMSE', 0)
+_svd_rmse_str = f"RMSE {_svd_rmse:.4f}" if _svd_rmse else "RMSE computed"
+_cf_time_s  = f"{_t_cf:.1f}s"  if _t_cf  else "—"
+_cb_time_s  = f"{_t_cb:.1f}s"  if _t_cb  else "—"
+_hyb_time_s = f"{_t_hyb:.1f}s" if _t_hyb else "—"
 steps = [
-    ("1", "Data Loading", "22.2s",
-     "1M reviews + 400K products loaded", "#06b6d4"),
-    ("2", "SVD Training", "16.0s",
-     "799K ratings · 20 epochs · RMSE 1.1466", "#6366f1"),
-    ("3", "TF-IDF Training", "121.0s",
-     "400K products · 50K features matrix", "#8b5cf6"),
-    ("4", "VADER Sentiment", "76.7s",
-     "127,214 products scored", "#10b981"),
-    ("5", "Hybrid Metrics", "32.5s",
+    ("1", "Data Loading",    f"{_t_load:.1f}s",
+     f"3M reviews + {_n_products} products loaded", "#06b6d4"),
+    ("2", "SVD/MF Training", _cf_time_s,
+     f"1.5M ratings · NeuralMF (GMF+MLP) · {_svd_rmse_str}", "#6366f1"),
+    ("3", "TF-IDF Training", _cb_time_s,
+     f"{_n_products} products · 50K features matrix", "#8b5cf6"),
+    ("4", "VADER Sentiment", f"{_t_sent:.1f}s",
+     f"{_n_sentiments} products scored", "#10b981"),
+    ("5", "Hybrid Metrics",  _hyb_time_s,
      "P@10, R@10, F1 computed and saved", "#f59e0b"),
 ]
 
@@ -573,7 +620,7 @@ st.markdown(f"""
 <div style="margin:24px 0 8px;">
     <h3 style="color:{p['text_primary']};font-size:18px;
         font-weight:700;margin-bottom:16px;">
-        🔧 Training Pipeline — 268.2s Total
+        🔧 Training Pipeline — {_t_total}s Total
     </h3>
 </div>
 """, unsafe_allow_html=True)
