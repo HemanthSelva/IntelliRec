@@ -31,11 +31,18 @@ except Exception:
 from datetime import datetime
 
 import os
+import sys
 import urllib.request
 import joblib
 import pandas as pd
 import streamlit as st
 from utils.helpers import normalize_categories
+
+
+def _log(msg: str):
+    """Write to stderr with flush — visible in HF Space Docker logs regardless of buffering."""
+    sys.stderr.write(f"[IntelliRec] {msg}\n")
+    sys.stderr.flush()
 
 # ── Absolute path to saved_models/ ────────────────────────────────────────────
 _BASE_DIR  = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -48,7 +55,7 @@ HF_BASE = f"https://huggingface.co/{HF_REPO}/resolve/main"
 # Bump this string whenever new model files are uploaded to HuggingFace.
 # The deployed app compares this against the saved .model_version file —
 # a mismatch means new files are available and triggers a full re-download.
-MODEL_VERSION = "v3-lightweight-20260506"
+MODEL_VERSION = "v4-hfspace-20260506"
 
 # Required files that must all exist for live mode
 _REQUIRED = [
@@ -96,13 +103,13 @@ def ensure_models_exist():
         pass
 
     if _local_version != MODEL_VERSION:
-        print(f"[IntelliRec] Model version changed ({_local_version!r} -> {MODEL_VERSION!r}). Clearing cached files...")
+        _log(f"Model version changed ({_local_version!r} -> {MODEL_VERSION!r}). Clearing cached files...")
         for _fn in _REQUIRED:
             _old = os.path.join(MODEL_DIR, _fn)
             try:
                 if os.path.exists(_old):
                     os.remove(_old)
-                    print(f"[IntelliRec] Removed stale: {_fn}")
+                    _log(f"Removed stale: {_fn}")
             except Exception:
                 pass
 
@@ -122,14 +129,17 @@ def ensure_models_exist():
         # Re-download ALL files (not just missing) when version changed
         missing = list(_REQUIRED)
 
-    print(f"[IntelliRec] Downloading {len(missing)} model file(s) from HuggingFace Hub…")
+    _log(f"Downloading {len(missing)} model file(s) from HuggingFace Hub: {missing}")
+    _log(f"MODEL_DIR = {MODEL_DIR}  (exists={os.path.exists(MODEL_DIR)})")
 
     # Try huggingface_hub first (handles LFS correctly)
     try:
         from huggingface_hub import hf_hub_download
+        _log("huggingface_hub available — using hf_hub_download")
         for i, filename in enumerate(missing):
             dest = os.path.join(MODEL_DIR, filename)
             try:
+                _log(f"Starting download ({i+1}/{len(missing)}): {filename} ...")
                 hf_hub_download(
                     repo_id=HF_REPO,
                     filename=filename,
@@ -138,19 +148,24 @@ def ensure_models_exist():
                     force_download=_force,
                 )
                 size_kb = os.path.getsize(dest) // 1024 if os.path.exists(dest) else 0
-                print(f"[IntelliRec] Downloaded ({i+1}/{len(missing)}): {filename} ({size_kb} KB)")
+                _log(f"Downloaded ({i+1}/{len(missing)}): {filename} ({size_kb} KB) → exists={os.path.exists(dest)}")
             except Exception as e:
-                print(f"[IntelliRec] hf_hub_download failed for {filename}: {e}")
+                _log(f"hf_hub_download failed for {filename}: {e} — falling back to direct download")
                 _download_direct(filename, dest)
     except ImportError:
-        print("[IntelliRec] huggingface_hub not available, using direct download fallback")
+        _log("huggingface_hub not available, using direct download fallback")
         for filename in missing:
             dest = os.path.join(MODEL_DIR, filename)
             _download_direct(filename, dest)
 
     still_missing = [f for f in _REQUIRED if not _is_valid_pkl(os.path.join(MODEL_DIR, f))]
     if still_missing:
-        print(f"[IntelliRec] WARNING: {len(still_missing)} file(s) still missing or invalid: {still_missing}")
+        _log(f"WARNING: {len(still_missing)} file(s) still missing/invalid after download: {still_missing}")
+        # Log sizes of all files for diagnosis
+        for f in _REQUIRED:
+            p = os.path.join(MODEL_DIR, f)
+            sz = os.path.getsize(p) if os.path.exists(p) else -1
+            _log(f"  {f}: {sz} bytes")
         return False
 
     # Save version so next startup skips re-download
@@ -160,13 +175,14 @@ def ensure_models_exist():
     except Exception:
         pass
 
-    print("[IntelliRec] All model files ready!")
+    _log("All model files ready!")
     return True
 
 
 def _download_direct(filename: str, dest: str):
     """Direct HTTP download with LFS media-type header as fallback."""
     url = f"{HF_BASE}/{filename}?download=true"
+    _log(f"Direct download: {url}")
     try:
         req = urllib.request.Request(url, headers={
             "Accept": "application/octet-stream",
@@ -179,9 +195,9 @@ def _download_direct(filename: str, dest: str):
                     break
                 out.write(chunk)
         size_kb = os.path.getsize(dest) // 1024
-        print(f"[IntelliRec] Direct download OK: {filename} ({size_kb} KB)")
+        _log(f"Direct download OK: {filename} ({size_kb} KB)")
     except Exception as e:
-        print(f"[IntelliRec] Direct download also failed for {filename}: {e}")
+        _log(f"Direct download also failed for {filename}: {e}")
 
 
 # Attempt auto-download before checking readiness.
@@ -189,7 +205,7 @@ def _download_direct(filename: str, dest: str):
 try:
     ensure_models_exist()
 except Exception as _ensure_exc:
-    print(f"[IntelliRec] ensure_models_exist() raised: {_ensure_exc}")
+    _log(f"ensure_models_exist() raised: {_ensure_exc}")
 
 MODELS_READY: bool = all(
     os.path.exists(os.path.join(MODEL_DIR, f)) for f in _REQUIRED
@@ -214,18 +230,18 @@ def get_svd():
     try:
         # joblib without mmap_mode (compressed pkl files are incompatible with mmap)
         model = joblib.load(filepath)
-        print(f"[IntelliRec] SVD model loaded OK: {type(model).__name__}")
+        _log(f"SVD model loaded OK: {type(model).__name__}")
         return model
     except Exception as e1:
-        print(f"[IntelliRec] SVD joblib load failed: {e1}, trying pickle...")
+        _log(f"SVD joblib load failed: {e1}, trying pickle...")
     try:
         import pickle
         with open(filepath, 'rb') as f:
             model = pickle.load(f)
-        print(f"[IntelliRec] SVD model loaded via pickle: {type(model).__name__}")
+        _log(f"SVD model loaded via pickle: {type(model).__name__}")
         return model
     except Exception as e2:
-        print(f"[IntelliRec] SVD pickle load also failed: {e2}")
+        _log(f"SVD pickle load also failed: {e2}")
         return None
 
 
@@ -238,10 +254,10 @@ def get_tfidf():
         vec     = _pkl("tfidf_vectorizer.pkl")
         matrix  = _pkl("tfidf_matrix.pkl")
         indices = _pkl("product_indices.pkl")
-        print(f"[IntelliRec] TF-IDF loaded OK — matrix shape: {matrix.shape}")
+        _log(f"TF-IDF loaded OK — matrix shape: {matrix.shape}")
         return vec, matrix, indices
     except Exception as e:
-        print(f"[IntelliRec] TF-IDF load error: {e}")
+        _log(f"TF-IDF load error: {e}")
         return None, None, None
 
 
@@ -257,7 +273,7 @@ def get_products_df() -> pd.DataFrame:
     try:
         df = joblib.load(filepath)
     except Exception as e1:
-        print(f"[IntelliRec] products_df joblib load failed: {e1}, trying pickle...")
+        _log(f"products_df joblib load failed: {e1}, trying pickle...")
 
     # Fallback to pickle
     if df is None or not isinstance(df, pd.DataFrame):
@@ -266,7 +282,7 @@ def get_products_df() -> pd.DataFrame:
             with open(filepath, 'rb') as f:
                 df = pickle.load(f)
         except Exception as e2:
-            print(f"[IntelliRec] products_df pickle load also failed: {e2}")
+            _log(f"products_df pickle load also failed: {e2}")
             return pd.DataFrame()
 
     if df is None or not isinstance(df, pd.DataFrame) or df.empty:
@@ -293,9 +309,9 @@ def get_products_df() -> pd.DataFrame:
             elif 'boolean' in col_dtype or 'Boolean' in col_dtype:
                 df[col] = df[col].astype(object).fillna(False).astype(bool)
     except Exception as _cast_err:
-        print(f"[IntelliRec] dtype normalisation warning: {_cast_err}")
+        _log(f"dtype normalisation warning: {_cast_err}")
 
-    print(f"[IntelliRec] products_df loaded OK — {len(df):,} rows, columns: {list(df.columns)}")
+    _log(f"products_df loaded OK — {len(df):,} rows, columns: {list(df.columns)}")
     return df
 
 
@@ -306,10 +322,10 @@ def get_sentiments() -> dict:
         return {}
     try:
         data = _pkl("product_sentiments.pkl")
-        print(f"[IntelliRec] Sentiments loaded OK — {len(data):,} entries")
+        _log(f"Sentiments loaded OK — {len(data):,} entries")
         return data
     except Exception as e:
-        print(f"[IntelliRec] Sentiments load error: {e}")
+        _log(f"Sentiments load error: {e}")
         return {}
 
 
@@ -484,7 +500,7 @@ def _load_fallback_recs(n: int = 12, categories: list = None) -> list:
             result.append(card)
         return result
     except Exception as e:
-        print(f"[IntelliRec] Fallback sample load failed: {e}")
+        _log(f"Fallback sample load failed: {e}")
         return []
 
 
