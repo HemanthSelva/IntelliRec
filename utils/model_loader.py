@@ -48,7 +48,7 @@ HF_BASE = f"https://huggingface.co/{HF_REPO}/resolve/main"
 # Bump this string whenever new model files are uploaded to HuggingFace.
 # The deployed app compares this against the saved .model_version file —
 # a mismatch means new files are available and triggers a full re-download.
-MODEL_VERSION = "v2-neuralmf-20260506"
+MODEL_VERSION = "v3-lightweight-20260506"
 
 # Required files that must all exist for live mode
 _REQUIRED = [
