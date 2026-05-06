@@ -45,6 +45,11 @@ MODEL_DIR  = os.path.join(_BASE_DIR, "saved_models")
 HF_REPO = "Hemanth1429/intellirec-recommendation-model"
 HF_BASE = f"https://huggingface.co/{HF_REPO}/resolve/main"
 
+# Bump this string whenever new model files are uploaded to HuggingFace.
+# The deployed app compares this against the saved .model_version file —
+# a mismatch means new files are available and triggers a full re-download.
+MODEL_VERSION = "v2-neuralmf-20260506"
+
 # Required files that must all exist for live mode
 _REQUIRED = [
     "svd_model.pkl",
@@ -57,25 +62,12 @@ _REQUIRED = [
 ]
 
 
-def _get_hf_commit_sha() -> str:
-    """Fetch the latest commit SHA for the HuggingFace model repo. Returns '' on failure."""
-    try:
-        api_url = f"https://huggingface.co/api/models/{HF_REPO}"
-        req = urllib.request.Request(api_url, headers={"User-Agent": "IntelliRec/1.0"})
-        import json
-        with urllib.request.urlopen(req, timeout=10) as resp:
-            data = json.loads(resp.read())
-            return data.get("sha", "")
-    except Exception:
-        return ""
-
-
 def ensure_models_exist():
     """
     Check for missing model files and auto-download from HuggingFace Hub.
-    Also checks the HuggingFace repo commit SHA — if it changed since the last
-    download, deletes stale local files and re-downloads the full set so the
-    deployed app always uses the latest trained models.
+    Uses MODEL_VERSION constant (embedded in code) to detect when new model
+    files have been uploaded — guarantees the deployed app re-downloads fresh
+    files whenever a new version is deployed via GitHub.
 
     IMPORTANT: Must NOT call Streamlit UI functions — runs at import time before
     any Streamlit page context exists. Uses print() for logging instead.
@@ -83,32 +75,34 @@ def ensure_models_exist():
     os.makedirs(MODEL_DIR, exist_ok=True)
 
     def _is_valid_pkl(path: str) -> bool:
-        """Return True if file exists and is larger than 1 KB (not an LFS pointer)."""
+        # LFS pointer files are ~130 bytes. Use 200 as threshold to safely
+        # exclude pointers while accepting even small pkl files (e.g. metrics).
         try:
-            return os.path.exists(path) and os.path.getsize(path) > 1024
+            return os.path.exists(path) and os.path.getsize(path) > 200
         except Exception:
             return False
 
-    # -- Commit-SHA freshness check ------------------------------------------
-    # If the HuggingFace repo has a newer commit than what we last downloaded,
-    # delete all local pkl files so they are treated as missing and re-downloaded.
+    # -- Version freshness check (no network call needed) --------------------
+    # MODEL_VERSION is bumped in code whenever new HF files are uploaded.
+    # When Streamlit Cloud pulls the new code from GitHub, it sees the new
+    # version string, deletes stale cached pkl files, and re-downloads.
     _version_file = os.path.join(MODEL_DIR, ".model_version")
-    _local_sha = ""
+    _local_version = ""
     try:
         if os.path.exists(_version_file):
             with open(_version_file) as _f:
-                _local_sha = _f.read().strip()
+                _local_version = _f.read().strip()
     except Exception:
         pass
 
-    _remote_sha = _get_hf_commit_sha()
-    if _remote_sha and _remote_sha != _local_sha:
-        print(f"[IntelliRec] New model version detected ({_remote_sha[:8]}). Re-downloading all files…")
+    if _local_version != MODEL_VERSION:
+        print(f"[IntelliRec] Model version changed ({_local_version!r} -> {MODEL_VERSION!r}). Clearing cached files...")
         for _fn in _REQUIRED:
             _old = os.path.join(MODEL_DIR, _fn)
             try:
                 if os.path.exists(_old):
                     os.remove(_old)
+                    print(f"[IntelliRec] Removed stale: {_fn}")
             except Exception:
                 pass
 
@@ -118,7 +112,6 @@ def ensure_models_exist():
     ]
 
     if not missing:
-        # Files are present and SHA matches — nothing to do
         return True
 
     print(f"[IntelliRec] Downloading {len(missing)} model file(s) from HuggingFace Hub…")
@@ -152,13 +145,12 @@ def ensure_models_exist():
         print(f"[IntelliRec] WARNING: {len(still_missing)} file(s) still missing or invalid: {still_missing}")
         return False
 
-    # Persist the SHA so we don't re-download on the next startup
-    if _remote_sha:
-        try:
-            with open(_version_file, "w") as _f:
-                _f.write(_remote_sha)
-        except Exception:
-            pass
+    # Save version so next startup skips re-download
+    try:
+        with open(_version_file, "w") as _f:
+            _f.write(MODEL_VERSION)
+    except Exception:
+        pass
 
     print("[IntelliRec] All model files ready!")
     return True
