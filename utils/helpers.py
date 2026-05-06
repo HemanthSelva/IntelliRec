@@ -415,7 +415,8 @@ def _show_product_detail_dialog(product: dict):
             if not _in_wl:
                 try:
                     from database.db_operations import add_to_wishlist
-                    add_to_wishlist(st.session_state.get("user_id"), asin, title, category)
+                    _dlg_price = float(product.get("price") or 0.0)
+                    add_to_wishlist(st.session_state.get("user_id"), asin, title, _dlg_price, category)
                     _wl = st.session_state.get("wishlist_ids") or set()
                     _wl.add(asin)
                     st.session_state["wishlist_ids"] = _wl

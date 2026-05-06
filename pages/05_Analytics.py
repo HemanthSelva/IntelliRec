@@ -297,10 +297,10 @@ with st.spinner("Loading metrics…"):
     m1, m2, m3, m4 = st.columns(4)
     _hybrid = _hyb_meta
     _svd    = _svd_meta
-    _rmse_delta = round(_hybrid.get('RMSE', 0.81) - _svd.get('RMSE', 0.89), 3)
-    _prec_delta = round((_hybrid.get('Precision@10', 0.82) - _svd.get('Precision@10', 0.65)) * 100, 1)
-    _rec_delta  = round((_hybrid.get('Recall@10', 0.74)   - _svd.get('Recall@10', 0.55))   * 100, 1)
-    _f1_delta   = round((_hybrid.get('F1', 0.78)          - _svd.get('F1', 0.59))           * 100, 1)
+    _rmse_delta = round(_hybrid.get('RMSE', 0) - _svd.get('RMSE', 0), 3)
+    _prec_delta = round((_hybrid.get('Precision@10', 0) - _svd.get('Precision@10', 0)) * 100, 1)
+    _rec_delta  = round((_hybrid.get('Recall@10', 0)    - _svd.get('Recall@10', 0))    * 100, 1)
+    _f1_delta   = round((_hybrid.get('F1', 0)           - _svd.get('F1', 0))           * 100, 1)
     summary_metrics = [
         (m1, "Best RMSE",      f"{best['best_rmse']:.2f}",
              f"Hybrid ({_rmse_delta:+.3f})",  "inverse"),
@@ -474,9 +474,9 @@ with pr_col:
     st.plotly_chart(fig3, use_container_width=True)
 
 # ── Model Insight Badges (Enhancement 2) ──────────────────────────────────────
-_cb_prec   = _cb_meta.get('Precision@10', 0.60)
-_hyb_rec   = _hyb_meta.get('Recall@10',   0.74)
-_svd_time  = _svd_meta.get('Training Time', 16.0)
+_cb_prec   = _cb_meta.get('Precision@10', 0)
+_hyb_rec   = _hyb_meta.get('Recall@10',   0)
+_svd_time  = _svd_meta.get('Training Time', 0)
 insights = [
     ("🥇", "Content-Based wins on Precision",
      f"{_cb_prec*100:.0f}% Precision@10 — best for finding relevant items"),

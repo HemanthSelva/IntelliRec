@@ -135,7 +135,7 @@ render_topbar("My Profile", "Your account, wishlist, and AI preferences")
 # ── Counts (load once) ────────────────────────────────────────────────────────
 try:
     wishlist_items = get_wishlist(user_id) or []
-    wishlist_count = len(wishlist_items)
+    wishlist_count = len(wishlist_items) if wishlist_items else len(st.session_state.get("wishlist_ids") or set())
 except Exception:
     wishlist_items = []
     wishlist_count = len(st.session_state.get("wishlist_ids") or set())
@@ -664,20 +664,35 @@ with tab3:
             return json.load(f)
 
     all_products = _load_products()
-    display_wl = []
+
+    # Sync session state from DB so page-refresh still shows saved items
     if wishlist_items:
-        for item in wishlist_items:
-            pid = item.get("product_id","")
-            prod_data = next((pr for pr in all_products if pr.get("asin")==pid), None)
-            if prod_data:
-                display_wl.append(prod_data)
-            else:
-                display_wl.append({"asin":pid,"title":item.get("product_title","Product"),
-                                   "price":item.get("product_price",0),
-                                   "category":item.get("product_category",""),
-                                   "rating":0,"review_count":0,"sentiment_label":""})
-    elif session_wl_ids:
-        display_wl = [pr for pr in all_products if pr.get("asin") in session_wl_ids]
+        db_ids = {item.get("product_id", "") for item in wishlist_items}
+        st.session_state["wishlist_ids"] = db_ids | session_wl_ids
+        session_wl_ids = st.session_state["wishlist_ids"]
+
+    display_wl = []
+    seen_pids = set()
+
+    # Primary: items confirmed saved in DB
+    for item in wishlist_items:
+        pid = item.get("product_id", "")
+        seen_pids.add(pid)
+        prod_data = next((pr for pr in all_products if pr.get("asin") == pid), None)
+        if prod_data:
+            display_wl.append(prod_data)
+        else:
+            display_wl.append({"asin": pid, "title": item.get("product_title", "Product"),
+                                "price": item.get("product_price", 0),
+                                "category": item.get("product_category", ""),
+                                "rating": 0, "review_count": 0, "sentiment_label": ""})
+
+    # Fallback: session-state items not yet persisted to DB (e.g. save just happened)
+    for _sid in session_wl_ids:
+        if _sid and _sid not in seen_pids:
+            _prod = next((pr for pr in all_products if pr.get("asin") == _sid), None)
+            if _prod:
+                display_wl.append(_prod)
 
     if display_wl:
         wl_head_c1, wl_head_c2 = st.columns([3, 1])
@@ -690,7 +705,9 @@ with tab3:
             if st.button("🗑️ Clear All", key="wl_clear_top_btn", type="secondary",
                          use_container_width=True):
                 st.session_state["wishlist_ids"] = set()
-                if user_id and user_id != 'guest':
+                if user_id == 'guest':
+                    st.session_state["guest_wishlist"] = []
+                else:
                     try:
                         from database.supabase_client import supabase as _sb
                         _sb.table('wishlist').delete().eq('user_id', user_id).execute()
