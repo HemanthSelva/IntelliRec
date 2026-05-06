@@ -1,3 +1,14 @@
+---
+title: IntelliRec
+emoji: 🛍️
+colorFrom: purple
+colorTo: blue
+sdk: docker
+app_file: app.py
+pinned: false
+license: mit
+---
+
 <div align="center">
 
 # 🛍️ IntelliRec PRO
