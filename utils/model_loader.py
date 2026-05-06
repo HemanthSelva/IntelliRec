@@ -57,16 +57,25 @@ HF_BASE = f"https://huggingface.co/{HF_REPO}/resolve/main"
 # a mismatch means new files are available and triggers a full re-download.
 MODEL_VERSION = "v4-hfspace-20260506"
 
-# Required files that must all exist for live mode
+# Core files required for MODELS_READY = True.
+# tfidf_matrix.pkl is intentionally excluded: it is 1.67 GB compressed and
+# expands to several GB in RAM — too large for Streamlit Cloud's 1 GB limit.
+# It is downloaded opportunistically and loaded lazily; if unavailable,
+# cosine-similarity "Similar" search degrades gracefully to rating-based CB.
 _REQUIRED = [
     "svd_model.pkl",
     "tfidf_vectorizer.pkl",
-    "tfidf_matrix.pkl",
     "product_indices.pkl",
     "products_df.pkl",
     "product_sentiments.pkl",
     "model_metrics.pkl",
 ]
+
+# Downloaded if possible but NOT required for MODELS_READY
+_OPTIONAL = ["tfidf_matrix.pkl"]
+
+# Full list for download attempts
+_ALL_FILES = _REQUIRED + _OPTIONAL
 
 
 def ensure_models_exist():
@@ -104,7 +113,7 @@ def ensure_models_exist():
 
     if _local_version != MODEL_VERSION:
         _log(f"Model version changed ({_local_version!r} -> {MODEL_VERSION!r}). Clearing cached files...")
-        for _fn in _REQUIRED:
+        for _fn in _ALL_FILES:
             _old = os.path.join(MODEL_DIR, _fn)
             try:
                 if os.path.exists(_old):
@@ -113,69 +122,79 @@ def ensure_models_exist():
             except Exception:
                 pass
 
-    # force_download=True when version changed — bypasses hf_hub's internal
-    # ~/.cache/huggingface/hub/ cache so stale files are never copied back.
     _force = (_local_version != MODEL_VERSION)
 
-    missing = [
-        f for f in _REQUIRED
-        if not _is_valid_pkl(os.path.join(MODEL_DIR, f))
-    ]
+    missing_core = [f for f in _REQUIRED if not _is_valid_pkl(os.path.join(MODEL_DIR, f))]
 
-    if not missing and not _force:
+    if not missing_core and not _force:
+        _log("All core model files present — skipping download")
         return True
 
     if _force:
-        # Re-download ALL files (not just missing) when version changed
-        missing = list(_REQUIRED)
+        missing_core = list(_REQUIRED)
 
-    _log(f"Downloading {len(missing)} model file(s) from HuggingFace Hub: {missing}")
+    to_download = list(missing_core)
+    _log(f"Downloading {len(to_download)} core file(s): {to_download}")
     _log(f"MODEL_DIR = {MODEL_DIR}  (exists={os.path.exists(MODEL_DIR)})")
 
-    # Try huggingface_hub first (handles LFS correctly)
-    try:
-        from huggingface_hub import hf_hub_download
-        _log("huggingface_hub available — using hf_hub_download")
-        for i, filename in enumerate(missing):
-            dest = os.path.join(MODEL_DIR, filename)
-            try:
-                _log(f"Starting download ({i+1}/{len(missing)}): {filename} ...")
-                hf_hub_download(
-                    repo_id=HF_REPO,
-                    filename=filename,
-                    local_dir=MODEL_DIR,
-                    local_dir_use_symlinks=False,
-                    force_download=_force,
-                )
-                size_kb = os.path.getsize(dest) // 1024 if os.path.exists(dest) else 0
-                _log(f"Downloaded ({i+1}/{len(missing)}): {filename} ({size_kb} KB) → exists={os.path.exists(dest)}")
-            except Exception as e:
-                _log(f"hf_hub_download failed for {filename}: {e} — falling back to direct download")
-                _download_direct(filename, dest)
-    except ImportError:
-        _log("huggingface_hub not available, using direct download fallback")
-        for filename in missing:
-            dest = os.path.join(MODEL_DIR, filename)
+    def _hf_download(filename, force):
+        dest = os.path.join(MODEL_DIR, filename)
+        try:
+            from huggingface_hub import hf_hub_download
+            _log(f"hf_hub_download: {filename} ...")
+            hf_hub_download(
+                repo_id=HF_REPO,
+                filename=filename,
+                local_dir=MODEL_DIR,
+                local_dir_use_symlinks=False,
+                force_download=force,
+            )
+            sz = os.path.getsize(dest) // 1024 if os.path.exists(dest) else 0
+            _log(f"  OK: {filename} ({sz} KB)")
+        except ImportError:
+            _download_direct(filename, dest)
+        except Exception as e:
+            _log(f"  hf_hub_download failed for {filename}: {e} — trying direct")
             _download_direct(filename, dest)
 
+    # Download core files (required for MODELS_READY)
+    for i, fn in enumerate(to_download):
+        _log(f"Core file ({i+1}/{len(to_download)}): {fn}")
+        _hf_download(fn, _force)
+
+    # Validate core files
     still_missing = [f for f in _REQUIRED if not _is_valid_pkl(os.path.join(MODEL_DIR, f))]
     if still_missing:
-        _log(f"WARNING: {len(still_missing)} file(s) still missing/invalid after download: {still_missing}")
-        # Log sizes of all files for diagnosis
+        _log(f"WARNING: core files still missing/invalid: {still_missing}")
         for f in _REQUIRED:
             p = os.path.join(MODEL_DIR, f)
             sz = os.path.getsize(p) if os.path.exists(p) else -1
             _log(f"  {f}: {sz} bytes")
         return False
 
-    # Save version so next startup skips re-download
+    # Save version (core files are good)
     try:
         with open(_version_file, "w") as _f:
             _f.write(MODEL_VERSION)
-    except Exception:
-        pass
+        _log(f"Version file written: {MODEL_VERSION}")
+    except Exception as ve:
+        _log(f"Could not write version file: {ve}")
 
-    _log("All model files ready!")
+    # Opportunistically download optional heavy files (tfidf_matrix.pkl)
+    # Failure here does NOT affect MODELS_READY — these degrade gracefully.
+    for fn in _OPTIONAL:
+        if _force or not _is_valid_pkl(os.path.join(MODEL_DIR, fn)):
+            _log(f"Optional file download attempt: {fn}")
+            try:
+                _hf_download(fn, _force)
+                if _is_valid_pkl(os.path.join(MODEL_DIR, fn)):
+                    _log(f"Optional file ready: {fn}")
+                else:
+                    _log(f"Optional file unavailable (will run without it): {fn}")
+            except Exception as opt_e:
+                _log(f"Optional file download failed (non-fatal): {fn}: {opt_e}")
+
+    _log("Core model files ready!")
     return True
 
 
@@ -208,8 +227,15 @@ except Exception as _ensure_exc:
     _log(f"ensure_models_exist() raised: {_ensure_exc}")
 
 MODELS_READY: bool = all(
-    os.path.exists(os.path.join(MODEL_DIR, f)) for f in _REQUIRED
+    os.path.exists(os.path.join(MODEL_DIR, f)) and
+    os.path.getsize(os.path.join(MODEL_DIR, f)) > 200
+    for f in _REQUIRED
 )
+_log(f"MODELS_READY = {MODELS_READY}")
+for _f in _REQUIRED:
+    _p = os.path.join(MODEL_DIR, _f)
+    _sz = os.path.getsize(_p) if os.path.exists(_p) else -1
+    _log(f"  {_f}: {_sz} bytes")
 
 
 def _pkl(filename: str):
@@ -247,8 +273,14 @@ def get_svd():
 
 @st.cache_resource(show_spinner=False)
 def get_tfidf():
-    """Return (tfidf_vectorizer, tfidf_matrix, product_indices) tuple."""
+    """Return (tfidf_vectorizer, tfidf_matrix, product_indices) tuple.
+    tfidf_matrix.pkl is optional — returns (None, None, None) gracefully
+    when the file is absent or causes OOM on memory-constrained platforms."""
     if not MODELS_READY:
+        return None, None, None
+    matrix_path = os.path.join(MODEL_DIR, "tfidf_matrix.pkl")
+    if not os.path.exists(matrix_path) or os.path.getsize(matrix_path) <= 200:
+        _log("tfidf_matrix.pkl not available — similarity search disabled (graceful)")
         return None, None, None
     try:
         vec     = _pkl("tfidf_vectorizer.pkl")
@@ -256,8 +288,8 @@ def get_tfidf():
         indices = _pkl("product_indices.pkl")
         _log(f"TF-IDF loaded OK — matrix shape: {matrix.shape}")
         return vec, matrix, indices
-    except Exception as e:
-        _log(f"TF-IDF load error: {e}")
+    except (MemoryError, Exception) as e:
+        _log(f"TF-IDF load error (possibly OOM on low-RAM platform): {e}")
         return None, None, None
 
 
@@ -516,8 +548,15 @@ def get_cf_recommendations(user_id: str, n: int = 12,
     products   = get_products_df()
     sentiments = get_sentiments()
 
-    if svd is None or products.empty:
+    if products.empty:
         return _load_fallback_recs(n, categories)
+
+    # SVD model requires torch which isn't installed on Streamlit Cloud.
+    # When it's unavailable, fall back to top-rated products from real catalog
+    # (NOT the 42-item sample) so users still see 1.6M product recommendations.
+    if svd is None:
+        _log("SVD unavailable — using CB fallback with real product catalog")
+        return get_cb_recommendations(categories=categories, n=n)
 
     df = products.copy()
     if categories:
@@ -703,7 +742,10 @@ def get_hybrid_recommendations(user_id: str, n: int = 12,
     fraction of CB results. Falls back to curated sample products
     when ML models are unavailable or still downloading.
     """
-    if not MODELS_READY or get_products_df().empty:
+    if not MODELS_READY:
+        return _load_fallback_recs(n, categories)
+    products_check = get_products_df()
+    if products_check.empty:
         return _load_fallback_recs(n, categories)
 
     sentiments = get_sentiments()
