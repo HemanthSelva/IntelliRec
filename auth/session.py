@@ -200,6 +200,13 @@ def login_user(email: str, password: str):
                     'username': fallback, 'name': fallback,
                     'email': response.user.email, 'member_since': ''
                 }
+            # Persist JWT so supabase singleton can be restored after Streamlit hot-reload
+            try:
+                if response.session:
+                    st.session_state["_sb_access_token"] = response.session.access_token
+                    st.session_state["_sb_refresh_token"] = response.session.refresh_token or ""
+            except Exception:
+                pass
             from utils.notifications import add_notification
             add_notification('success', 'Logged In Successfully', 'Welcome back to IntelliRec!')
             return True, "Login successful"
@@ -341,6 +348,8 @@ def logout_user():
         'current_page',
         'user_bio', '_temp_bio', '_temp_name', '_temp_photo', '_last_uploaded',
         '_google_oauth_url', '_pkce_verifier',
+        '_sb_access_token', '_sb_refresh_token',
+        'wishlist_ids', 'wishlist_data',
     ]
     for key in keys_to_clear:
         if key in st.session_state:
@@ -356,6 +365,14 @@ def _apply_user_session(user):
     st.session_state.user_id    = user.id
     st.session_state.user_email = user.email
     st.session_state.user       = user
+    # Persist current supabase JWT so it can be restored after a module reload
+    try:
+        _sess = supabase.auth.get_session()
+        if _sess:
+            st.session_state["_sb_access_token"] = _sess.access_token
+            st.session_state["_sb_refresh_token"] = getattr(_sess, "refresh_token", "") or ""
+    except Exception:
+        pass
 
     try:
         profile = supabase.table('profiles').select(
@@ -446,6 +463,16 @@ def check_login():
     # Note: theme injection is handled by utils/theme.inject_global_css() on each page
     if not st.session_state.get('logged_in', False):
         st.switch_page("app.py")
+    else:
+        # Restore supabase JWT on the singleton after a Streamlit hot-reload resets it.
+        # Without this, RLS blocks all DB writes/reads for logged-in users after a reload.
+        _access = st.session_state.get("_sb_access_token")
+        _refresh = st.session_state.get("_sb_refresh_token", "")
+        if _access:
+            try:
+                supabase.auth.set_session(_access, _refresh)
+            except Exception:
+                pass
 
 
 def render_header():

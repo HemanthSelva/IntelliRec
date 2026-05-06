@@ -687,10 +687,14 @@ with tab3:
                                 "category": item.get("product_category", ""),
                                 "rating": 0, "review_count": 0, "sentiment_label": ""})
 
-    # Fallback: session-state items not yet persisted to DB (e.g. save just happened)
+    # Fallback: session-state items not yet persisted to DB (e.g. after a hot-reload / DB failure)
     for _sid in session_wl_ids:
         if _sid and _sid not in seen_pids:
             _prod = next((pr for pr in all_products if pr.get("asin") == _sid), None)
+            if not _prod:
+                # Try metadata cached when the user clicked Save (covers ML-model product IDs
+                # that don't appear in sample_products.json)
+                _prod = st.session_state.get("wishlist_data", {}).get(_sid)
             if _prod:
                 display_wl.append(_prod)
 
@@ -705,6 +709,7 @@ with tab3:
             if st.button("🗑️ Clear All", key="wl_clear_top_btn", type="secondary",
                          use_container_width=True):
                 st.session_state["wishlist_ids"] = set()
+                st.session_state["wishlist_data"] = {}
                 if user_id == 'guest':
                     st.session_state["guest_wishlist"] = []
                 else:
@@ -743,6 +748,7 @@ with tab3:
                             remove_from_wishlist(user_id, pid)
                             if "wishlist_ids" in st.session_state:
                                 st.session_state["wishlist_ids"].discard(pid)
+                            st.session_state.get("wishlist_data", {}).pop(pid, None)
                             st.toast("Removed from wishlist", icon="✅")
                             st.rerun()
                         except Exception:

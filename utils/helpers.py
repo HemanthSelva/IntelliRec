@@ -420,6 +420,7 @@ def _show_product_detail_dialog(product: dict):
                     _wl = st.session_state.get("wishlist_ids") or set()
                     _wl.add(asin)
                     st.session_state["wishlist_ids"] = _wl
+                    st.session_state.setdefault("wishlist_data", {})[asin] = product
                     st.toast("Added to wishlist!", icon="♥")
                 except Exception:
                     pass

@@ -342,6 +342,7 @@ def _render_product_strip(products: list, palette: dict, strip_key: str = "strip
                         from database.db_operations import remove_from_wishlist
                         remove_from_wishlist(user_id, pid)
                         st.session_state["wishlist_ids"].discard(pid)
+                        st.session_state.get("wishlist_data", {}).pop(pid, None)
                         st.toast("Removed from wishlist", icon="\u2705")
                     else:
                         from database.db_operations import add_to_wishlist
@@ -350,6 +351,7 @@ def _render_product_strip(products: list, palette: dict, strip_key: str = "strip
                                         prod.get("price", 0),
                                         prod.get("category", ""))
                         st.session_state["wishlist_ids"].add(pid)
+                        st.session_state.setdefault("wishlist_data", {})[pid] = prod
                         st.toast("\u2705 Saved to wishlist!", icon="\U0001f4be")
                     st.rerun()
                 except Exception as _e:
