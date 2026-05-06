@@ -106,13 +106,21 @@ def ensure_models_exist():
             except Exception:
                 pass
 
+    # force_download=True when version changed — bypasses hf_hub's internal
+    # ~/.cache/huggingface/hub/ cache so stale files are never copied back.
+    _force = (_local_version != MODEL_VERSION)
+
     missing = [
         f for f in _REQUIRED
         if not _is_valid_pkl(os.path.join(MODEL_DIR, f))
     ]
 
-    if not missing:
+    if not missing and not _force:
         return True
+
+    if _force:
+        # Re-download ALL files (not just missing) when version changed
+        missing = list(_REQUIRED)
 
     print(f"[IntelliRec] Downloading {len(missing)} model file(s) from HuggingFace Hub…")
 
@@ -127,12 +135,12 @@ def ensure_models_exist():
                     filename=filename,
                     local_dir=MODEL_DIR,
                     local_dir_use_symlinks=False,
+                    force_download=_force,
                 )
                 size_kb = os.path.getsize(dest) // 1024 if os.path.exists(dest) else 0
                 print(f"[IntelliRec] Downloaded ({i+1}/{len(missing)}): {filename} ({size_kb} KB)")
             except Exception as e:
                 print(f"[IntelliRec] hf_hub_download failed for {filename}: {e}")
-                # Fallback: direct URL with proper accept header for LFS
                 _download_direct(filename, dest)
     except ImportError:
         print("[IntelliRec] huggingface_hub not available, using direct download fallback")
