@@ -71,14 +71,40 @@ elif _code:
     try:
         exchange_params = {"auth_code": _code}
         _pkce_verifier = st.session_state.get('_pkce_verifier')
-        
+
         if not _pkce_verifier and _state:
             from auth.session import _get_pkce_global
             _pkce_verifier = _get_pkce_global(_state)
-                
+
+        # Supabase OAuth URL has no state param, so the state-keyed cache above
+        # is always empty.  Fall back to reading the verifier directly from the
+        # supabase singleton's in-process SyncMemoryStorage (same Python process).
+        if not _pkce_verifier:
+            try:
+                _pkce_verifier = supabase.auth._storage.get_item(
+                    f"{supabase.auth._storage_key}-code-verifier"
+                )
+            except Exception:
+                pass
+
+        # Scan storage dict in case the key format differs across SDK versions
+        if not _pkce_verifier:
+            try:
+                for _sk, _sv in supabase.auth._storage.storage.items():
+                    if "code-verifier" in _sk:
+                        _pkce_verifier = _sv
+                        break
+            except Exception:
+                pass
+
+        # Last resort: the fixed "latest" slot written by login_with_google()
+        if not _pkce_verifier:
+            from auth.session import _get_pkce_global
+            _pkce_verifier = _get_pkce_global("__latest__")
+
         if _pkce_verifier:
             exchange_params["code_verifier"] = _pkce_verifier
-            
+
         resp = supabase.auth.exchange_code_for_session(exchange_params)
         st.query_params.clear()
         if resp and resp.user:

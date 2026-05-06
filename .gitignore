@@ -40,6 +40,10 @@ req_tmp.txt
 audit_colors.py
 fix_theme.py
 strip_iframe.py
+dump_checkbox.py
+
+# Runtime PKCE cache (generated at runtime, not source)
+.streamlit/auth_cache/
 
 # OS files
 .DS_Store
