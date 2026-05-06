@@ -57,11 +57,25 @@ _REQUIRED = [
 ]
 
 
+def _get_hf_commit_sha() -> str:
+    """Fetch the latest commit SHA for the HuggingFace model repo. Returns '' on failure."""
+    try:
+        api_url = f"https://huggingface.co/api/models/{HF_REPO}"
+        req = urllib.request.Request(api_url, headers={"User-Agent": "IntelliRec/1.0"})
+        import json
+        with urllib.request.urlopen(req, timeout=10) as resp:
+            data = json.loads(resp.read())
+            return data.get("sha", "")
+    except Exception:
+        return ""
+
+
 def ensure_models_exist():
     """
     Check for missing model files and auto-download from HuggingFace Hub.
-    Uses huggingface_hub library which correctly handles LFS binary files
-    (urllib.request.urlretrieve downloads the LFS pointer text, not the binary).
+    Also checks the HuggingFace repo commit SHA — if it changed since the last
+    download, deletes stale local files and re-downloads the full set so the
+    deployed app always uses the latest trained models.
 
     IMPORTANT: Must NOT call Streamlit UI functions — runs at import time before
     any Streamlit page context exists. Uses print() for logging instead.
@@ -75,12 +89,36 @@ def ensure_models_exist():
         except Exception:
             return False
 
+    # -- Commit-SHA freshness check ------------------------------------------
+    # If the HuggingFace repo has a newer commit than what we last downloaded,
+    # delete all local pkl files so they are treated as missing and re-downloaded.
+    _version_file = os.path.join(MODEL_DIR, ".model_version")
+    _local_sha = ""
+    try:
+        if os.path.exists(_version_file):
+            with open(_version_file) as _f:
+                _local_sha = _f.read().strip()
+    except Exception:
+        pass
+
+    _remote_sha = _get_hf_commit_sha()
+    if _remote_sha and _remote_sha != _local_sha:
+        print(f"[IntelliRec] New model version detected ({_remote_sha[:8]}). Re-downloading all files…")
+        for _fn in _REQUIRED:
+            _old = os.path.join(MODEL_DIR, _fn)
+            try:
+                if os.path.exists(_old):
+                    os.remove(_old)
+            except Exception:
+                pass
+
     missing = [
         f for f in _REQUIRED
         if not _is_valid_pkl(os.path.join(MODEL_DIR, f))
     ]
 
     if not missing:
+        # Files are present and SHA matches — nothing to do
         return True
 
     print(f"[IntelliRec] Downloading {len(missing)} model file(s) from HuggingFace Hub…")
@@ -113,6 +151,14 @@ def ensure_models_exist():
     if still_missing:
         print(f"[IntelliRec] WARNING: {len(still_missing)} file(s) still missing or invalid: {still_missing}")
         return False
+
+    # Persist the SHA so we don't re-download on the next startup
+    if _remote_sha:
+        try:
+            with open(_version_file, "w") as _f:
+                _f.write(_remote_sha)
+        except Exception:
+            pass
 
     print("[IntelliRec] All model files ready!")
     return True
