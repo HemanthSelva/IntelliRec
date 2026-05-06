@@ -272,6 +272,14 @@ def get_products_df() -> pd.DataFrame:
     if df is None or not isinstance(df, pd.DataFrame) or df.empty:
         return pd.DataFrame()
 
+    # Drop heavy text columns that are only needed during training.
+    # tfidf_matrix.pkl is already precomputed — features_str/description/features
+    # are not used at inference time. Dropping them cuts RAM from ~8 GB to ~400 MB,
+    # which is essential for Streamlit Cloud's 1 GB memory limit.
+    _heavy_cols = [c for c in ("features_str", "description", "features") if c in df.columns]
+    if _heavy_cols:
+        df = df.drop(columns=_heavy_cols)
+
     # ── Normalise all column dtypes to plain Python types ────────────────────
     # Covers both legacy 'object' dtype AND pandas nullable StringDtype / BooleanDtype
     try:
