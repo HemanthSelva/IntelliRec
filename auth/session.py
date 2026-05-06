@@ -253,17 +253,32 @@ def login_with_google():
             # which accepts params.get("code_verifier") before falling back to
             # storage (supabase_auth/_sync/gotrue_client.py line 1184).
             try:
+                # Method 1: standard get_item using the known storage key
                 verifier = supabase.auth._storage.get_item(
                     f"{supabase.auth._storage_key}-code-verifier"
                 )
+                # Method 2: scan all storage entries in case key format differs
+                if not verifier:
+                    for _k, _v in supabase.auth._storage.storage.items():
+                        if "code-verifier" in _k:
+                            verifier = _v
+                            break
                 if verifier:
                     st.session_state['_pkce_verifier'] = verifier
                     import urllib.parse
                     parsed = urllib.parse.urlparse(response.url)
                     qs = urllib.parse.parse_qs(parsed.query)
+                    # state is NOT present in the Supabase OAuth URL (it is
+                    # generated server-side after redirect), so we also key by
+                    # code_challenge (which IS in the URL) and a fixed "latest"
+                    # slot so the callback can always find the verifier.
                     state = qs.get("state", [None])[0]
                     if state:
                         _save_pkce_global(state, verifier)
+                    code_challenge = qs.get("code_challenge", [None])[0]
+                    if code_challenge:
+                        _save_pkce_global(f"cc-{code_challenge}", verifier)
+                    _save_pkce_global("__latest__", verifier)
             except Exception:
                 pass
             return response.url
