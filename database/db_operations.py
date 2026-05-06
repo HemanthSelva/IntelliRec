@@ -34,7 +34,7 @@ def add_to_wishlist(user_id: str, product_id: str,
             'product_title':    product_title,
             'product_price':    float(product_price) if product_price else 0.0,
             'product_category': product_category
-        }).execute()
+        }, on_conflict='user_id,product_id').execute()
         return True
     except Exception:
         return False

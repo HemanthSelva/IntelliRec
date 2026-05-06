@@ -361,15 +361,17 @@ def get_sentiments() -> dict:
         return {}
 
 
-@st.cache_data(show_spinner=False)
-def get_metrics() -> dict:
-    """Return the model_metrics dict (or fallback dummy)."""
+def get_metrics() -> tuple:
+    """Return (metrics_dict, is_real). Always reads fresh from disk — file is 472 bytes, no caching needed.
+    Caching this caused stale dummy data to persist after retraining."""
     path = os.path.join(MODEL_DIR, "model_metrics.pkl")
-    if os.path.exists(path):
+    if os.path.exists(path) and os.path.getsize(path) > 200:
         try:
-            return joblib.load(path), True   # (metrics, is_real)
-        except Exception:
-            pass
+            data = joblib.load(path)
+            if isinstance(data, dict) and data:
+                return data, True
+        except Exception as e:
+            _log(f"get_metrics load error: {e}")
     # Fallback dummy
     return {
         "Collaborative (SVD)": {
