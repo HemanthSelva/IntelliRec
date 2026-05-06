@@ -373,10 +373,12 @@ def render_section(title: str, icon_svg: str, prods: list, section_key: str):
                         if in_wish:
                             remove_from_wishlist(user_id, prod["asin"])
                             st.session_state["wishlist_ids"].discard(prod["asin"])
+                            st.session_state.get("wishlist_data", {}).pop(prod["asin"], None)
                             st.toast("Removed from wishlist", icon="✅")
                         else:
                             # Always update session state first (matches AI Assistant pattern)
                             st.session_state["wishlist_ids"].add(prod["asin"])
+                            st.session_state.setdefault("wishlist_data", {})[prod["asin"]] = prod
                             add_to_wishlist(user_id, prod["asin"],
                                             prod.get("title", ""),
                                             prod.get("price", 0),

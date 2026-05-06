@@ -212,12 +212,14 @@ if _sim_pid:
                                 if _sr_in_wish:
                                     remove_from_wishlist(user_id, _sr_pid)
                                     st.session_state['wishlist_ids'].discard(_sr_pid)
+                                    st.session_state.get("wishlist_data", {}).pop(_sr_pid, None)
                                     st.toast("Removed from wishlist", icon="✅")
                                 else:
                                     success = add_to_wishlist(user_id, _sr_pid,
                                         _sr.get('title', ''), _sr.get('price', 0), _sr.get('category', ''))
                                     if success:
                                         st.session_state['wishlist_ids'].add(_sr_pid)
+                                        st.session_state.setdefault("wishlist_data", {})[_sr_pid] = _sr
                                         _cat = _sr.get('category', '')
                                         if _cat:
                                             st.session_state.setdefault('saved_cats', []).append(_cat)
@@ -582,6 +584,7 @@ if MODELS_READY:
                             if in_wish:
                                 remove_from_wishlist(user_id, pid)
                                 st.session_state['wishlist_ids'].discard(pid)
+                                st.session_state.get("wishlist_data", {}).pop(pid, None)
                                 st.toast("Removed from wishlist", icon="✅")
                             else:
                                 success = add_to_wishlist(user_id, pid,
@@ -590,6 +593,7 @@ if MODELS_READY:
                                                 rec.get('category', ''))
                                 if success:
                                     st.session_state['wishlist_ids'].add(pid)
+                                    st.session_state.setdefault("wishlist_data", {})[pid] = rec
                                     # Track saved category for recommendation boosting
                                     _cat = rec.get('category', '')
                                     if _cat:
@@ -710,9 +714,11 @@ else:
                             if in_wish:
                                 remove_from_wishlist(user_id, prod['asin'])
                                 st.session_state['wishlist_ids'].discard(prod['asin'])
+                                st.session_state.get("wishlist_data", {}).pop(prod['asin'], None)
                                 st.toast("Removed from wishlist", icon="✅")
                             else:
                                 st.session_state['wishlist_ids'].add(prod['asin'])
+                                st.session_state.setdefault("wishlist_data", {})[prod['asin']] = prod
                                 _cat = prod.get('category', '')
                                 if _cat:
                                     st.session_state.setdefault('saved_cats', []).append(_cat)
