@@ -493,14 +493,14 @@ def render_signup():
                     unsafe_allow_html=True,
                 )
 
-                # Google button — target="_top" breaks out of Streamlit
-                # Cloud's iframe so accounts.google.com loads at top level
-                # (Google refuses to render in iframes — that was the 403).
-                # See auth/login.py:638 for the full explanation.
+                # Google button — onclick uses window.top.location.href
+                # under user-activation to escape the sandboxed iframe on
+                # Streamlit Cloud. See auth/login.py:638 for full context.
                 _g_url = login_with_google()
                 _g_href = _g_url if _g_url else "#"
                 st.markdown(
-                    f'<a href="{_g_href}" target="_top" rel="noopener" class="g-btn">'
+                    f'<a href="{_g_href}" rel="noopener" class="g-btn" '
+                    f'onclick="if(this.getAttribute(\'href\')!=\'#\'){{event.preventDefault();window.top.location.href=this.href;return false;}}">'
                     f'{_GOOGLE_SVG} Sign up with Google</a>',
                     unsafe_allow_html=True,
                 )

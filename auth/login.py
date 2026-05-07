@@ -632,20 +632,21 @@ def render_login():
                 )
 
                 # Google button.
-                # target="_top" is REQUIRED on Streamlit Cloud: the app runs
-                # inside an iframe under share.streamlit.app, and Google's
-                # accounts.google.com refuses to render in an iframe
-                # (X-Frame-Options: DENY + frame-ancestors 'none' CSP). With
-                # target="_self" the browser tries to load Google INSIDE the
-                # iframe, gets refused, and shows Google's "403. That's an
-                # error" page while the address bar still says
-                # intellirec.streamlit.app. _top breaks out of the iframe so
-                # the OAuth flow runs in the top-level window as Google
-                # expects. Locally (no iframe) both values behave the same.
+                # On Streamlit Cloud the app runs inside a sandboxed iframe.
+                # Google's accounts.google.com sets X-Frame-Options: DENY
+                # so it CAN'T render inside an iframe (that was the 403).
+                # target="_top" should escape the iframe but Streamlit
+                # Cloud's sandbox is missing `allow-top-navigation` so the
+                # browser silently ignores it. The sandbox DOES include
+                # `allow-top-navigation-by-user-activation`, which permits
+                # window.top.location changes inside a click handler.
+                # The onclick below uses that path and works in both
+                # local (no iframe) and cloud (sandboxed iframe).
                 _g_url = login_with_google()
                 _g_href = _g_url if _g_url else "#"
                 st.markdown(
-                    f'<a href="{_g_href}" target="_top" rel="noopener" class="g-btn">'
+                    f'<a href="{_g_href}" rel="noopener" class="g-btn" '
+                    f'onclick="if(this.getAttribute(\'href\')!=\'#\'){{event.preventDefault();window.top.location.href=this.href;return false;}}">'
                     f'{_GOOGLE_SVG} Continue with Google</a>',
                     unsafe_allow_html=True,
                 )
