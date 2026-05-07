@@ -1,7 +1,11 @@
-# Environment variables
+# Environment variables / credentials
 .env
+.env.*
 .env.local
 *.env
+*.key
+*.pem
+secrets.local.toml
 
 # Python cache
 __pycache__/

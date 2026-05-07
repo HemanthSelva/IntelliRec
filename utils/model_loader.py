@@ -251,8 +251,14 @@ def _pkl(filename: str):
 def get_svd():
     """Return the trained Surprise SVD model (loaded once)."""
     if not MODELS_READY:
+        _log("get_svd(): MODELS_READY=False — skipping load")
         return None
     filepath = os.path.join(MODEL_DIR, "svd_model.pkl")
+    try:
+        from utils.diagnostics import diagnose_artifact
+        diagnose_artifact("svd_model", filepath, do_load=False)
+    except Exception:
+        pass
     try:
         # joblib without mmap_mode (compressed pkl files are incompatible with mmap)
         model = joblib.load(filepath)
@@ -277,8 +283,16 @@ def get_tfidf():
     tfidf_matrix.pkl is optional — returns (None, None, None) gracefully
     when the file is absent or causes OOM on memory-constrained platforms."""
     if not MODELS_READY:
+        _log("get_tfidf(): MODELS_READY=False — skipping load")
         return None, None, None
     matrix_path = os.path.join(MODEL_DIR, "tfidf_matrix.pkl")
+    try:
+        from utils.diagnostics import diagnose_artifact
+        diagnose_artifact("tfidf_vectorizer", os.path.join(MODEL_DIR, "tfidf_vectorizer.pkl"), do_load=False)
+        diagnose_artifact("product_indices",  os.path.join(MODEL_DIR, "product_indices.pkl"),  do_load=False)
+        diagnose_artifact("tfidf_matrix",     matrix_path, do_load=False)
+    except Exception:
+        pass
     if not os.path.exists(matrix_path) or os.path.getsize(matrix_path) <= 200:
         _log("tfidf_matrix.pkl not available — similarity search disabled (graceful)")
         return None, None, None
@@ -297,8 +311,14 @@ def get_tfidf():
 def get_products_df() -> pd.DataFrame:
     """Return the full product metadata DataFrame with all columns cast to safe types."""
     if not MODELS_READY:
+        _log("get_products_df(): MODELS_READY=False — returning empty DataFrame")
         return pd.DataFrame()
     filepath = os.path.join(MODEL_DIR, "products_df.pkl")
+    try:
+        from utils.diagnostics import diagnose_artifact
+        diagnose_artifact("products_df", filepath, do_load=False)
+    except Exception:
+        pass
     df = None
 
     # Try joblib first (no mmap_mode — compressed pkls are incompatible)
@@ -351,7 +371,13 @@ def get_products_df() -> pd.DataFrame:
 def get_sentiments() -> dict:
     """Return {product_id: {compound, label, score, review_count}} dict."""
     if not MODELS_READY:
+        _log("get_sentiments(): MODELS_READY=False — returning empty dict")
         return {}
+    try:
+        from utils.diagnostics import diagnose_artifact
+        diagnose_artifact("product_sentiments", os.path.join(MODEL_DIR, "product_sentiments.pkl"), do_load=False)
+    except Exception:
+        pass
     try:
         data = _pkl("product_sentiments.pkl")
         _log(f"Sentiments loaded OK — {len(data):,} entries")
@@ -507,6 +533,13 @@ def _load_fallback_recs(n: int = 12, categories: list = None) -> list:
     Used as fallback when ML models are unavailable or still downloading.
     """
     import json
+    import traceback as _tb
+    # Diagnostic: who triggered the 42-product fallback? Capture caller in logs.
+    try:
+        _stack = "".join(_tb.format_stack(limit=4)[:-1])
+        _log(f"⚠️ _load_fallback_recs(n={n}) invoked — silent fallback to 42-item sample.\n{_stack}")
+    except Exception:
+        pass
     try:
         base = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
         path = os.path.join(base, "assets", "sample_products.json")
