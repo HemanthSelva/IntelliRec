@@ -55,24 +55,26 @@ HF_BASE = f"https://huggingface.co/{HF_REPO}/resolve/main"
 # Bump this string whenever new model files are uploaded to HuggingFace.
 # The deployed app compares this against the saved .model_version file —
 # a mismatch means new files are available and triggers a full re-download.
-MODEL_VERSION = "v4-hfspace-20260506"
+MODEL_VERSION = "v5-parquet-20260507"
 
 # Core files required for MODELS_READY = True.
-# tfidf_matrix.pkl is intentionally excluded: it is 1.67 GB compressed and
-# expands to several GB in RAM — too large for Streamlit Cloud's 1 GB limit.
-# It is downloaded opportunistically and loaded lazily; if unavailable,
-# cosine-similarity "Similar" search degrades gracefully to rating-based CB.
+# products_df is shipped as parquet (version-portable) — joblib pickle of
+# pandas StringDtype broke on Streamlit Cloud's pandas 2.2.3 (
+# "StringDtype.__init__() takes from 1 to 2 positional arguments but 3 were given"),
+# silently dropping all recommendations to the 42-item sample fallback.
 _REQUIRED = [
     "svd_model.pkl",
     "tfidf_vectorizer.pkl",
     "product_indices.pkl",
-    "products_df.pkl",
+    "products_df.parquet",
     "product_sentiments.pkl",
     "model_metrics.pkl",
 ]
 
-# Downloaded if possible but NOT required for MODELS_READY
-_OPTIONAL = ["tfidf_matrix.pkl"]
+# Downloaded if possible but NOT required for MODELS_READY.
+# tfidf_matrix.pkl: 1.67 GB compressed; loaded lazily for "similar" search.
+# products_df.pkl: legacy fallback if parquet absent (older HF revisions).
+_OPTIONAL = ["tfidf_matrix.pkl", "products_df.pkl"]
 
 # Full list for download attempts
 _ALL_FILES = _REQUIRED + _OPTIONAL
@@ -309,33 +311,56 @@ def get_tfidf():
 
 @st.cache_data(show_spinner=False)
 def get_products_df() -> pd.DataFrame:
-    """Return the full product metadata DataFrame with all columns cast to safe types."""
+    """Return the full product metadata DataFrame with all columns cast to safe types.
+
+    Prefers products_df.parquet (version-portable — survives pandas/pyarrow
+    upgrades) and falls back to products_df.pkl for legacy HF revisions.
+    """
     if not MODELS_READY:
         _log("get_products_df(): MODELS_READY=False — returning empty DataFrame")
         return pd.DataFrame()
-    filepath = os.path.join(MODEL_DIR, "products_df.pkl")
-    try:
-        from utils.diagnostics import diagnose_artifact
-        diagnose_artifact("products_df", filepath, do_load=False)
-    except Exception:
-        pass
+
+    parquet_path = os.path.join(MODEL_DIR, "products_df.parquet")
+    pkl_path     = os.path.join(MODEL_DIR, "products_df.pkl")
+
     df = None
 
-    # Try joblib first (no mmap_mode — compressed pkls are incompatible)
-    try:
-        df = joblib.load(filepath)
-    except Exception as e1:
-        _log(f"products_df joblib load failed: {e1}, trying pickle...")
-
-    # Fallback to pickle
-    if df is None or not isinstance(df, pd.DataFrame):
+    # Preferred: parquet (the fix for the StringDtype unpickle bug)
+    if os.path.exists(parquet_path) and os.path.getsize(parquet_path) > 200:
         try:
-            import pickle
-            with open(filepath, 'rb') as f:
-                df = pickle.load(f)
-        except Exception as e2:
-            _log(f"products_df pickle load also failed: {e2}")
-            return pd.DataFrame()
+            from utils.diagnostics import diagnose_artifact
+            diagnose_artifact("products_df.parquet", parquet_path, do_load=False)
+        except Exception:
+            pass
+        try:
+            df = pd.read_parquet(parquet_path, engine="pyarrow")
+            _log(f"products_df parquet loaded OK — {len(df):,} rows")
+        except Exception as e_pq:
+            _log(f"products_df parquet load failed: {e_pq}, trying pkl...")
+
+    # Legacy fallback: pkl
+    if df is None or not isinstance(df, pd.DataFrame):
+        if os.path.exists(pkl_path):
+            try:
+                from utils.diagnostics import diagnose_artifact
+                diagnose_artifact("products_df.pkl", pkl_path, do_load=False)
+            except Exception:
+                pass
+            try:
+                df = joblib.load(pkl_path)
+            except Exception as e1:
+                _log(f"products_df joblib load failed: {e1}, trying pickle...")
+            if df is None or not isinstance(df, pd.DataFrame):
+                try:
+                    import pickle
+                    with open(pkl_path, 'rb') as f:
+                        df = pickle.load(f)
+                except Exception as e2:
+                    _log(f"products_df pickle load also failed: {e2}")
+
+    if df is None or not isinstance(df, pd.DataFrame):
+        _log("products_df: ALL load attempts failed — returning empty DataFrame")
+        return pd.DataFrame()
 
     if df is None or not isinstance(df, pd.DataFrame) or df.empty:
         return pd.DataFrame()
