@@ -6,6 +6,10 @@ Architecture: GMF dot-product path + non-linear MLP path (NeuMF-style)
 Training:     All data pre-loaded to GPU VRAM -- eliminates CPU starvation
               ReduceLROnPlateau + LR warmup + AMP + gradient clipping
 """
+# Defer evaluation of annotations so torch.Tensor refs don't crash on
+# Streamlit Cloud where torch isn't installed (only SurpriseCompatibleMF
+# is used at serve time — see comment in the import block below).
+from __future__ import annotations
 
 import time
 import numpy as np
@@ -15,6 +19,31 @@ try:
     import torch.nn as nn
     TORCH_AVAILABLE = True
 except ImportError:
+    # On serve-only environments (e.g. Streamlit Cloud) torch is intentionally
+    # not installed. SurpriseCompatibleMF below is pure numpy and doesn't need
+    # torch — but the _NeuralMF class body below references nn.Module, which
+    # is evaluated at module-import time. Without a stub, importing this
+    # module raises `NameError: name 'nn' is not defined` and unpickling
+    # `models.mf_gpu.SurpriseCompatibleMF` (the cloud's SVD predictor) fails
+    # before it even starts. The stubs let the class be DEFINED on cloud;
+    # their methods will never be invoked there.
+    torch = None  # type: ignore[assignment]
+
+    class _StubNN:
+        """Minimal stand-in for torch.nn — supports class-body lookups only."""
+        Module    = object
+        Embedding = object
+        Parameter = object
+        Dropout   = object
+        Sequential = object
+        Linear    = object
+        LayerNorm = object
+        ReLU      = object
+        MSELoss   = object
+        def __getattr__(self, name):
+            raise ImportError(f"torch.nn.{name} not available — install torch")
+
+    nn = _StubNN()  # type: ignore[assignment]
     TORCH_AVAILABLE = False
 
 

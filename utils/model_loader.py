@@ -55,7 +55,7 @@ HF_BASE = f"https://huggingface.co/{HF_REPO}/resolve/main"
 # Bump this string whenever new model files are uploaded to HuggingFace.
 # The deployed app compares this against the saved .model_version file —
 # a mismatch means new files are available and triggers a full re-download.
-MODEL_VERSION = "v5-parquet-20260507"
+MODEL_VERSION = "v6-no-tfidf-20260507"
 
 # Core files required for MODELS_READY = True.
 # products_df is shipped as parquet (version-portable) — joblib pickle of
@@ -72,12 +72,18 @@ _REQUIRED = [
 ]
 
 # Downloaded if possible but NOT required for MODELS_READY.
-# tfidf_matrix.pkl: 1.67 GB compressed; loaded lazily for "similar" search.
 # products_df.pkl: legacy fallback if parquet absent (older HF revisions).
-_OPTIONAL = ["tfidf_matrix.pkl", "products_df.pkl"]
+_OPTIONAL = ["products_df.pkl"]
 
-# Full list for download attempts
-_ALL_FILES = _REQUIRED + _OPTIONAL
+# Files that should be cleaned up on version bump but NEVER auto-downloaded
+# (they are too large for Streamlit Cloud's per-app memory limit).
+# tfidf_matrix.pkl is 1.7 GB compressed and crashes the worker when loaded into
+# pandas. get_tfidf() handles its absence gracefully — content-based recs fall
+# through to popularity-by-category from products_df.
+_LEGACY_CLEANUP = ["tfidf_matrix.pkl"]
+
+# Full list — used only by the version-bump cleanup loop (line 116).
+_ALL_FILES = _REQUIRED + _OPTIONAL + _LEGACY_CLEANUP
 
 
 def ensure_models_exist():
@@ -618,10 +624,12 @@ def get_cf_recommendations(user_id: str, n: int = 12,
         _log("SVD unavailable — using CB fallback with real product catalog")
         return get_cb_recommendations(categories=categories, n=n)
 
-    df = products.copy()
+    # Filter BEFORE copying — same OOM avoidance as get_cb_recommendations
     if categories:
         categories = normalize_categories(categories)
-        df = df[df["category"].isin(categories)]
+        df = products[products["category"].isin(categories)]
+    else:
+        df = products
     if df.empty:
         return []
 
@@ -665,14 +673,18 @@ def get_cb_recommendations(categories: list = None, n: int = 12) -> list:
     if products.empty:
         return _load_fallback_recs(n, categories)
 
-    df = products.copy()
-    df["average_rating"] = pd.to_numeric(df["average_rating"], errors="coerce").fillna(0)
-
+    # Filter BEFORE copying — copying 1.6 M rows first OOMs Streamlit Cloud.
     if categories:
         categories = normalize_categories(categories)
-        df = df[df["category"].isin(categories)]
+        df = products[products["category"].isin(categories)]
+    else:
+        df = products
     if df.empty:
         return []
+
+    # Now safe to copy the filtered subset (typically <500 k rows)
+    df = df.copy()
+    df["average_rating"] = pd.to_numeric(df["average_rating"], errors="coerce").fillna(0)
 
     # Require at least some reviews; sort by rating descending
     df = df[df["rating_number"].fillna(0).astype(float) > 0]
