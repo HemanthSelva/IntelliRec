@@ -241,15 +241,21 @@ def login_with_google():
     if st.session_state.get('_google_oauth_url'):
         return st.session_state['_google_oauth_url']
     try:
-        # Detect the live request URL — works whether running on
-        # localhost:8501, localhost:8502, or intellirec.streamlit.app —
-        # without needing STREAMLIT_URL in secrets.toml.  Trailing slash
-        # dropped: Supabase compares redirect_to against its allowlist
-        # literally, and "https://intellirec.streamlit.app" (no slash) is
-        # the entry users typically register; the slash variant becomes a
-        # near-miss that surfaces as a 403.
         from config import get_app_url
         redirect_url = get_app_url()
+
+        # ── OAuth diagnostics ────────────────────────────────────────────────
+        # Logs to stdout (Streamlit Cloud captures this in the Logs panel).
+        # Surfaces the actual Host header the cloud's edge proxy gives us, the
+        # computed redirect_to, and a parsed view of the URL Supabase returns
+        # so we can see exactly what redirect_uri ends up being sent to Google.
+        try:
+            _host = st.context.headers.get("host", "<no host header>")
+        except Exception as _hx:
+            _host = f"<headers unavailable: {_hx}>"
+        print(f"[OAUTH] host_header   : {_host}")
+        print(f"[OAUTH] redirect_to   : {redirect_url}")
+
         response = supabase.auth.sign_in_with_oauth({
             "provider": "google",
             "options": {
@@ -257,6 +263,18 @@ def login_with_google():
                 "scopes": "openid email profile",
             }
         })
+
+        try:
+            import urllib.parse as _up
+            _qs = _up.parse_qs(_up.urlparse(response.url).query) if response.url else {}
+            print(f"[OAUTH] supabase_url  : {response.url}")
+            print(f"[OAUTH]   client_id   : {_qs.get('client_id', ['?'])[0]}")
+            print(f"[OAUTH]   redirect_uri: {_qs.get('redirect_uri', ['?'])[0]}")
+            print(f"[OAUTH]   scope       : {_qs.get('scope', ['?'])[0]}")
+            print(f"[OAUTH]   has_state   : {bool(_qs.get('state'))}")
+            print(f"[OAUTH]   has_code_challenge: {bool(_qs.get('code_challenge'))}")
+        except Exception as _de:
+            print(f"[OAUTH] could not parse response.url: {_de}")
         if response.url:
             st.session_state['_google_oauth_url'] = response.url
             # Bridge the PKCE verifier into session_state so it survives the
@@ -298,7 +316,9 @@ def login_with_google():
             return response.url
         return None
     except Exception as e:
-        print(f"Google OAuth error: {e}")
+        import traceback
+        print(f"[OAUTH] sign_in_with_oauth() FAILED: {type(e).__name__}: {e}")
+        print(traceback.format_exc())
         return None
 
 

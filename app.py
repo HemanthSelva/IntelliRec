@@ -68,6 +68,18 @@ elif _token_hash and _type:
 </div>
 """, unsafe_allow_html=True)
 elif _code:
+    # ── Callback diagnostics ─────────────────────────────────────────────────
+    try:
+        _all_qp = dict(st.query_params)
+        # Don't print the full code (PII-ish), just first/last 6 chars
+        _code_preview = f"{_code[:6]}…{_code[-6:]}" if _code else "<none>"
+        print(f"[OAUTH] callback received: code={_code_preview} state_present={bool(_state)}")
+        print(f"[OAUTH]   query_params keys: {list(_all_qp.keys())}")
+        if _all_qp.get('error') or _all_qp.get('error_description'):
+            print(f"[OAUTH]   error             : {_all_qp.get('error')}")
+            print(f"[OAUTH]   error_description : {_all_qp.get('error_description')}")
+    except Exception as _de:
+        print(f"[OAUTH] callback diag failed: {_de}")
     try:
         exchange_params = {"auth_code": _code}
         _pkce_verifier = st.session_state.get('_pkce_verifier')
@@ -142,11 +154,13 @@ elif _code:
             except Exception as profile_err:
                 print(f"Google profile creation: {profile_err}")
     except Exception as e:
-        print(f"OAuth code exchange error: {e}")
+        import traceback as _tb
+        print(f"[OAUTH] exchange_code_for_session FAILED: {type(e).__name__}: {e}")
+        print(_tb.format_exc())
         st.query_params.clear()
         st.session_state.pop('_google_oauth_url', None)
         st.session_state.pop('_pkce_verifier', None)
-        st.session_state.oauth_error = str(e)
+        st.session_state.oauth_error = f"{type(e).__name__}: {e}"
 
 # ── Session init ──────────────────────────────────────────────────────────────
 init_session()
