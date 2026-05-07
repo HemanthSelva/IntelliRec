@@ -401,6 +401,14 @@ def _apply_user_session(user):
     except Exception:
         pass
 
+    # Restore the user's saved cart from Supabase. Wrapped so a missing
+    # cart_items table (migration not yet run) never blocks login.
+    try:
+        from utils.cart import hydrate_cart_from_db
+        hydrate_cart_from_db()
+    except Exception as _ce:
+        print(f"[cart] hydrate skipped at login: {_ce}")
+
     try:
         profile = supabase.table('profiles').select(
             '*').eq('id', user.id).execute()
