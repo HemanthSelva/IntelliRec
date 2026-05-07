@@ -241,13 +241,20 @@ def login_with_google():
     if st.session_state.get('_google_oauth_url'):
         return st.session_state['_google_oauth_url']
     try:
-        from config import STREAMLIT_URL
-        base_url = (STREAMLIT_URL or "http://localhost:8501").rstrip("/")
-        redirect_url = base_url + "/"
+        # Detect the live request URL — works whether running on
+        # localhost:8501, localhost:8502, or intellirec.streamlit.app —
+        # without needing STREAMLIT_URL in secrets.toml.  Trailing slash
+        # dropped: Supabase compares redirect_to against its allowlist
+        # literally, and "https://intellirec.streamlit.app" (no slash) is
+        # the entry users typically register; the slash variant becomes a
+        # near-miss that surfaces as a 403.
+        from config import get_app_url
+        redirect_url = get_app_url()
         response = supabase.auth.sign_in_with_oauth({
             "provider": "google",
             "options": {
-                "redirect_to": redirect_url
+                "redirect_to": redirect_url,
+                "scopes": "openid email profile",
             }
         })
         if response.url:
