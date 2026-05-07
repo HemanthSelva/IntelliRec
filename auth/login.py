@@ -631,11 +631,21 @@ def render_login():
                     unsafe_allow_html=True,
                 )
 
-                # Google button
+                # Google button.
+                # target="_top" is REQUIRED on Streamlit Cloud: the app runs
+                # inside an iframe under share.streamlit.app, and Google's
+                # accounts.google.com refuses to render in an iframe
+                # (X-Frame-Options: DENY + frame-ancestors 'none' CSP). With
+                # target="_self" the browser tries to load Google INSIDE the
+                # iframe, gets refused, and shows Google's "403. That's an
+                # error" page while the address bar still says
+                # intellirec.streamlit.app. _top breaks out of the iframe so
+                # the OAuth flow runs in the top-level window as Google
+                # expects. Locally (no iframe) both values behave the same.
                 _g_url = login_with_google()
                 _g_href = _g_url if _g_url else "#"
                 st.markdown(
-                    f'<a href="{_g_href}" target="_self" class="g-btn">'
+                    f'<a href="{_g_href}" target="_top" rel="noopener" class="g-btn">'
                     f'{_GOOGLE_SVG} Continue with Google</a>',
                     unsafe_allow_html=True,
                 )
