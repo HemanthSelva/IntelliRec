@@ -421,17 +421,45 @@ def _apply_user_session(user):
                 'full_name', 'User')
             st.session_state.username = p.get(
                 'username', 'user')
-            st.session_state.preferred_categories = p.get(
-                'preferred_categories', [])
-            st.session_state["pref_cats"] = p.get(
-                'preferred_categories', [])
+
+            # ── Load preferences from user_preferences (where Save writes) ──
+            # The profiles table holds preferred_categories as a legacy
+            # snapshot; the canonical, mutable copy lives in
+            # public.user_preferences.  Read it here so widget defaults on
+            # the My Profile Settings tab actually reflect what the user
+            # last saved.  Falls back to profiles.preferred_categories when
+            # the user_preferences row is missing (brand new account).
+            _saved_cats   = p.get('preferred_categories', []) or []
+            _saved_engine = 'hybrid'
+            _saved_div    = 30
+            _saved_theme  = 'light'
+            try:
+                _up = supabase.table('user_preferences').select('*').eq(
+                    'user_id', user.id).execute()
+                if _up.data:
+                    _row = _up.data[0]
+                    if _row.get('preferred_categories'):
+                        _saved_cats = _row['preferred_categories']
+                    _saved_engine = _row.get('preferred_engine') or 'hybrid'
+                    _saved_div    = _row.get('diversity_level')
+                    _saved_div    = int(_saved_div) if _saved_div is not None else 30
+                    _saved_theme  = _row.get('theme') or 'light'
+            except Exception as _pe:
+                print(f"[prefs] load failed: {type(_pe).__name__}: {_pe}")
+
+            st.session_state.preferred_categories = _saved_cats
+            st.session_state["pref_cats"]         = _saved_cats
+            st.session_state["preferred_engine"]  = _saved_engine
+            st.session_state["diversity_level"]   = _saved_div
+            st.session_state["theme"]             = _saved_theme
+            st.session_state["dark_mode"]         = (_saved_theme == 'dark')
+
             st.session_state.current_user = {
                 'id': user.id,
                 'name': p.get('full_name', 'User'),
                 'username': p.get('username', 'user'),
                 'email': user.email,
-                'preferred_categories': p.get(
-                    'preferred_categories', []),
+                'preferred_categories': _saved_cats,
                 'member_since': str(
                     p.get('created_at', ''))[:10]
             }

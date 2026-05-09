@@ -795,19 +795,52 @@ with tab4:
         _ALL_PREF_OPTIONS = [
             "Electronics", "Home & Kitchen", "Clothing & Shoes", "Beauty & Personal Care"
         ]
-        _safe_defaults = [c for c in (cat_list or []) if c in _ALL_PREF_OPTIONS]
+        # Tolerant match: trailing whitespace, ampersand encoding, and case
+        # differences shouldn't drop a saved category from the multiselect.
+        _saved_raw = list(st.session_state.get("preferred_categories")
+                          or st.session_state.get("pref_cats")
+                          or cat_list or [])
+        _norm = lambda s: " ".join(str(s).replace("&amp;", "&").split()).lower()
+        _opt_index = {_norm(o): o for o in _ALL_PREF_OPTIONS}
+        _safe_defaults = []
+        for c in _saved_raw:
+            canonical = _opt_index.get(_norm(c))
+            if canonical and canonical not in _safe_defaults:
+                _safe_defaults.append(canonical)
         if not _safe_defaults:
             _safe_defaults = ["Electronics", "Home & Kitchen"]
+
+        # Streamlit caches widget values by key — set the session_state slot
+        # BEFORE creating the widget so the saved selection actually shows.
+        if "profile_pref_cats_widget" not in st.session_state:
+            st.session_state["profile_pref_cats_widget"] = _safe_defaults
         pref_cats = st.multiselect("Favourite Categories",
                                    _ALL_PREF_OPTIONS,
-                                   default=_safe_defaults,
                                    key="profile_pref_cats_widget")
+
+        # Preferred engine — restore the saved choice via index=
+        _engine_options = ["Hybrid", "Collaborative Filtering", "Content-Based"]
+        _saved_engine = (st.session_state.get("preferred_engine") or "hybrid").lower()
+        _engine_lookup = {
+            "hybrid": 0,
+            "collaborative_filtering": 1, "collaborative": 1,
+            "content_based": 2, "content-based": 2, "content": 2,
+        }
+        _engine_index = _engine_lookup.get(_saved_engine, 0)
         pref_engine = st.radio("Preferred AI Engine",
-                               ["Hybrid","Collaborative Filtering","Content-Based"],
-                               horizontal=True, key="pref_engine")
+                               _engine_options,
+                               index=_engine_index,
+                               horizontal=True, key="pref_engine_widget")
     with pref_col2:
-        pref_diversity = st.slider("Recommendation Diversity (%)", 0, 100, 30,
-                                   key="pref_diversity")
+        # Recommendation diversity — restore via value=
+        try:
+            _saved_div = int(st.session_state.get("diversity_level", 30))
+        except Exception:
+            _saved_div = 30
+        _saved_div = max(0, min(100, _saved_div))
+        pref_diversity = st.slider("Recommendation Diversity (%)", 0, 100,
+                                   value=_saved_div,
+                                   key="pref_diversity_widget")
         st.markdown(f"""
 <div style="background:{p['glass_bg']};border:1px solid {p['border']};border-radius:12px;
             padding:14px 16px;margin-top:8px;">
@@ -825,13 +858,24 @@ with tab4:
                 st.warning("Guest account — preferences not saved. Sign up to persist settings.")
             else:
                 try:
+                    # Resolve current theme from the toggle's session_state.
+                    _current_theme = (st.session_state.get("theme")
+                                      or ("dark" if st.session_state.get("dark_mode") else "light"))
+                    _engine_canonical = pref_engine.lower().replace(" ", "_").replace("-", "_")
                     update_user_preferences(user_id, {
                         "preferred_categories": pref_cats,
-                        "preferred_engine": pref_engine.lower().replace(" ","_"),
-                        "diversity_level": pref_diversity,
+                        "preferred_engine":     _engine_canonical,
+                        "diversity_level":      int(pref_diversity),
+                        "theme":                _current_theme,
                     })
-                    st.session_state["pref_cats"] = pref_cats
-                    st.session_state["preferred_categories"] = pref_cats
+                    # Mirror to session_state so the widgets reflect the save
+                    # without needing a re-login.
+                    st.session_state["pref_cats"]              = pref_cats
+                    st.session_state["preferred_categories"]   = pref_cats
+                    st.session_state["preferred_engine"]       = _engine_canonical
+                    st.session_state["diversity_level"]        = int(pref_diversity)
+                    st.session_state["theme"]                  = _current_theme
+                    st.session_state["dark_mode"]              = (_current_theme == "dark")
                     if isinstance(st.session_state.get("current_user"), dict):
                         st.session_state["current_user"]["preferred_categories"] = pref_cats
                     add_notification("success", "Settings Saved", "Preferences updated.")
