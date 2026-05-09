@@ -15,6 +15,7 @@ before this code is exercised by an authenticated user.
 """
 from __future__ import annotations
 
+import traceback
 from typing import Any
 
 import streamlit as st
@@ -68,7 +69,8 @@ def hydrate_cart_from_db() -> None:
     except Exception as e:
         # Don't break login if the table is missing or RLS rejects —
         # surface in logs and fall back to an empty session cart.
-        print(f"[cart] hydrate_cart_from_db failed: {e}")
+        print(f"[cart] hydrate_cart_from_db failed: {type(e).__name__}: {e}")
+        traceback.print_exc()
         st.session_state["cart"] = []
 
 
@@ -111,7 +113,8 @@ def add_to_cart(product_id: str, title: str, price: float,
                 "quantity":         new_qty,
             }, on_conflict="user_id,product_id").execute()
         except Exception as e:
-            print(f"[cart] add_to_cart upsert failed: {e}")
+            print(f"[cart] add_to_cart upsert failed: {type(e).__name__}: {e}")
+            traceback.print_exc()
 
     return not found
 
@@ -128,7 +131,8 @@ def remove_from_cart(product_id: str) -> None:
             supabase.table("cart_items").delete().eq(
                 "user_id", _user_id()).eq("product_id", product_id).execute()
         except Exception as e:
-            print(f"[cart] remove_from_cart failed: {e}")
+            print(f"[cart] remove_from_cart failed: {type(e).__name__}: {e}")
+            traceback.print_exc()
 
 
 def update_quantity(product_id: str, qty: int) -> None:
@@ -151,7 +155,8 @@ def update_quantity(product_id: str, qty: int) -> None:
                 "quantity": int(qty),
             }).eq("user_id", _user_id()).eq("product_id", product_id).execute()
         except Exception as e:
-            print(f"[cart] update_quantity failed: {e}")
+            print(f"[cart] update_quantity failed: {type(e).__name__}: {e}")
+            traceback.print_exc()
 
 
 def get_cart_items() -> list[dict[str, Any]]:
@@ -183,7 +188,8 @@ def clear_cart() -> None:
             supabase.table("cart_items").delete().eq(
                 "user_id", _user_id()).execute()
         except Exception as e:
-            print(f"[cart] clear_cart failed: {e}")
+            print(f"[cart] clear_cart failed: {type(e).__name__}: {e}")
+            traceback.print_exc()
 
 
 def is_in_cart(product_id: str) -> bool:

@@ -407,7 +407,9 @@ def _apply_user_session(user):
         from utils.cart import hydrate_cart_from_db
         hydrate_cart_from_db()
     except Exception as _ce:
-        print(f"[cart] hydrate skipped at login: {_ce}")
+        import traceback as _tb
+        print(f"[cart] hydrate skipped at login: {type(_ce).__name__}: {_ce}")
+        _tb.print_exc()
 
     try:
         profile = supabase.table('profiles').select(
