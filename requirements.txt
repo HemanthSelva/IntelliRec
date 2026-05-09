@@ -16,3 +16,8 @@ matplotlib>=3.7.0
 seaborn>=0.12.0
 huggingface_hub>=0.20.0
 psutil>=5.9.0
+
+# Dev / test only — kept in main requirements so Streamlit Cloud + local
+# `pytest` use the same versions.
+pytest>=7.4.0
+pytest-mock>=3.12.0
