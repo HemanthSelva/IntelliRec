@@ -424,12 +424,15 @@ if user_input:
         if chatbot is None:
             st.error("Chatbot engine failed to load. Please restart the app.")
         else:
-            # Show minimal Meta AI style typing indicator
+            # Compact typing indicator only while we wait for the chatbot
+            # to compute the full response. Once we have the text we switch
+            # to st.write_stream which renders word-by-word so the answer
+            # feels live instead of dropping in all at once.
             _typing_ph = st.empty()
             _typing_ph.markdown(
                 '<div class="meta-typing-box">'
                 '<div class="meta-dot"></div><div class="meta-dot"></div><div class="meta-dot"></div>'
-                '<span class="meta-text">AI is typing...</span>'
+                '<span class="meta-text">AI is thinking...</span>'
                 '</div>',
                 unsafe_allow_html=True
             )
@@ -441,7 +444,7 @@ if user_input:
                     "text": "Something went wrong. Please try again.",
                     "products": [],
                 }
-            _typing_ph.empty()  # Clear typing indicator
+            _typing_ph.empty()  # swap to streaming render
 
             resp_type = response.get("type", "unknown")
             resp_text = response.get("text", "")
@@ -464,7 +467,28 @@ if user_input:
                     unsafe_allow_html=True
                 )
 
-            st.markdown(resp_text)
+            # Word-by-word streaming over the assembled text so the
+            # response feels live. The chatbot itself isn't yet a streaming
+            # generator (it returns a structured dict with text + product
+            # list), but chunking the final text with small sleeps gives
+            # the same UX as token streaming for short answers.
+            def _word_stream(text):
+                import time as _t
+                # Defensive coerce — chatbot may occasionally return a list
+                # or non-string value depending on the intent path.
+                s = "" if text is None else (
+                    " ".join(str(x) for x in text) if isinstance(text, list)
+                    else str(text)
+                )
+                if not s:
+                    return
+                # ~25ms/word ≈ 40 wpm — feels live, bounded for long replies.
+                words = s.split(" ")
+                for i, w in enumerate(words):
+                    yield (w + (" " if i < len(words) - 1 else ""))
+                    _t.sleep(0.012)
+
+            st.write_stream(_word_stream(resp_text))
 
             # Render product strip if recommendations returned
             strip_key = f"new_{len(st.session_state['chat_history'])}"

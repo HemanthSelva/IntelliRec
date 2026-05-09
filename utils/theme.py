@@ -187,6 +187,20 @@ def inject_global_css(p: dict = None):
     st.markdown(f"""
 <style>
 /* ============================================================
+   GLOBAL: smooth scroll + chat scroll perf hint
+   (Step 5 polish — feels noticeably better on the AI Assistant
+   and any page with long product lists.)
+============================================================ */
+html{{scroll-behavior:smooth;}}
+[data-testid="stAppViewContainer"]{{scroll-behavior:smooth;}}
+[data-testid="stVerticalBlock"]:has(> [data-testid="stChatMessage"]){{
+    will-change:transform;
+    transform:translateZ(0);
+}}
+/* Chat message hover/transition softening for smoother feel */
+[data-testid="stChatMessage"]{{transition:opacity .15s ease;}}
+
+/* ============================================================
    HIDE STREAMLIT CHROME
 ============================================================ */
 [data-testid="stSidebarNav"]{{display:none !important;}}
